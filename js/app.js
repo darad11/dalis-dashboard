@@ -719,7 +719,6 @@ window.showSectionSettings = () => {
       const sectionId = toggle.dataset.section;
       // Find section in the main container, not the modal
       const section = document.querySelector(`#mainContainer [data-section="${sectionId}"]`);
-      console.log('Toggle section:', sectionId, 'Found:', section);
       if (section) {
         if (toggle.checked) {
           section.style.display = '';
@@ -748,6 +747,25 @@ function initSectionVisibility() {
     }
   });
 }
+
+window.showAllSections = () => {
+  // Clear all hidden settings
+  const sectionIds = ['pomodoro', 'stats', 'goals', 'notes', 'goals2026', 'shopping',
+    'chores', 'calendar', 'weekfocus', 'backlog', 'habits', 'review'];
+  sectionIds.forEach(id => {
+    localStorage.removeItem(`section-hidden-${id}`);
+    const section = document.querySelector(`#mainContainer [data-section="${id}"]`);
+    if (section) section.style.display = '';
+  });
+
+  // Update checkboxes
+  const modal = document.getElementById('sectionSettingsModal');
+  modal.querySelectorAll('input[data-section]').forEach(toggle => {
+    toggle.checked = true;
+  });
+
+  sounds.click();
+};
 
 // ===== QUICK CAPTURE =====
 async function quickCapture() {
