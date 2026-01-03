@@ -711,6 +711,15 @@ body.dark .task-item:hover {
     }
 }
 
+/* Touch drag clone for mobile */
+.touch-drag-clone {
+    transform: translate(-50%, -50%) scale(1.05);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    border: 2px solid var(--accent-color);
+    background: var(--surface-color) !important;
+    border-radius: var(--radius-sm);
+}
+
 .task-checkbox {
     appearance: none;
     -webkit-appearance: none;

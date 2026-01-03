@@ -344,6 +344,182 @@ const pomo = {
 
 const weekdays = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"];
 
+// ===== TOUCH DRAG & DROP =====
+let touchDragElement = null;
+let touchDragClone = null;
+let touchDragData = null;
+let touchStartX = 0;
+let touchStartY = 0;
+
+function initTouchDrag(el, data) {
+  el.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    touchDragElement = el;
+    touchDragData = data;
+
+    // Long press to start drag
+    el.touchTimeout = setTimeout(() => {
+      el.classList.add('dragging');
+      touchDragClone = el.cloneNode(true);
+      touchDragClone.classList.add('touch-drag-clone');
+      touchDragClone.style.position = 'fixed';
+      touchDragClone.style.left = touch.clientX + 'px';
+      touchDragClone.style.top = touch.clientY + 'px';
+      touchDragClone.style.width = el.offsetWidth + 'px';
+      touchDragClone.style.zIndex = '9999';
+      touchDragClone.style.pointerEvents = 'none';
+      touchDragClone.style.opacity = '0.8';
+      document.body.appendChild(touchDragClone);
+
+      // Vibrate if supported
+      if (navigator.vibrate) navigator.vibrate(50);
+    }, 300);
+  }, { passive: false });
+
+  el.addEventListener('touchmove', (e) => {
+    if (!touchDragClone) {
+      // Cancel if moved before long press
+      clearTimeout(el.touchTimeout);
+      return;
+    }
+    e.preventDefault();
+    const touch = e.touches[0];
+    touchDragClone.style.left = touch.clientX + 'px';
+    touchDragClone.style.top = touch.clientY + 'px';
+
+    // Find drop target
+    touchDragClone.style.display = 'none';
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    touchDragClone.style.display = '';
+
+    // Highlight drop zones
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    const dropZone = target?.closest('.day-cell, .kanban-column');
+    if (dropZone) dropZone.classList.add('drag-over');
+  }, { passive: false });
+
+  el.addEventListener('touchend', (e) => {
+    clearTimeout(el.touchTimeout);
+
+    if (touchDragClone) {
+      const touch = e.changedTouches[0];
+      touchDragClone.style.display = 'none';
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      touchDragClone.remove();
+
+      // Find drop zone
+      const dropZone = target?.closest('.day-cell, .kanban-column');
+      if (dropZone && touchDragData) {
+        if (dropZone.classList.contains('day-cell')) {
+          // Drop on calendar
+          const targetDate = new Date(dropZone.dataset.date);
+          handleTouchCalendarDrop(targetDate, touchDragData);
+        } else if (dropZone.classList.contains('kanban-column')) {
+          // Drop on kanban
+          handleTouchKanbanDrop(dropZone, touchDragData);
+        }
+      }
+
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    }
+
+    if (touchDragElement) touchDragElement.classList.remove('dragging');
+    touchDragClone = null;
+    touchDragElement = null;
+    touchDragData = null;
+  });
+
+  el.addEventListener('touchcancel', () => {
+    clearTimeout(el.touchTimeout);
+    if (touchDragClone) touchDragClone.remove();
+    if (touchDragElement) touchDragElement.classList.remove('dragging');
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    touchDragClone = null;
+    touchDragElement = null;
+    touchDragData = null;
+  });
+}
+
+function handleTouchCalendarDrop(targetDate, data) {
+  if (data.source === 'calendar') {
+    // Move from calendar to calendar
+    const sourceKey = db.calKey(data.dateObj);
+    const sourceTasks = db.get(sourceKey, []);
+    const [task] = sourceTasks.splice(data.index, 1);
+    db.set(sourceKey, sourceTasks);
+
+    const targetKey = db.calKey(targetDate);
+    const targetTasks = db.get(targetKey, []);
+    targetTasks.push(task);
+    db.set(targetKey, targetTasks);
+    renderCalendar();
+  } else if (data.source === 'kanban') {
+    // Move from kanban to calendar
+    const items = db.get(data.kanbanKey, []);
+    const [item] = items.splice(data.index, 1);
+    db.set(data.kanbanKey, items);
+
+    const targetKey = db.calKey(targetDate);
+    const targetTasks = db.get(targetKey, []);
+    targetTasks.push({ text: item.text, done: false, priority: null });
+    db.set(targetKey, targetTasks);
+    renderCalendar();
+    renderKanban();
+  }
+}
+
+function handleTouchKanbanDrop(dropZone, data) {
+  const targetCol = dropZone.dataset.col;
+  const targetBoardType = dropZone.dataset.boardType;
+  if (!targetCol) return;
+
+  const isTargetWeekBased = targetBoardType === 'week';
+  const targetBoard = isTargetWeekBased ? db.getKanban() : db.get('backlog', {});
+
+  if (data.source === 'kanban') {
+    // Remove from source board
+    const sourceBoard = data.isWeekBased ? db.getKanban() : db.get('backlog', {});
+    if (sourceBoard[data.colName] && sourceBoard[data.colName][data.index]) {
+      const [item] = sourceBoard[data.colName].splice(data.index, 1);
+      if (data.isWeekBased) {
+        db.setKanban(sourceBoard);
+      } else {
+        db.set('backlog', sourceBoard);
+      }
+
+      // Add to target board
+      if (!targetBoard[targetCol]) targetBoard[targetCol] = [];
+      targetBoard[targetCol].push(item);
+      if (isTargetWeekBased) {
+        db.setKanban(targetBoard);
+      } else {
+        db.set('backlog', targetBoard);
+      }
+    }
+    renderKanban();
+  } else if (data.source === 'calendar') {
+    // Move from calendar to kanban
+    const sourceKey = db.calKey(data.dateObj);
+    const sourceTasks = db.get(sourceKey, []);
+    const [task] = sourceTasks.splice(data.index, 1);
+    db.set(sourceKey, sourceTasks);
+
+    // Add to target board
+    if (!targetBoard[targetCol]) targetBoard[targetCol] = [];
+    targetBoard[targetCol].push({ text: task.text, done: task.done });
+    if (isTargetWeekBased) {
+      db.setKanban(targetBoard);
+    } else {
+      db.set('backlog', targetBoard);
+    }
+    renderCalendar();
+    renderKanban();
+  }
+}
+
 // ===== INITIALIZATION =====
 function init() {
   // Get DOM elements
@@ -1022,6 +1198,9 @@ function createTaskEl(task, dateObj, index) {
     document.querySelectorAll('.day-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
   };
 
+  // Mobile touch drag
+  initTouchDrag(el, { source: 'calendar', task, dateObj, index });
+
   const cb = document.createElement("input");
   cb.type = "checkbox";
   cb.className = "task-checkbox";
@@ -1531,6 +1710,8 @@ function renderKanbanBoard(container, columns, isWeekBased) {
   columns.forEach(colName => {
     const colDiv = document.createElement("div");
     colDiv.className = "kanban-column";
+    colDiv.dataset.col = colName;
+    colDiv.dataset.boardType = isWeekBased ? 'week' : 'backlog';
 
     // Highlight today's column in week kanban
     if (isWeekBased) {
@@ -1663,6 +1844,10 @@ function createKanbanCard(task, colName, index, isWeekBased) {
       renderKanban();
     }
   };
+
+  // Mobile touch drag
+  const kanbanKey = isWeekBased ? db.kanbanKey() + '-' + colName : 'backlog-' + colName;
+  initTouchDrag(div, { source: 'kanban', kanbanKey: isWeekBased ? db.kanbanKey() : 'backlog', colName, index, task, isWeekBased });
 
   return div;
 }
