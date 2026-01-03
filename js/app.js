@@ -923,6 +923,17 @@ function createTaskEl(task, dateObj, index) {
   span.className = "task-text";
   span.textContent = task.text;
 
+  // Double-click to edit task
+  span.ondblclick = async (e) => {
+    e.stopPropagation();
+    const newText = await showInputModal('Edit Task', 'Update your task...', task.text);
+    if (newText && newText.trim() && newText.trim() !== task.text) {
+      task.text = newText.trim();
+      updateTask(dateObj, index, task);
+      renderCalendar();
+    }
+  };
+
   // Right-click to set priority
   span.oncontextmenu = (e) => {
     e.preventDefault();
