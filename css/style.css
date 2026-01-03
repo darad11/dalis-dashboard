@@ -457,53 +457,6 @@ h2 {
     box-shadow: var(--shadow-lg);
 }
 
-/* ===== SECTION TOGGLE ===== */
-.section-toggle {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 0.9rem;
-    opacity: 0.4;
-    transition: all 0.2s;
-    padding: 4px 8px;
-    border-radius: 4px;
-    z-index: 10;
-}
-
-.section-toggle:hover {
-    opacity: 1;
-    background: rgba(0, 0, 0, 0.05);
-}
-
-body.dark .section-toggle:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-[data-section] {
-    position: relative;
-}
-
-.section-hidden .section-content {
-    display: none;
-}
-
-.section-hidden {
-    padding: 16px 24px;
-}
-
-.section-hidden .section-header h2,
-.section-hidden .section-header h3 {
-    opacity: 0.5;
-}
-
-.section-hidden .section-toggle {
-    opacity: 0.8;
-}
-
 /* ===== CALENDAR ===== */
 .calendar-header {
     display: flex;
@@ -1464,6 +1417,46 @@ body.dark .task-item:hover {
     font-family: monospace;
     font-size: 0.9rem;
     border: 1px solid var(--glass-border);
+}
+
+/* Section toggle checkboxes */
+.section-toggles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.section-toggle-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+}
+
+.section-toggle-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.section-toggle-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-color);
+    cursor: pointer;
+}
+
+body:not(.dark) .section-toggle-item {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+body:not(.dark) .section-toggle-item:hover {
+    background: rgba(0, 0, 0, 0.06);
 }
 
 /* ===== INPUT MODAL ===== */

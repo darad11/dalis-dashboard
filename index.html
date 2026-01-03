@@ -73,6 +73,34 @@
     </div>
   </div>
 
+  <!-- Section Settings Modal -->
+  <div class="shortcuts-modal" id="sectionSettingsModal">
+    <div class="shortcuts-content glass-panel">
+      <h3>⚙️ Customize Dashboard</h3>
+      <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.9rem;">Toggle sections on/off</p>
+      <div class="section-toggles" id="sectionToggles">
+        <label class="section-toggle-item"><input type="checkbox" data-section="pomodoro" checked> 🍅 Pomodoro</label>
+        <label class="section-toggle-item"><input type="checkbox" data-section="stats" checked> 📊 Statistics</label>
+        <label class="section-toggle-item"><input type="checkbox" data-section="goals" checked> 🎯 Today's Goals</label>
+        <label class="section-toggle-item"><input type="checkbox" data-section="notes" checked> 📝 Quick Notes</label>
+        <label class="section-toggle-item"><input type="checkbox" data-section="goals2026" checked> 🚀 Goals
+          2026</label>
+        <label class="section-toggle-item"><input type="checkbox" data-section="shopping" checked> 🛒 Shopping
+          List</label>
+        <label class="section-toggle-item"><input type="checkbox" data-section="chores" checked> 🧹 Weekly
+          Chores</label>
+        <label class="section-toggle-item"><input type="checkbox" data-section="calendar" checked> 📅 Calendar</label>
+        <label class="section-toggle-item"><input type="checkbox" data-section="weekfocus" checked> ⚡ Weekly
+          Focus</label>
+        <label class="section-toggle-item"><input type="checkbox" data-section="backlog" checked> 📋 Backlog</label>
+        <label class="section-toggle-item"><input type="checkbox" data-section="habits" checked> ✨ Habits</label>
+        <label class="section-toggle-item"><input type="checkbox" data-section="review" checked> 📝 Weekly
+          Review</label>
+      </div>
+      <button class="btn" onclick="closeSectionSettings()" style="margin-top: 16px;">Done</button>
+    </div>
+  </div>
+
   <div class="container" id="mainContainer">
     <header class="brand-header">
       <div class="brand-logo">d.</div>
@@ -86,258 +114,215 @@
       <button id="btnToggleDark" class="btn" onclick="toggleDark()">🌙 Dark Mode</button>
       <button class="btn" onclick="enterFocusMode()">🎯 Focus Mode</button>
       <button class="btn" onclick="showShortcuts()">⌨️ Shortcuts</button>
+      <button class="btn" onclick="showSectionSettings()">⚙️ Customize</button>
     </div>
 
     <!-- 1. POMODORO + STATS SIDE BY SIDE -->
     <div class="pomo-stats-row">
       <!-- Pomodoro Timer -->
       <div class="pomodoro-container glass-panel" data-section="pomodoro">
-        <button class="section-toggle" onclick="toggleSection('pomodoro')">👁</button>
-        <div class="section-header">
-          <h3>🍅 Pomodoro</h3>
+        <h3>🍅 Pomodoro</h3>
+        <div class="pomodoro-modes">
+          <button class="pomo-mode-btn active" data-mode="work">Focus</button>
+          <button class="pomo-mode-btn" data-mode="short">Break</button>
+          <button class="pomo-mode-btn" data-mode="long">Long</button>
         </div>
-        <div class="section-content">
-          <div class="pomodoro-modes">
-            <button class="pomo-mode-btn active" data-mode="work">Focus</button>
-            <button class="pomo-mode-btn" data-mode="short">Break</button>
-            <button class="pomo-mode-btn" data-mode="long">Long</button>
-          </div>
-          <div class="pomodoro-display">
-            <svg class="pomo-ring" viewBox="0 0 100 100">
-              <circle class="pomo-ring-bg" cx="50" cy="50" r="45" />
-              <circle class="pomo-ring-progress" cx="50" cy="50" r="45" />
-            </svg>
-            <div class="pomo-time" id="pomoTime">25:00</div>
-          </div>
-          <div class="pomodoro-controls">
-            <button class="btn pomo-btn" id="pomoStart">▶ Start</button>
-            <button class="btn pomo-btn" id="pomoReset">↺ Reset</button>
-          </div>
-          <div class="pomo-sessions">
-            <span id="pomoCount">0</span> sessions today
-          </div>
-          <!-- Ambient Sound -->
-          <div class="ambient-controls">
-            <label class="ambient-label">🔊</label>
-            <select id="ambientSelect" class="ambient-select">
-              <option value="none">None</option>
-              <option value="white">White Noise</option>
-              <option value="brown">Brown Noise</option>
-              <option value="pink">Pink Noise</option>
-              <option value="rain">Rain</option>
-              <option value="forest">Forest</option>
-              <option value="cafe">Café</option>
-            </select>
-            <input type="range" id="ambientVolume" class="ambient-volume" min="0" max="100" value="30">
-          </div>
+        <div class="pomodoro-display">
+          <svg class="pomo-ring" viewBox="0 0 100 100">
+            <circle class="pomo-ring-bg" cx="50" cy="50" r="45" />
+            <circle class="pomo-ring-progress" cx="50" cy="50" r="45" />
+          </svg>
+          <div class="pomo-time" id="pomoTime">25:00</div>
+        </div>
+        <div class="pomodoro-controls">
+          <button class="btn pomo-btn" id="pomoStart">▶ Start</button>
+          <button class="btn pomo-btn" id="pomoReset">↺ Reset</button>
+        </div>
+        <div class="pomo-sessions">
+          <span id="pomoCount">0</span> sessions today
+        </div>
+        <!-- Ambient Sound -->
+        <div class="ambient-controls">
+          <label class="ambient-label">🔊</label>
+          <select id="ambientSelect" class="ambient-select">
+            <option value="none">None</option>
+            <option value="white">White Noise</option>
+            <option value="brown">Brown Noise</option>
+            <option value="pink">Pink Noise</option>
+            <option value="rain">Rain</option>
+            <option value="forest">Forest</option>
+            <option value="cafe">Café</option>
+          </select>
+          <input type="range" id="ambientVolume" class="ambient-volume" min="0" max="100" value="30">
         </div>
       </div>
 
       <!-- Statistics Dashboard -->
       <div class="stats-container glass-panel" data-section="stats">
-        <button class="section-toggle" onclick="toggleSection('stats')">👁</button>
-        <div class="section-header">
-          <div class="calendar-header">
-            <button class="btn" onclick="changeStatsWeek(-1)">◀︎</button>
-            <h3 id="statsWeekTitle">📊 Week of December 30</h3>
-            <button class="btn" onclick="changeStatsWeek(1)">▶︎</button>
+        <div class="calendar-header">
+          <button class="btn" onclick="changeStatsWeek(-1)">◀︎</button>
+          <h3 id="statsWeekTitle">📊 Week of December 30</h3>
+          <button class="btn" onclick="changeStatsWeek(1)">▶︎</button>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="statPomos">0</div>
+            <div class="stat-label">Pomodoros</div>
           </div>
-          <div class="section-content">
-            <div class="stats-grid">
-              <div class="stat-card">
-                <div class="stat-value" id="statPomos">0</div>
-                <div class="stat-label">Pomodoros</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value" id="statTasks">0</div>
-                <div class="stat-label">Tasks Done</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value" id="statHabits">0%</div>
-                <div class="stat-label">Habits</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value" id="statStreak">0</div>
-                <div class="stat-label">Day Streak</div>
-              </div>
-            </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statTasks">0</div>
+            <div class="stat-label">Tasks Done</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statHabits">0%</div>
+            <div class="stat-label">Habits</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statStreak">0</div>
+            <div class="stat-label">Day Streak</div>
           </div>
         </div>
       </div>
-
-      <div class="divider"></div>
-
-      <!-- 2. TODAY'S GOALS + QUICK NOTES (LARGER) -->
-      <div class="goals-notes-row">
-        <!-- Today's Goals -->
-        <div class="glass-panel goals-container" data-section="goals">
-          <button class="section-toggle" onclick="toggleSection('goals')">👁</button>
-          <div class="section-header section-nav">
-            <button class="btn nav-btn" onclick="changeGoalDate(-1)">◀</button>
-            <h2 id="goalsTitle">🎯 Today's Goals</h2>
-            <button class="btn nav-btn" onclick="changeGoalDate(1)">▶</button>
-          </div>
-          <div class="section-content">
-            <div class="goals-list" id="goalsList"></div>
-            <button class="btn" onclick="addGoal()" style="margin-top:12px;">+ Add Goal</button>
-          </div>
-        </div>
-
-        <!-- Quick Notes -->
-        <div class="glass-panel notes-container" data-section="notes">
-          <button class="section-toggle" onclick="toggleSection('notes')">👁</button>
-          <div class="section-header section-nav">
-            <button class="btn nav-btn" onclick="changeNotesDate(-1)">◀</button>
-            <h2 id="notesTitle">📝 Quick Notes</h2>
-            <button class="btn nav-btn" onclick="changeNotesDate(1)">▶</button>
-          </div>
-          <div class="section-content">
-            <textarea class="quick-notes" id="quickNotes"
-              placeholder="Jot down thoughts, ideas, reminders..."></textarea>
-            <button class="btn" onclick="saveNotes()" style="margin-top:12px;">Save Notes</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 3. MINI LISTS (Goals 2026, Shopping, Chores) -->
-      <div class="mini-lists-row">
-        <!-- Goals 2026 -->
-        <div class="glass-panel list-panel" data-section="goals2026">
-          <button class="section-toggle" onclick="toggleSection('goals2026')">👁</button>
-          <div class="section-header">
-            <h3>🚀 Goals 2026</h3>
-          </div>
-          <div class="section-content">
-            <div class="simple-list" id="goals2026List"></div>
-            <button class="btn" onclick="addListItem('goals2026')" style="margin-top:12px;">+ Add Goal</button>
-          </div>
-        </div>
-
-        <!-- Shopping List -->
-        <div class="glass-panel list-panel" data-section="shopping">
-          <button class="section-toggle" onclick="toggleSection('shopping')">👁</button>
-          <div class="section-header">
-            <h3>🛒 Shopping List</h3>
-          </div>
-          <div class="section-content">
-            <div class="simple-list" id="shoppingList"></div>
-            <button class="btn" onclick="addListItem('shopping')" style="margin-top:12px;">+ Add Item</button>
-          </div>
-        </div>
-
-        <!-- Weekly Chores -->
-        <div class="glass-panel list-panel" data-section="chores">
-          <button class="section-toggle" onclick="toggleSection('chores')">👁</button>
-          <div class="section-header">
-            <h3>🧹 Weekly Chores</h3>
-          </div>
-          <div class="section-content">
-            <div class="simple-list" id="choresList"></div>
-            <button class="btn" onclick="addListItem('chores')" style="margin-top:12px;">+ Add Chore</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="divider"></div>
-
-      <!-- 3. CALENDAR -->
-      <div class="glass-panel" data-section="calendar">
-        <button class="section-toggle" onclick="toggleSection('calendar')">👁</button>
-        <div class="section-header calendar-header">
-          <button class="btn" id="prevMonth">◀︎</button>
-          <div class="calendar-title-group">
-            <h2 id="title">User Calendar</h2>
-            <button class="btn today-btn" onclick="goToToday()">Today</button>
-          </div>
-          <button class="btn" id="nextMonth">▶︎</button>
-        </div>
-        <div class="section-content">
-          <div class="calendar-grid-header">
-            <div>MO</div>
-            <div>DI</div>
-            <div>MI</div>
-            <div>DO</div>
-            <div>FR</div>
-            <div>SA</div>
-            <div>SO</div>
-          </div>
-          <div class="calendar-grid" id="calendar"></div>
-        </div>
-      </div>
-
-      <div class="divider"></div>
-
-      <!-- 4. WEEKLY FOCUS -->
-      <div class="glass-panel" data-section="weekfocus">
-        <button class="section-toggle" onclick="toggleSection('weekfocus')">👁</button>
-        <div class="section-header week-nav-header">
-          <button class="btn nav-btn" onclick="changeWeek(-1)">◀ Prev</button>
-          <h2 id="weekTitle">⚡ Friday, January 3</h2>
-          <button class="btn nav-btn" onclick="changeWeek(1)">Next ▶</button>
-        </div>
-        <div class="section-content">
-          <h3 class="inspirational-quote">Your future is created by what you do today, not tomorrow</h3>
-          <div class="kanban-board week-kanban" id="weekKanban"></div>
-        </div>
-      </div>
-
-      <div class="divider"></div>
-
-      <!-- 5. BACKLOG & IDEAS -->
-      <div class="glass-panel" data-section="backlog">
-        <button class="section-toggle" onclick="toggleSection('backlog')">👁</button>
-        <div class="section-header">
-          <h2>📋 Backlog & Ideas</h2>
-        </div>
-        <div class="section-content">
-          <div class="kanban-board long-kanban" id="longKanban"></div>
-        </div>
-      </div>
-
-      <div class="divider"></div>
-
-      <!-- 6. HABITS -->
-      <div class="glass-panel" data-section="habits">
-        <button class="section-toggle" onclick="toggleSection('habits')">👁</button>
-        <div class="section-header">
-          <h2>✨ Habits</h2>
-          <div class="calendar-header">
-            <button class="btn" onclick="changeHabitsWeek(-1)">◀︎</button>
-            <h3 id="habitsWeekTitle">Today, Week of December 30</h3>
-            <button class="btn" onclick="changeHabitsWeek(1)">▶︎</button>
-          </div>
-        </div>
-        <div class="section-content">
-          <div class="center-actions" style="margin-bottom:20px; justify-content:flex-end;">
-            <button class="btn" onclick="addHabit()">+ New Habit</button>
-          </div>
-          <div class="habits-grid" id="habits"></div>
-        </div>
-      </div>
-
-      <div class="divider"></div>
-
-      <!-- 7. WEEKLY REVIEW -->
-      <div class="glass-panel" data-section="review">
-        <button class="section-toggle" onclick="toggleSection('review')">👁</button>
-        <div class="section-header">
-          <h2>📝 Weekly Review</h2>
-          <div class="calendar-header">
-            <button class="btn" onclick="changeReviewWeek(-1)">◀︎</button>
-            <h3 id="reviewWeekTitle">Today, Week of December 30</h3>
-            <button class="btn" onclick="changeReviewWeek(1)">▶︎</button>
-          </div>
-        </div>
-        <div class="section-content">
-          <textarea class="weekly-review" id="weeklyReview"
-            placeholder="How was your week? What did you accomplish? What could be better?"></textarea>
-          <button class="btn" onclick="saveWeeklyReview()" style="margin-top:12px;">Save Review</button>
-        </div>
-      </div>
-
     </div>
 
-    <script src="js/app.js"></script>
+    <div class="divider"></div>
+
+    <!-- 2. TODAY'S GOALS + QUICK NOTES (LARGER) -->
+    <div class="goals-notes-row">
+      <!-- Today's Goals -->
+      <div class="glass-panel goals-container" data-section="goals">
+        <div class="section-nav">
+          <button class="btn nav-btn" onclick="changeGoalDate(-1)">◀</button>
+          <h2 id="goalsTitle">🎯 Today's Goals</h2>
+          <button class="btn nav-btn" onclick="changeGoalDate(1)">▶</button>
+        </div>
+        <div class="goals-list" id="goalsList"></div>
+        <button class="btn" onclick="addGoal()" style="margin-top:12px;">+ Add Goal</button>
+      </div>
+
+      <!-- Quick Notes -->
+      <div class="glass-panel notes-container" data-section="notes">
+        <div class="section-nav">
+          <button class="btn nav-btn" onclick="changeNotesDate(-1)">◀</button>
+          <h2 id="notesTitle">📝 Quick Notes</h2>
+          <button class="btn nav-btn" onclick="changeNotesDate(1)">▶</button>
+        </div>
+        <textarea class="quick-notes" id="quickNotes" placeholder="Jot down thoughts, ideas, reminders..."></textarea>
+        <button class="btn" onclick="saveNotes()" style="margin-top:12px;">Save Notes</button>
+      </div>
+    </div>
+
+    <!-- 3. MINI LISTS (Goals 2026, Shopping, Chores) -->
+    <div class="mini-lists-row">
+      <!-- Goals 2026 -->
+      <div class="glass-panel list-panel" data-section="goals2026">
+        <h3>🚀 Goals 2026</h3>
+        <div class="simple-list" id="goals2026List"></div>
+        <button class="btn" onclick="addListItem('goals2026')" style="margin-top:12px;">+ Add Goal</button>
+      </div>
+
+      <!-- Shopping List -->
+      <div class="glass-panel list-panel" data-section="shopping">
+        <h3>🛒 Shopping List</h3>
+        <div class="simple-list" id="shoppingList"></div>
+        <button class="btn" onclick="addListItem('shopping')" style="margin-top:12px;">+ Add Item</button>
+      </div>
+
+      <!-- Weekly Chores -->
+      <div class="glass-panel list-panel" data-section="chores">
+        <h3>🧹 Weekly Chores</h3>
+        <div class="simple-list" id="choresList"></div>
+        <button class="btn" onclick="addListItem('chores')" style="margin-top:12px;">+ Add Chore</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 3. CALENDAR -->
+    <div class="glass-panel" data-section="calendar">
+      <div class="calendar-header">
+        <button class="btn" id="prevMonth">◀︎</button>
+        <div class="calendar-title-group">
+          <h2 id="title">User Calendar</h2>
+          <button class="btn today-btn" onclick="goToToday()">Today</button>
+        </div>
+        <button class="btn" id="nextMonth">▶︎</button>
+      </div>
+
+      <div class="calendar-grid-header">
+        <div>MO</div>
+        <div>DI</div>
+        <div>MI</div>
+        <div>DO</div>
+        <div>FR</div>
+        <div>SA</div>
+        <div>SO</div>
+      </div>
+
+      <div class="calendar-grid" id="calendar">
+        <!-- JS generates Calendar -->
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 4. WEEKLY FOCUS -->
+    <div data-section="weekfocus">
+      <div class="week-nav-header glass-panel">
+        <button class="btn nav-btn" onclick="changeWeek(-1)">◀ Prev</button>
+        <h2 id="weekTitle">⚡ Friday, January 3</h2>
+        <button class="btn nav-btn" onclick="changeWeek(1)">Next ▶</button>
+      </div>
+      <h3 class="inspirational-quote">Your future is created by what you do today, not tomorrow</h3>
+      <div class="kanban-board week-kanban" id="weekKanban"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 5. BACKLOG & IDEAS -->
+    <div data-section="backlog">
+      <h2>📋 Backlog & Ideas</h2>
+      <div class="kanban-board long-kanban" id="longKanban"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 6. HABITS -->
+    <div data-section="habits">
+      <h2>✨ Habits</h2>
+      <div class="glass-panel">
+        <div class="calendar-header">
+          <button class="btn" onclick="changeHabitsWeek(-1)">◀︎</button>
+          <h3 id="habitsWeekTitle">Today, Week of December 30</h3>
+          <button class="btn" onclick="changeHabitsWeek(1)">▶︎</button>
+        </div>
+        <div class="center-actions" style="margin-bottom:20px; justify-content:flex-end;">
+          <button class="btn" onclick="addHabit()">+ New Habit</button>
+        </div>
+        <div class="habits-grid" id="habits"></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 7. WEEKLY REVIEW -->
+    <div data-section="review">
+      <h2>📝 Weekly Review</h2>
+      <div class="glass-panel">
+        <div class="calendar-header">
+          <button class="btn" onclick="changeReviewWeek(-1)">◀︎</button>
+          <h3 id="reviewWeekTitle">Today, Week of December 30</h3>
+          <button class="btn" onclick="changeReviewWeek(1)">▶︎</button>
+        </div>
+        <textarea class="weekly-review" id="weeklyReview"
+          placeholder="How was your week? What did you accomplish? What could be better?"></textarea>
+        <button class="btn" onclick="saveWeeklyReview()" style="margin-top:12px;">Save Review</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="js/app.js"></script>
 </body>
 
 </html>

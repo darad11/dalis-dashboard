@@ -385,27 +385,6 @@ function init() {
   initSectionVisibility();
 }
 
-// ===== SECTION VISIBILITY =====
-function initSectionVisibility() {
-  const sections = document.querySelectorAll('[data-section]');
-  sections.forEach(section => {
-    const sectionId = section.dataset.section;
-    const isHidden = localStorage.getItem(`section-${sectionId}`) === 'hidden';
-    if (isHidden) {
-      section.classList.add('section-hidden');
-    }
-  });
-}
-
-window.toggleSection = (sectionId) => {
-  const section = document.querySelector(`[data-section="${sectionId}"]`);
-  if (!section) return;
-
-  const isHidden = section.classList.toggle('section-hidden');
-  localStorage.setItem(`section-${sectionId}`, isHidden ? 'hidden' : 'visible');
-  sounds.click();
-};
-
 // ===== DATE/WEEK NAVIGATION =====
 function updateTitles() {
   // Goals title (date-based)
@@ -544,6 +523,52 @@ window.showShortcuts = () => {
 window.closeShortcuts = () => {
   document.getElementById('shortcutsModal').classList.remove('active');
 };
+
+// ===== SECTION VISIBILITY SETTINGS =====
+window.showSectionSettings = () => {
+  const modal = document.getElementById('sectionSettingsModal');
+  modal.classList.add('active');
+
+  // Load current visibility state
+  const toggles = modal.querySelectorAll('input[data-section]');
+  toggles.forEach(toggle => {
+    const sectionId = toggle.dataset.section;
+    const isHidden = localStorage.getItem(`section-hidden-${sectionId}`) === 'true';
+    toggle.checked = !isHidden;
+  });
+
+  // Add change listeners
+  toggles.forEach(toggle => {
+    toggle.onchange = () => {
+      const sectionId = toggle.dataset.section;
+      const section = document.querySelector(`[data-section="${sectionId}"]`);
+      if (section) {
+        if (toggle.checked) {
+          section.style.display = '';
+          localStorage.removeItem(`section-hidden-${sectionId}`);
+        } else {
+          section.style.display = 'none';
+          localStorage.setItem(`section-hidden-${sectionId}`, 'true');
+        }
+      }
+    };
+  });
+};
+
+window.closeSectionSettings = () => {
+  document.getElementById('sectionSettingsModal').classList.remove('active');
+};
+
+function initSectionVisibility() {
+  const sections = document.querySelectorAll('[data-section]');
+  sections.forEach(section => {
+    const sectionId = section.dataset.section;
+    const isHidden = localStorage.getItem(`section-hidden-${sectionId}`) === 'true';
+    if (isHidden) {
+      section.style.display = 'none';
+    }
+  });
+}
 
 // ===== QUICK CAPTURE =====
 async function quickCapture() {
