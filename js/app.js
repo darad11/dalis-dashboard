@@ -232,6 +232,7 @@ const db = {
 
   calKey: (d) => `cal-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
   goalKey: (d) => `goals-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
+  notesKey: (d) => `notes-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
   weekKey: (d) => `week-${d.getFullYear()}-W${getWeekNumber(d)}`,
   reviewKey: (d) => `review-${d.getFullYear()}-W${getWeekNumber(d)}`,
   habitsKey: (d) => `habitsData-${d.getFullYear()}-W${getWeekNumber(d)}`,
@@ -242,6 +243,8 @@ const db = {
   setKanban: (data, weekDate) => db.set(db.weekKey(weekDate || currentWeekDate), data),
   getGoals: (date) => db.get(db.goalKey(date || currentGoalDate), []),
   setGoals: (goals, date) => db.set(db.goalKey(date || currentGoalDate), goals),
+  getNotes: (date) => db.get(db.notesKey(date || currentNotesDate), ''),
+  setNotes: (text, date) => db.set(db.notesKey(date || currentNotesDate), text),
   getWeeklyReview: (weekDate) => db.get(db.reviewKey(weekDate || currentReviewWeekDate), ''),
   setWeeklyReview: (text, weekDate) => db.set(db.reviewKey(weekDate || currentReviewWeekDate), text),
   getStats: () => db.get('stats', { pomos: 0, tasks: 0, streak: 0, lastActive: null }),
@@ -260,6 +263,7 @@ function getWeekNumber(d) {
 // ===== UI STATE =====
 let currentDate = new Date();
 let currentGoalDate = new Date(); // For Today's Goals navigation
+let currentNotesDate = new Date(); // For Quick Notes navigation
 let currentWeekDate = new Date(); // For Weekly Focus kanban navigation
 let currentStatsWeekDate = new Date(); // For Stats section week navigation
 let currentHabitsWeekDate = new Date(); // For Habits section week navigation
@@ -298,6 +302,7 @@ function init() {
   els.pomoRing = document.querySelector('.pomo-ring-progress');
   els.pomoCount = document.getElementById('pomoCount');
   els.goalsList = document.getElementById('goalsList');
+  els.quickNotes = document.getElementById('quickNotes');
   els.weeklyReview = document.getElementById('weeklyReview');
   els.focusOverlay = document.getElementById('focusOverlay');
   els.focusTime = document.getElementById('focusTime');
@@ -312,6 +317,7 @@ function init() {
   renderHabits();
   renderKanban();
   renderGoals();
+  loadNotes();
   loadWeeklyReview();
   updateTitles();
   updateHabitsTitle();
@@ -334,6 +340,18 @@ function updateTitles() {
   } else {
     const options = { weekday: 'short', day: 'numeric', month: 'short' };
     goalTitle.textContent = `🎯 Goals - ${currentGoalDate.toLocaleDateString('en-US', options)}`;
+  }
+
+  // Notes title (date-based)
+  const notesTitle = document.getElementById('notesTitle');
+  const notesDate = new Date(currentNotesDate);
+  notesDate.setHours(0, 0, 0, 0);
+
+  if (notesDate.getTime() === today.getTime()) {
+    notesTitle.textContent = "📝 Quick Notes";
+  } else {
+    const options = { weekday: 'short', day: 'numeric', month: 'short' };
+    notesTitle.textContent = `📝 Notes - ${currentNotesDate.toLocaleDateString('en-US', options)}`;
   }
 
   // Week title - show "Week of [Monday date]"
@@ -367,6 +385,12 @@ function updateTitles() {
 window.changeGoalDate = (delta) => {
   currentGoalDate.setDate(currentGoalDate.getDate() + delta);
   renderGoals();
+  updateTitles();
+};
+
+window.changeNotesDate = (delta) => {
+  currentNotesDate.setDate(currentNotesDate.getDate() + delta);
+  loadNotes();
   updateTitles();
 };
 
@@ -1209,6 +1233,16 @@ window.deleteGoal = (idx) => {
   goals.splice(idx, 1);
   db.setGoals(goals);
   renderGoals();
+};
+
+// ===== QUICK NOTES =====
+function loadNotes() {
+  els.quickNotes.value = db.getNotes(currentNotesDate);
+}
+
+window.saveNotes = () => {
+  db.setNotes(els.quickNotes.value, currentNotesDate);
+  sounds.click();
 };
 
 // ===== WEEKLY REVIEW =====

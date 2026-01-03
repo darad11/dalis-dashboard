@@ -158,15 +158,29 @@
 
     <div class="divider"></div>
 
-    <!-- 2. TODAY'S GOALS -->
-    <div class="glass-panel goals-container">
-      <div class="section-nav">
-        <button class="btn nav-btn" onclick="changeGoalDate(-1)">◀</button>
-        <h2 id="goalsTitle">🎯 Today's Goals</h2>
-        <button class="btn nav-btn" onclick="changeGoalDate(1)">▶</button>
+    <!-- 2. TODAY'S GOALS + QUICK NOTES SIDE BY SIDE -->
+    <div class="goals-notes-row">
+      <!-- Today's Goals -->
+      <div class="glass-panel goals-container">
+        <div class="section-nav">
+          <button class="btn nav-btn" onclick="changeGoalDate(-1)">◀</button>
+          <h2 id="goalsTitle">🎯 Today's Goals</h2>
+          <button class="btn nav-btn" onclick="changeGoalDate(1)">▶</button>
+        </div>
+        <div class="goals-list" id="goalsList"></div>
+        <button class="btn" onclick="addGoal()" style="margin-top:12px;">+ Add Goal</button>
       </div>
-      <div class="goals-list" id="goalsList"></div>
-      <button class="btn" onclick="addGoal()" style="margin-top:12px;">+ Add Goal</button>
+
+      <!-- Quick Notes -->
+      <div class="glass-panel notes-container">
+        <div class="section-nav">
+          <button class="btn nav-btn" onclick="changeNotesDate(-1)">◀</button>
+          <h2 id="notesTitle">📝 Quick Notes</h2>
+          <button class="btn nav-btn" onclick="changeNotesDate(1)">▶</button>
+        </div>
+        <textarea class="quick-notes" id="quickNotes" placeholder="Jot down thoughts, ideas, reminders..."></textarea>
+        <button class="btn" onclick="saveNotes()" style="margin-top:12px;">Save Notes</button>
+      </div>
     </div>
 
     <div class="divider"></div>

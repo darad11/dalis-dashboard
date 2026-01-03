@@ -89,7 +89,8 @@ body:not(.dark) .btn {
     border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-body:not(.dark) .weekly-review {
+body:not(.dark) .weekly-review,
+body:not(.dark) .quick-notes {
     background: rgba(255, 255, 255, 0.9);
     border: 1px solid rgba(0, 0, 0, 0.1);
 }
@@ -1503,9 +1504,47 @@ body.dark .task-item:hover {
     color: var(--text-secondary);
 }
 
-/* ===== WEEKLY FOCUS ===== */
-.goals-container {
+/* ===== GOALS + NOTES ROW ===== */
+.goals-notes-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.goals-container,
+.notes-container {
     padding: 24px;
+    margin-bottom: 0;
+}
+
+.notes-container .section-nav {
+    margin-bottom: 16px;
+}
+
+.quick-notes {
+    width: 100%;
+    min-height: 180px;
+    padding: 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    font-size: 0.95rem;
+    resize: vertical;
+    transition: all var(--transition-fast);
+    line-height: 1.6;
+}
+
+.quick-notes:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.quick-notes::placeholder {
+    color: var(--text-secondary);
 }
 
 .goals-subtitle {
@@ -1830,10 +1869,15 @@ body {
         padding: 0;
     }
 
-    /* Stack pomo and stats */
-    .pomo-stats-row {
+    /* Stack pomo, stats, goals, notes */
+    .pomo-stats-row,
+    .goals-notes-row {
         grid-template-columns: 1fr;
         gap: 12px;
+    }
+
+    .quick-notes {
+        min-height: 120px;
     }
 
     /* Calendar - make it fit on mobile */
