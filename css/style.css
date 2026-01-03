@@ -658,6 +658,9 @@ body.dark .holiday-label {
     cursor: grab;
     border: 1px solid transparent;
     line-height: 1.3;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 body.dark .task-item {
@@ -1072,6 +1075,9 @@ body.dark .task-item:hover {
     display: flex;
     align-items: flex-start;
     gap: 4px;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .kanban-card-text {
