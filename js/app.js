@@ -512,6 +512,15 @@ function updateFocusDisplay() {
   els.focusRing.style.strokeDashoffset = circumference * (1 - progress);
 }
 
+// ===== RESET DATA =====
+window.resetAllData = () => {
+  if (confirm('⚠️ This will clear ALL your dashboard data including:\\n\\n• Calendar tasks\\n• Kanban boards\\n• Goals & Notes\\n• Habits\\n• Statistics\\n\\nThis cannot be undone. Continue?')) {
+    localStorage.clear();
+    alert('✅ All data has been cleared. The page will now reload.');
+    location.reload();
+  }
+};
+
 // ===== CONFETTI =====
 let confettiParticles = [];
 let confettiCtx = null;
