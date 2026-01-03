@@ -1677,15 +1677,18 @@ body.dark .task-item:hover {
 
 /* ===== PRIORITY COLORS ===== */
 .priority-high {
-    border-left: 3px solid var(--danger-color) !important;
+    border-left: 3px solid #dc2626 !important;
+    /* Red */
 }
 
 .priority-medium {
-    border-left: 3px solid var(--warning-color) !important;
+    border-left: 3px solid #94a3b8 !important;
+    /* Light gray (visible white) */
 }
 
 .priority-low {
-    border-left: 3px solid var(--success-color) !important;
+    border-left: 3px solid #2563eb !important;
+    /* Blue */
 }
 
 .priority-selector {
@@ -1708,15 +1711,19 @@ body.dark .task-item:hover {
 }
 
 .priority-dot.high {
-    background: var(--danger-color);
+    background: #dc2626;
+    /* Red */
 }
 
 .priority-dot.medium {
-    background: var(--warning-color);
+    background: #f8fafc;
+    /* White */
+    border: 2px solid rgba(0, 0, 0, 0.2);
 }
 
 .priority-dot.low {
-    background: var(--success-color);
+    background: #2563eb;
+    /* Blue */
 }
 
 .priority-dot.active {
