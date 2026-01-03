@@ -173,6 +173,54 @@ function stopAmbient() {
   }
 }
 
+// ===== CUSTOM INPUT MODAL =====
+function showInputModal(title, placeholder = '', defaultValue = '') {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('inputModal');
+    const titleEl = document.getElementById('inputModalTitle');
+    const input = document.getElementById('inputModalField');
+    const submitBtn = document.getElementById('inputModalSubmit');
+    const cancelBtn = document.getElementById('inputModalCancel');
+
+    titleEl.textContent = title;
+    input.placeholder = placeholder || 'Type here...';
+    input.value = defaultValue;
+    modal.classList.add('active');
+
+    // Focus input after animation
+    setTimeout(() => input.focus(), 50);
+
+    const cleanup = () => {
+      modal.classList.remove('active');
+      submitBtn.onclick = null;
+      cancelBtn.onclick = null;
+      input.onkeydown = null;
+    };
+
+    submitBtn.onclick = () => {
+      cleanup();
+      resolve(input.value);
+    };
+
+    cancelBtn.onclick = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        cleanup();
+        resolve(input.value);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cleanup();
+        resolve(null);
+      }
+    };
+  });
+}
+
 // ===== STATE MANAGEMENT =====
 const db = {
   get: (key, def = null) => {
@@ -394,8 +442,8 @@ window.closeShortcuts = () => {
 };
 
 // ===== QUICK CAPTURE =====
-function quickCapture() {
-  const text = prompt("Quick Add (task, idea, or note):");
+async function quickCapture() {
+  const text = await showInputModal('Quick Add', 'Add a task, idea, or note...');
   if (!text || !text.trim()) return;
 
   sounds.click();
@@ -796,11 +844,11 @@ function renderCalendar() {
     const addBtn = document.createElement("button");
     addBtn.className = "add-task-btn";
     addBtn.textContent = "+ Task";
-    addBtn.onclick = (e) => {
+    addBtn.onclick = async (e) => {
       e.stopPropagation();
-      const text = prompt("New task:");
-      if (text) {
-        tasks.push({ text, done: false, priority: null });
+      const text = await showInputModal('New Task', 'What needs to be done?');
+      if (text && text.trim()) {
+        tasks.push({ text: text.trim(), done: false, priority: null });
         db.set(db.calKey(dateObj), tasks);
         renderCalendar();
       }
@@ -967,8 +1015,8 @@ function renderHabits() {
     };
 
     nameEl.append(nameText, deleteBtn);
-    nameEl.ondblclick = () => {
-      const newName = prompt("Rename habit:", habit);
+    nameEl.ondblclick = async () => {
+      const newName = await showInputModal('Rename Habit', 'Enter new name...', habit);
       if (newName && newName.trim()) {
         habits[hIdx] = newName.trim();
         db.setHabits(habits);
@@ -1041,9 +1089,9 @@ function deleteHabit(index) {
   renderHabits();
 }
 
-window.addHabit = () => {
+window.addHabit = async () => {
   const habits = db.getAllHabits();
-  const name = prompt("New habit name:");
+  const name = await showInputModal('New Habit', 'What habit do you want to track?');
   if (name && name.trim()) {
     habits.push(name.trim());
     db.setHabits(habits);
@@ -1124,9 +1172,9 @@ function renderGoals() {
     const textDiv = document.createElement("div");
     textDiv.className = "focus-text";
     textDiv.textContent = typeof goal === 'string' ? goal : goal.text;
-    textDiv.ondblclick = () => {
+    textDiv.ondblclick = async () => {
       const currentText = typeof goal === 'string' ? goal : goal.text;
-      const newText = prompt("Edit focus:", currentText);
+      const newText = await showInputModal('Edit Goal', 'Update your goal...', currentText);
       if (newText && newText.trim()) {
         const goals = db.getGoals();
         goals[idx] = { text: newText.trim(), done: goal.done || false };
@@ -1146,8 +1194,8 @@ function renderGoals() {
   });
 }
 
-window.addGoal = () => {
-  const text = prompt("What's your goal for today?");
+window.addGoal = async () => {
+  const text = await showInputModal("Today's Goal", "What do you want to accomplish?");
   if (!text || !text.trim()) return;
 
   const goals = db.getGoals();
@@ -1278,8 +1326,8 @@ function renderKanbanBoard(container, columns, isWeekBased) {
     const btn = document.createElement("button");
     btn.className = "kanban-add-btn";
     btn.textContent = "+ Card";
-    btn.onclick = () => {
-      const t = prompt("New card for " + colName);
+    btn.onclick = async () => {
+      const t = await showInputModal(`New Card - ${colName}`, 'What needs to be done?');
       if (t && t.trim()) addKanbanItem(colName, { text: t.trim(), done: false, priority: null }, isWeekBased);
     };
 
@@ -1346,8 +1394,8 @@ function createKanbanCard(task, colName, index, isWeekBased) {
     document.querySelectorAll('.kanban-items.drag-over').forEach(el => el.classList.remove('drag-over'));
   };
 
-  div.ondblclick = () => {
-    const newText = prompt("Edit card:", task.text);
+  div.ondblclick = async () => {
+    const newText = await showInputModal('Edit Card', 'Update your card...', task.text);
     if (newText && newText.trim() && newText.trim() !== task.text) {
       task.text = newText.trim();
       updateKanbanItem(colName, index, task, isWeekBased);
