@@ -344,13 +344,6 @@ const pomo = {
 
 const weekdays = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"];
 
-// ===== TOUCH DRAG & DROP =====
-// Disabled due to bugs - mobile users can use double-click to edit and delete buttons
-function initTouchDrag(el, data) {
-  // Touch drag disabled - standard HTML5 drag works on desktop
-  // Mobile users should use the edit (double-click) and delete (X) buttons
-}
-
 // ===== INITIALIZATION =====
 function init() {
   // Get DOM elements
@@ -389,7 +382,6 @@ function init() {
   setupEventListeners();
   setupKeyboardShortcuts();
   setupConfetti();
-  initSectionVisibility();
 }
 
 // ===== DATE/WEEK NAVIGATION =====
@@ -529,73 +521,6 @@ window.showShortcuts = () => {
 
 window.closeShortcuts = () => {
   document.getElementById('shortcutsModal').classList.remove('active');
-};
-
-// ===== SECTION VISIBILITY SETTINGS =====
-window.showSectionSettings = () => {
-  const modal = document.getElementById('sectionSettingsModal');
-  modal.classList.add('active');
-
-  // Load current visibility state
-  const toggles = modal.querySelectorAll('input[data-section]');
-  toggles.forEach(toggle => {
-    const sectionId = toggle.dataset.section;
-    const isHidden = localStorage.getItem(`section-hidden-${sectionId}`) === 'true';
-    toggle.checked = !isHidden;
-  });
-
-  // Add change listeners
-  toggles.forEach(toggle => {
-    toggle.onchange = () => {
-      const sectionId = toggle.dataset.section;
-      // Find section in the main container, not the modal
-      const section = document.querySelector(`#mainContainer [data-section="${sectionId}"]`);
-      if (section) {
-        if (toggle.checked) {
-          section.style.display = '';
-          localStorage.removeItem(`section-hidden-${sectionId}`);
-        } else {
-          section.style.display = 'none';
-          localStorage.setItem(`section-hidden-${sectionId}`, 'true');
-        }
-      }
-      sounds.click();
-    };
-  });
-};
-
-window.closeSectionSettings = () => {
-  document.getElementById('sectionSettingsModal').classList.remove('active');
-};
-
-function initSectionVisibility() {
-  const sections = document.querySelectorAll('#mainContainer [data-section]');
-  sections.forEach(section => {
-    const sectionId = section.dataset.section;
-    const isHidden = localStorage.getItem(`section-hidden-${sectionId}`) === 'true';
-    if (isHidden) {
-      section.style.display = 'none';
-    }
-  });
-}
-
-window.showAllSections = () => {
-  // Clear all hidden settings
-  const sectionIds = ['pomodoro', 'stats', 'goals', 'notes', 'goals2026', 'shopping',
-    'chores', 'calendar', 'weekfocus', 'backlog', 'habits', 'review'];
-  sectionIds.forEach(id => {
-    localStorage.removeItem(`section-hidden-${id}`);
-    const section = document.querySelector(`#mainContainer [data-section="${id}"]`);
-    if (section) section.style.display = '';
-  });
-
-  // Update checkboxes
-  const modal = document.getElementById('sectionSettingsModal');
-  modal.querySelectorAll('input[data-section]').forEach(toggle => {
-    toggle.checked = true;
-  });
-
-  sounds.click();
 };
 
 // ===== QUICK CAPTURE =====
@@ -1049,9 +974,6 @@ function createTaskEl(task, dateObj, index) {
     draggedTask = null;
     document.querySelectorAll('.day-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
   };
-
-  // Mobile touch drag
-  initTouchDrag(el, { source: 'calendar', task, dateObj, index });
 
   const cb = document.createElement("input");
   cb.type = "checkbox";
@@ -1562,8 +1484,6 @@ function renderKanbanBoard(container, columns, isWeekBased) {
   columns.forEach(colName => {
     const colDiv = document.createElement("div");
     colDiv.className = "kanban-column";
-    colDiv.dataset.col = colName;
-    colDiv.dataset.boardType = isWeekBased ? 'week' : 'backlog';
 
     // Highlight today's column in week kanban
     if (isWeekBased) {
@@ -1696,10 +1616,6 @@ function createKanbanCard(task, colName, index, isWeekBased) {
       renderKanban();
     }
   };
-
-  // Mobile touch drag
-  const kanbanKey = isWeekBased ? db.kanbanKey() + '-' + colName : 'backlog-' + colName;
-  initTouchDrag(div, { source: 'kanban', kanbanKey: isWeekBased ? db.kanbanKey() : 'backlog', colName, index, task, isWeekBased });
 
   return div;
 }
