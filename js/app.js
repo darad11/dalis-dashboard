@@ -877,6 +877,11 @@ function changeMonth(delta) {
   renderCalendar();
 }
 
+window.goToToday = () => {
+  currentDate = new Date();
+  renderCalendar();
+};
+
 function renderCalendar() {
   els.calList.innerHTML = "";
   els.calTitle.textContent = currentDate.toLocaleDateString("de-DE", { month: "long", year: "numeric" });

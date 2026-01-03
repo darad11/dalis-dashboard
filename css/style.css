@@ -470,6 +470,27 @@ h2 {
     font-size: 1.8rem;
 }
 
+.calendar-title-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.today-btn {
+    font-size: 0.75rem;
+    padding: 4px 12px;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    opacity: 0.9;
+}
+
+.today-btn:hover {
+    opacity: 1;
+    transform: scale(1.05);
+}
+
 .calendar-grid-header {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
