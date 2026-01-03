@@ -717,7 +717,9 @@ window.showSectionSettings = () => {
   toggles.forEach(toggle => {
     toggle.onchange = () => {
       const sectionId = toggle.dataset.section;
-      const section = document.querySelector(`[data-section="${sectionId}"]`);
+      // Find section in the main container, not the modal
+      const section = document.querySelector(`#mainContainer [data-section="${sectionId}"]`);
+      console.log('Toggle section:', sectionId, 'Found:', section);
       if (section) {
         if (toggle.checked) {
           section.style.display = '';
@@ -727,6 +729,7 @@ window.showSectionSettings = () => {
           localStorage.setItem(`section-hidden-${sectionId}`, 'true');
         }
       }
+      sounds.click();
     };
   });
 };
@@ -736,7 +739,7 @@ window.closeSectionSettings = () => {
 };
 
 function initSectionVisibility() {
-  const sections = document.querySelectorAll('[data-section]');
+  const sections = document.querySelectorAll('#mainContainer [data-section]');
   sections.forEach(section => {
     const sectionId = section.dataset.section;
     const isHidden = localStorage.getItem(`section-hidden-${sectionId}`) === 'true';
