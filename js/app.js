@@ -318,6 +318,7 @@ function init() {
   renderKanban();
   renderGoals();
   loadNotes();
+  renderAllLists();
   loadWeeklyReview();
   updateTitles();
   updateHabitsTitle();
@@ -1255,6 +1256,101 @@ window.saveNotes = () => {
   db.setNotes(els.quickNotes.value, currentNotesDate);
   sounds.click();
 };
+
+// ===== SIMPLE LISTS (Goals 2026, Shopping, Chores) =====
+const listConfigs = {
+  goals2026: { key: 'list-goals2026', elementId: 'goals2026List' },
+  shopping: { key: 'list-shopping', elementId: 'shoppingList' },
+  chores: { key: 'list-chores', elementId: 'choresList' }
+};
+
+function getListItems(listName) {
+  return db.get(listConfigs[listName].key, []);
+}
+
+function setListItems(listName, items) {
+  db.set(listConfigs[listName].key, items);
+}
+
+function renderSimpleList(listName) {
+  const config = listConfigs[listName];
+  const container = document.getElementById(config.elementId);
+  if (!container) return;
+
+  const items = getListItems(listName);
+  container.innerHTML = '';
+
+  if (items.length === 0) {
+    container.innerHTML = '<div style="color: var(--text-secondary); text-align: center; padding: 20px; font-size: 0.85rem;">No items yet</div>';
+    return;
+  }
+
+  items.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = `simple-list-item ${item.done ? 'done' : ''}`;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = item.done || false;
+    cb.onclick = () => {
+      item.done = cb.checked;
+      setListItems(listName, items);
+      renderSimpleList(listName);
+      if (cb.checked) sounds.click();
+    };
+
+    const span = document.createElement('span');
+    span.textContent = item.text;
+    span.ondblclick = async () => {
+      const newText = await showInputModal('Edit Item', 'Update...', item.text);
+      if (newText && newText.trim()) {
+        item.text = newText.trim();
+        setListItems(listName, items);
+        renderSimpleList(listName);
+      }
+    };
+
+    const del = document.createElement('button');
+    del.className = 'delete-btn';
+    del.innerHTML = '✕';
+    del.onclick = () => {
+      items.splice(idx, 1);
+      setListItems(listName, items);
+      renderSimpleList(listName);
+    };
+
+    div.append(cb, span, del);
+    container.appendChild(div);
+  });
+}
+
+window.addListItem = async (listName) => {
+  const prompts = {
+    goals2026: "What's your goal for 2026?",
+    shopping: "What do you need to buy?",
+    chores: "What chore needs doing?"
+  };
+
+  const text = await showInputModal(
+    listName === 'goals2026' ? 'New 2026 Goal' :
+      listName === 'shopping' ? 'Add to Shopping List' : 'New Chore',
+    prompts[listName]
+  );
+
+  if (!text || !text.trim()) return;
+
+  const items = getListItems(listName);
+  items.push({ text: text.trim(), done: false });
+  setListItems(listName, items);
+  renderSimpleList(listName);
+  sounds.click();
+};
+
+function renderAllLists() {
+  renderSimpleList('goals2026');
+  renderSimpleList('shopping');
+  renderSimpleList('chores');
+}
 
 // ===== WEEKLY REVIEW =====
 function loadWeeklyReview() {

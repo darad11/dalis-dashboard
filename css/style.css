@@ -95,6 +95,11 @@ body:not(.dark) .quick-notes {
     border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
+body:not(.dark) .simple-list-item {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
 body:not(.dark) .input-modal-field {
     background: rgba(255, 255, 255, 0.95);
     border: 2px solid rgba(0, 0, 0, 0.12);
@@ -1504,37 +1509,49 @@ body.dark .task-item:hover {
     color: var(--text-secondary);
 }
 
-/* ===== GOALS + NOTES ROW ===== */
-.goals-notes-row {
+/* ===== LISTS GRID (Goals, Notes, 2026, Shopping, Chores) ===== */
+.lists-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
     margin-bottom: 24px;
 }
 
-.goals-container,
-.notes-container {
-    padding: 24px;
+.list-panel {
+    padding: 20px;
     margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
 }
 
-.notes-container .section-nav {
+.list-panel h3 {
     margin-bottom: 16px;
+    font-size: 1rem;
+    text-align: center;
+}
+
+.list-panel .section-nav {
+    margin-bottom: 12px;
+}
+
+.list-panel .section-nav h3 {
+    margin-bottom: 0;
 }
 
 .quick-notes {
     width: 100%;
-    min-height: 180px;
-    padding: 16px;
+    min-height: 150px;
+    padding: 12px;
     border-radius: var(--radius-md);
     border: 1px solid var(--glass-border);
     background: rgba(255, 255, 255, 0.05);
     color: var(--text-primary);
     font-family: var(--font-main);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     resize: vertical;
     transition: all var(--transition-fast);
-    line-height: 1.6;
+    line-height: 1.5;
+    flex: 1;
 }
 
 .quick-notes:focus {
@@ -1545,6 +1562,64 @@ body.dark .task-item:hover {
 
 .quick-notes::placeholder {
     color: var(--text-secondary);
+}
+
+/* Simple list (for 2026 goals, shopping, chores) */
+.simple-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-height: 120px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.simple-list-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--glass-border);
+    font-size: 0.85rem;
+}
+
+.simple-list-item.done {
+    opacity: 0.6;
+    text-decoration: line-through;
+}
+
+.simple-list-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent-color);
+    cursor: pointer;
+}
+
+.simple-list-item span {
+    flex: 1;
+    cursor: pointer;
+}
+
+.simple-list-item .delete-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+    padding: 2px 6px;
+    font-size: 14px;
+}
+
+.simple-list-item:hover .delete-btn {
+    opacity: 1;
+}
+
+.simple-list-item .delete-btn:hover {
+    color: var(--danger-color);
 }
 
 .goals-subtitle {
@@ -1876,15 +1951,27 @@ body {
         padding: 0;
     }
 
-    /* Stack pomo, stats, goals, notes */
-    .pomo-stats-row,
-    .goals-notes-row {
+    /* Stack pomo, stats, and lists */
+    .pomo-stats-row {
         grid-template-columns: 1fr;
         gap: 12px;
     }
 
+    .lists-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .list-panel {
+        padding: 16px;
+    }
+
     .quick-notes {
-        min-height: 120px;
+        min-height: 100px;
+    }
+
+    .simple-list {
+        max-height: 150px;
     }
 
     /* Calendar - make it fit on mobile */
