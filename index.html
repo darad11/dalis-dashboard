@@ -158,13 +158,13 @@
 
     <div class="divider"></div>
 
-    <!-- 2. GOALS, NOTES & LISTS -->
-    <div class="lists-grid">
+    <!-- 2. TODAY'S GOALS + QUICK NOTES (LARGER) -->
+    <div class="goals-notes-row">
       <!-- Today's Goals -->
-      <div class="glass-panel list-panel">
+      <div class="glass-panel goals-container">
         <div class="section-nav">
           <button class="btn nav-btn" onclick="changeGoalDate(-1)">◀</button>
-          <h3 id="goalsTitle">🎯 Today's Goals</h3>
+          <h2 id="goalsTitle">🎯 Today's Goals</h2>
           <button class="btn nav-btn" onclick="changeGoalDate(1)">▶</button>
         </div>
         <div class="goals-list" id="goalsList"></div>
@@ -172,16 +172,19 @@
       </div>
 
       <!-- Quick Notes -->
-      <div class="glass-panel list-panel">
+      <div class="glass-panel notes-container">
         <div class="section-nav">
           <button class="btn nav-btn" onclick="changeNotesDate(-1)">◀</button>
-          <h3 id="notesTitle">📝 Quick Notes</h3>
+          <h2 id="notesTitle">📝 Quick Notes</h2>
           <button class="btn nav-btn" onclick="changeNotesDate(1)">▶</button>
         </div>
         <textarea class="quick-notes" id="quickNotes" placeholder="Jot down thoughts, ideas, reminders..."></textarea>
-        <button class="btn" onclick="saveNotes()" style="margin-top:12px;">Save</button>
+        <button class="btn" onclick="saveNotes()" style="margin-top:12px;">Save Notes</button>
       </div>
+    </div>
 
+    <!-- 3. MINI LISTS (Goals 2026, Shopping, Chores) -->
+    <div class="mini-lists-row">
       <!-- Goals 2026 -->
       <div class="glass-panel list-panel">
         <h3>🚀 Goals 2026</h3>

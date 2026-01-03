@@ -1509,10 +1509,43 @@ body.dark .task-item:hover {
     color: var(--text-secondary);
 }
 
-/* ===== LISTS GRID (Goals, Notes, 2026, Shopping, Chores) ===== */
-.lists-grid {
+/* ===== GOALS + NOTES ROW (LARGER) ===== */
+.goals-notes-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.goals-container,
+.notes-container {
+    padding: 24px;
+    margin-bottom: 0;
+}
+
+.notes-container .section-nav {
+    margin-bottom: 16px;
+}
+
+.quick-notes {
+    width: 100%;
+    min-height: 180px;
+    padding: 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    font-family: var(--font-main);
+    font-size: 0.95rem;
+    resize: vertical;
+    transition: all var(--transition-fast);
+    line-height: 1.6;
+}
+
+/* ===== MINI LISTS ROW (Goals 2026, Shopping, Chores) ===== */
+.mini-lists-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 20px;
     margin-bottom: 24px;
 }
@@ -1528,30 +1561,6 @@ body.dark .task-item:hover {
     margin-bottom: 16px;
     font-size: 1rem;
     text-align: center;
-}
-
-.list-panel .section-nav {
-    margin-bottom: 12px;
-}
-
-.list-panel .section-nav h3 {
-    margin-bottom: 0;
-}
-
-.quick-notes {
-    width: 100%;
-    min-height: 150px;
-    padding: 12px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--glass-border);
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-primary);
-    font-family: var(--font-main);
-    font-size: 0.9rem;
-    resize: vertical;
-    transition: all var(--transition-fast);
-    line-height: 1.5;
-    flex: 1;
 }
 
 .quick-notes:focus {
@@ -1587,8 +1596,12 @@ body.dark .task-item:hover {
 }
 
 .simple-list-item.done {
-    opacity: 0.6;
+    opacity: 0.5;
+}
+
+.simple-list-item.done span {
     text-decoration: line-through;
+    color: var(--text-secondary);
 }
 
 .simple-list-item input[type="checkbox"] {
@@ -1596,11 +1609,13 @@ body.dark .task-item:hover {
     height: 16px;
     accent-color: var(--accent-color);
     cursor: pointer;
+    flex-shrink: 0;
 }
 
 .simple-list-item span {
     flex: 1;
     cursor: pointer;
+    transition: all 0.2s;
 }
 
 .simple-list-item .delete-btn {
@@ -1952,12 +1967,13 @@ body {
     }
 
     /* Stack pomo, stats, and lists */
-    .pomo-stats-row {
+    .pomo-stats-row,
+    .goals-notes-row {
         grid-template-columns: 1fr;
         gap: 12px;
     }
 
-    .lists-grid {
+    .mini-lists-row {
         grid-template-columns: 1fr;
         gap: 12px;
     }
@@ -1967,7 +1983,7 @@ body {
     }
 
     .quick-notes {
-        min-height: 100px;
+        min-height: 120px;
     }
 
     .simple-list {
