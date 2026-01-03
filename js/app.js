@@ -260,6 +260,63 @@ function getWeekNumber(d) {
   return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
 }
 
+// ===== AUSTRIAN HOLIDAYS =====
+function getEasterDate(year) {
+  // Anonymous Gregorian algorithm
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month, day);
+}
+
+function getAustrianHolidays(year) {
+  const easter = getEasterDate(year);
+  const easterMs = easter.getTime();
+  const day = 24 * 60 * 60 * 1000;
+
+  const holidays = {
+    [`${year}-0-1`]: 'Neujahr',
+    [`${year}-0-6`]: 'Hl. Drei Könige',
+    [`${year}-4-1`]: 'Staatsfeiertag',
+    [`${year}-7-15`]: 'Mariä Himmelfahrt',
+    [`${year}-9-26`]: 'Nationalfeiertag',
+    [`${year}-10-1`]: 'Allerheiligen',
+    [`${year}-11-8`]: 'Mariä Empfängnis',
+    [`${year}-11-25`]: 'Christtag',
+    [`${year}-11-26`]: 'Stefanitag'
+  };
+
+  // Easter-based holidays
+  const easterMonday = new Date(easterMs + 1 * day);
+  const ascension = new Date(easterMs + 39 * day);
+  const whitMonday = new Date(easterMs + 50 * day);
+  const corpusChristi = new Date(easterMs + 60 * day);
+
+  holidays[`${easterMonday.getFullYear()}-${easterMonday.getMonth()}-${easterMonday.getDate()}`] = 'Ostermontag';
+  holidays[`${ascension.getFullYear()}-${ascension.getMonth()}-${ascension.getDate()}`] = 'Christi Himmelfahrt';
+  holidays[`${whitMonday.getFullYear()}-${whitMonday.getMonth()}-${whitMonday.getDate()}`] = 'Pfingstmontag';
+  holidays[`${corpusChristi.getFullYear()}-${corpusChristi.getMonth()}-${corpusChristi.getDate()}`] = 'Fronleichnam';
+
+  return holidays;
+}
+
+function getHoliday(date) {
+  const holidays = getAustrianHolidays(date.getFullYear());
+  const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  return holidays[key] || null;
+}
+
 // ===== UI STATE =====
 let currentDate = new Date();
 let currentGoalDate = new Date(); // For Today's Goals navigation
@@ -849,6 +906,17 @@ function renderCalendar() {
     num.textContent = d;
     if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
       num.classList.add("today");
+    }
+
+    // Check for Austrian holiday
+    const holiday = getHoliday(dateObj);
+    if (holiday) {
+      box.classList.add('holiday');
+      const holidayEl = document.createElement("div");
+      holidayEl.className = "holiday-label";
+      holidayEl.textContent = holiday;
+      holidayEl.title = holiday;
+      box.appendChild(holidayEl);
     }
 
     const tasksContainer = document.createElement("div");

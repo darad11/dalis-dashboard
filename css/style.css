@@ -551,6 +551,35 @@ h2 {
     pointer-events: none;
 }
 
+/* Holiday styling */
+.day-cell.holiday {
+    background: linear-gradient(135deg, rgba(220, 38, 38, 0.08) 0%, rgba(239, 68, 68, 0.05) 100%);
+    border-color: rgba(220, 38, 38, 0.2);
+}
+
+.day-cell.holiday:hover {
+    border-color: rgba(220, 38, 38, 0.4);
+}
+
+.holiday-label {
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    font-size: 0.6rem;
+    font-weight: 500;
+    color: #dc2626;
+    opacity: 0.8;
+    max-width: 70%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.02em;
+}
+
+body.dark .holiday-label {
+    color: #f87171;
+}
+
 .day-number {
     position: absolute;
     top: 8px;
