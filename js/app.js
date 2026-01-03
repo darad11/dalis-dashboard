@@ -26,6 +26,8 @@ function playSound(duration, volume, type, ...freqs) {
       osc.start(ctx.currentTime + (i * 0.1));
       osc.stop(ctx.currentTime + duration / 1000 + (i * 0.1));
     });
+    // Close AudioContext after sound completes to prevent memory leak
+    setTimeout(() => ctx.close(), duration + 500);
   } catch (e) { }
 }
 
@@ -181,7 +183,6 @@ const db = {
   del: (key) => localStorage.removeItem(key),
 
   calKey: (d) => `cal-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
-  noteKey: (d) => `note-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
   goalKey: (d) => `goals-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
   weekKey: (d) => `week-${d.getFullYear()}-W${getWeekNumber(d)}`,
   reviewKey: (d) => `review-${d.getFullYear()}-W${getWeekNumber(d)}`,
@@ -1050,17 +1051,7 @@ window.addHabit = () => {
   }
 };
 
-window.resetHabits = () => {
-  if (!confirm("Reset all habit checkboxes for this week?")) return;
-  const habits = db.getAllHabits();
-  habits.forEach((_, hIdx) => {
-    for (let d = 0; d < 7; d++) {
-      localStorage.removeItem(getHabitKey(hIdx, d));
-    }
-  });
-  renderHabits();
-  updateStats();
-};
+
 
 function updateHabitsTitle() {
   const habitsTitle = document.getElementById('habitsWeekTitle');
