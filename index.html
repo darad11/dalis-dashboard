@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Dalis Dashboard">
+  <title>Dali's Dashboard</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <!-- Quick Capture Button -->
+  <button class="quick-capture-btn" id="quickCapture" title="Quick Add (Q)">+</button>
+
+  <!-- Focus Mode Overlay -->
+  <div class="focus-overlay" id="focusOverlay">
+    <button class="focus-exit-btn" id="focusExit">✕ Exit Focus Mode</button>
+    <div class="focus-content">
+      <div class="focus-timer">
+        <svg class="pomo-ring" viewBox="0 0 100 100">
+          <circle class="pomo-ring-bg" cx="50" cy="50" r="45" />
+          <circle class="pomo-ring-progress focus-ring" cx="50" cy="50" r="45" />
+        </svg>
+        <div class="pomo-time" id="focusTime">25:00</div>
+      </div>
+      <div class="focus-task" id="focusTask">Focus on your work</div>
+      <div class="focus-controls">
+        <button class="btn" id="focusStart">▶ Start</button>
+        <button class="btn" id="focusReset">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confetti Canvas -->
+  <canvas id="confettiCanvas"></canvas>
+
+  <!-- Keyboard Shortcuts Modal -->
+  <div class="shortcuts-modal" id="shortcutsModal">
+    <div class="shortcuts-content glass-panel">
+      <h3>⌨️ Keyboard Shortcuts</h3>
+      <div class="shortcuts-list">
+        <div class="shortcut"><kbd>Space</kbd> Start/Pause Pomodoro</div>
+        <div class="shortcut"><kbd>R</kbd> Reset Pomodoro</div>
+        <div class="shortcut"><kbd>Q</kbd> Quick Capture</div>
+        <div class="shortcut"><kbd>F</kbd> Focus Mode</div>
+        <div class="shortcut"><kbd>D</kbd> Toggle Dark Mode</div>
+        <div class="shortcut"><kbd>?</kbd> Show Shortcuts</div>
+        <div class="shortcut"><kbd>Esc</kbd> Close Modal / Exit Focus</div>
+      </div>
+      <button class="btn" onclick="closeShortcuts()">Close</button>
+    </div>
+  </div>
+
+  <div class="container" id="mainContainer">
+    <header class="brand-header">
+      <div class="brand-logo">d.</div>
+      <div class="brand-text">
+        <span class="brand-name">dali's</span>
+        <span class="brand-tagline">dashboard</span>
+      </div>
+    </header>
+
+    <div class="center-actions">
+      <button id="btnToggleDark" class="btn" onclick="toggleDark()">🌙 Dark Mode</button>
+      <button class="btn" onclick="enterFocusMode()">🎯 Focus Mode</button>
+      <button class="btn" onclick="showShortcuts()">⌨️ Shortcuts</button>
+    </div>
+
+    <!-- 1. POMODORO + STATS SIDE BY SIDE -->
+    <div class="pomo-stats-row">
+      <!-- Pomodoro Timer -->
+      <div class="pomodoro-container glass-panel">
+        <h3>🍅 Pomodoro</h3>
+        <div class="pomodoro-modes">
+          <button class="pomo-mode-btn active" data-mode="work">Focus</button>
+          <button class="pomo-mode-btn" data-mode="short">Break</button>
+          <button class="pomo-mode-btn" data-mode="long">Long</button>
+        </div>
+        <div class="pomodoro-display">
+          <svg class="pomo-ring" viewBox="0 0 100 100">
+            <circle class="pomo-ring-bg" cx="50" cy="50" r="45" />
+            <circle class="pomo-ring-progress" cx="50" cy="50" r="45" />
+          </svg>
+          <div class="pomo-time" id="pomoTime">25:00</div>
+        </div>
+        <div class="pomodoro-controls">
+          <button class="btn pomo-btn" id="pomoStart">▶ Start</button>
+          <button class="btn pomo-btn" id="pomoReset">↺ Reset</button>
+        </div>
+        <div class="pomo-sessions">
+          <span id="pomoCount">0</span> sessions today
+        </div>
+        <!-- Ambient Sound -->
+        <div class="ambient-controls">
+          <label class="ambient-label">🔊</label>
+          <select id="ambientSelect" class="ambient-select">
+            <option value="none">None</option>
+            <option value="white">White Noise</option>
+            <option value="brown">Brown Noise</option>
+            <option value="pink">Pink Noise</option>
+            <option value="rain">Rain</option>
+            <option value="forest">Forest</option>
+            <option value="cafe">Café</option>
+          </select>
+          <input type="range" id="ambientVolume" class="ambient-volume" min="0" max="100" value="30">
+        </div>
+      </div>
+
+      <!-- Statistics Dashboard -->
+      <div class="stats-container glass-panel">
+        <div class="calendar-header">
+          <button class="btn" onclick="changeStatsWeek(-1)">◀︎</button>
+          <h3 id="statsWeekTitle">📊 Week of December 30</h3>
+          <button class="btn" onclick="changeStatsWeek(1)">▶︎</button>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="statPomos">0</div>
+            <div class="stat-label">Pomodoros</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statTasks">0</div>
+            <div class="stat-label">Tasks Done</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statHabits">0%</div>
+            <div class="stat-label">Habits</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statStreak">0</div>
+            <div class="stat-label">Day Streak</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 2. TODAY'S GOALS -->
+    <div class="glass-panel goals-container">
+      <div class="section-nav">
+        <button class="btn nav-btn" onclick="changeGoalDate(-1)">◀</button>
+        <h2 id="goalsTitle">🎯 Today's Goals</h2>
+        <button class="btn nav-btn" onclick="changeGoalDate(1)">▶</button>
+      </div>
+      <div class="goals-list" id="goalsList"></div>
+      <button class="btn" onclick="addGoal()" style="margin-top:12px;">+ Add Goal</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 3. CALENDAR -->
+    <div class="glass-panel">
+      <div class="calendar-header">
+        <button class="btn" id="prevMonth">◀︎</button>
+        <h2 id="title">User Calendar</h2>
+        <button class="btn" id="nextMonth">▶︎</button>
+      </div>
+
+      <div class="calendar-grid-header">
+        <div>MO</div>
+        <div>DI</div>
+        <div>MI</div>
+        <div>DO</div>
+        <div>FR</div>
+        <div>SA</div>
+        <div>SO</div>
+      </div>
+
+      <div class="calendar-grid" id="calendar">
+        <!-- JS generates Calendar -->
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 4. WEEKLY FOCUS -->
+    <div class="week-nav-header glass-panel">
+      <button class="btn nav-btn" onclick="changeWeek(-1)">◀ Prev</button>
+      <h2 id="weekTitle">⚡ Friday, January 3</h2>
+      <button class="btn nav-btn" onclick="changeWeek(1)">Next ▶</button>
+    </div>
+
+    <h3 class="inspirational-quote">Your future is created by what you do today, not tomorrow</h3>
+    <div class="kanban-board week-kanban" id="weekKanban"></div>
+
+    <div class="divider"></div>
+
+    <!-- 5. BACKLOG & IDEAS -->
+    <h2>📋 Backlog & Ideas</h2>
+    <div class="kanban-board long-kanban" id="longKanban"></div>
+
+    <div class="divider"></div>
+
+    <!-- 6. HABITS -->
+    <h2>✨ Habits</h2>
+    <div class="glass-panel">
+      <div class="calendar-header">
+        <button class="btn" onclick="changeHabitsWeek(-1)">◀︎</button>
+        <h3 id="habitsWeekTitle">Today, Week of December 30</h3>
+        <button class="btn" onclick="changeHabitsWeek(1)">▶︎</button>
+      </div>
+      <div class="center-actions" style="margin-bottom:20px; justify-content:flex-end;">
+        <button class="btn" onclick="addHabit()">+ New Habit</button>
+      </div>
+      <div class="habits-grid" id="habits"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- 7. WEEKLY REVIEW -->
+    <h2>📝 Weekly Review</h2>
+    <div class="glass-panel">
+      <div class="calendar-header">
+        <button class="btn" onclick="changeReviewWeek(-1)">◀︎</button>
+        <h3 id="reviewWeekTitle">Today, Week of December 30</h3>
+        <button class="btn" onclick="changeReviewWeek(1)">▶︎</button>
+      </div>
+      <textarea class="weekly-review" id="weeklyReview"
+        placeholder="How was your week? What did you accomplish? What could be better?"></textarea>
+      <button class="btn" onclick="saveWeeklyReview()" style="margin-top:12px;">Save Review</button>
+    </div>
+
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+
+</html>
