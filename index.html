@@ -218,28 +218,12 @@
 
 
     <!-- 3. MINI LISTS (Goals 2026, Shopping, Chores) -->
-    <div class="mini-lists-row">
-      <!-- Goals 2026 -->
-      <div class="glass-panel list-panel">
-        <h3>🚀 Goals 2026</h3>
-        <div class="simple-list" id="goals2026List"></div>
-        <button class="btn" onclick="addListItem('goals2026')" style="margin-top:12px;">+ Add Goal</button>
-      </div>
+    <div id="unifiedListsGrid" class="lists-grid"></div>
 
-      <!-- Shopping List -->
-      <div class="glass-panel list-panel">
-        <h3>🛒 Shopping List</h3>
-        <div class="simple-list" id="shoppingList"></div>
-        <button class="btn" onclick="addListItem('shopping')" style="margin-top:12px;">+ Add Item</button>
-      </div>
-
-      <!-- Weekly Chores -->
-      <div class="glass-panel list-panel">
-        <h3>🧹 Weekly Chores</h3>
-        <div class="simple-list" id="choresList"></div>
-        <button class="btn" onclick="addListItem('chores')" style="margin-top:12px;">+ Add Chore</button>
-      </div>
-    </div>
+    <button class="btn glass-panel" onclick="createNewCustomList()"
+      style="width: auto; min-width: 200px; border: 1px dashed rgba(255,255,255,0.3); justify-content: center; padding: 12px 24px; opacity: 0.8; margin: 0 auto 24px auto; display: flex;">
+      + Create New List
+    </button>
 
     <div class="divider"></div>
 

@@ -1815,22 +1815,21 @@ window.saveNotes = () => {
 };
 
 // ===== SIMPLE LISTS (Goals 2026, Shopping, Chores) =====
-const listConfigs = {
-  goals2026: { key: 'list-goals2026', elementId: 'goals2026List' },
-  shopping: { key: 'list-shopping', elementId: 'shoppingList' },
-  chores: { key: 'list-chores', elementId: 'choresList' }
-};
+// Unified dynamic lists
+function getListConfig(name) {
+  return { key: 'list-' + name, elementId: name + 'List' };
+}
 
 function getListItems(listName) {
-  return db.get(listConfigs[listName].key, []);
+  return db.get(getListConfig(listName).key, []);
 }
 
 function setListItems(listName, items) {
-  db.set(listConfigs[listName].key, items);
+  db.set(getListConfig(listName).key, items);
 }
 
 function renderSimpleList(listName) {
-  const config = listConfigs[listName];
+  const config = getListConfig(listName);
   const container = document.getElementById(config.elementId);
   if (!container) return;
 
@@ -1937,17 +1936,20 @@ function renderSimpleList(listName) {
 }
 
 window.addListItem = async (listName) => {
-  const prompts = {
+  const defaults = {
     goals2026: "What's your goal for 2026?",
     shopping: "What do you need to buy?",
     chores: "What chore needs doing?"
   };
 
-  const text = await showInputModal(
-    listName === 'goals2026' ? 'New 2026 Goal' :
-      listName === 'shopping' ? 'Add to Shopping List' : 'New Chore',
-    prompts[listName]
-  );
+  let modalTitle = 'New List Item';
+  if (listName === 'goals2026') modalTitle = 'New 2026 Goal';
+  else if (listName === 'shopping') modalTitle = 'Add to Shopping List';
+  else if (listName === 'chores') modalTitle = 'New Chore';
+
+  const promptText = defaults[listName] || "Add item to list";
+
+  const text = await showInputModal(modalTitle, promptText);
 
   if (!text || !text.trim()) return;
 
@@ -1959,10 +1961,84 @@ window.addListItem = async (listName) => {
 };
 
 function renderAllLists() {
-  renderSimpleList('goals2026');
-  renderSimpleList('shopping');
-  renderSimpleList('chores');
+  initUnifiedLists();
+  renderUnifiedLists();
 }
+
+// ===== UNIFIED LISTS LOGIC =====
+
+window.initUnifiedLists = () => {
+  if (localStorage.getItem('unifiedListsInited')) return;
+
+  // Seed defaults
+  const defaults = [
+    { id: 'goals2026', title: '🚀 Goals 2026' },
+    { id: 'shopping', title: '🛒 Shopping List' },
+    { id: 'chores', title: '🧹 Weekly Chores' }
+  ];
+
+  // Merge with any existing custom lists (from previous step testing)
+  const existing = db.get('customListsMeta', []);
+  // Filter out duplicates if somehow present
+  const final = [...defaults, ...existing.filter(e => !defaults.find(d => d.id === e.id))];
+
+  db.set('customListsMeta', final);
+  localStorage.setItem('unifiedListsInited', 'true');
+};
+
+window.createNewCustomList = () => {
+  const meta = db.get('customListsMeta', []);
+  const id = 'custom-' + Date.now();
+  meta.push({ id, title: 'Custom List' });
+  db.set('customListsMeta', meta);
+  renderUnifiedLists();
+};
+
+window.renderUnifiedLists = () => {
+  const container = document.getElementById('unifiedListsGrid');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const meta = db.get('customListsMeta', []);
+  meta.forEach(list => {
+    const div = document.createElement('div');
+    div.className = 'glass-panel list-panel';
+    div.innerHTML = `
+            <button class="delete-list-btn" onclick="deleteList('${list.id}')" title="Delete List">×</button>
+            <h3 contenteditable="true" 
+                id="title-${list.id}"
+                onblur="updateListTitle('${list.id}', this)"
+                style="outline:none; cursor:text; padding-bottom:2px; 
+                       border-bottom: ${list.title === 'Custom List' ? '1px dashed rgba(255,255,255,0.2)' : 'none'};"
+                title="Click to edit">${list.title}</h3>
+            <div class="simple-list" id="${list.id}List"></div>
+            <button class="btn" onclick="addListItem('${list.id}')" style="margin-top:auto;">+ Add Item</button>
+        `;
+    container.appendChild(div);
+
+    renderSimpleList(list.id);
+  });
+};
+
+window.updateListTitle = (id, el) => {
+  const meta = db.get('customListsMeta', []);
+  const list = meta.find(m => m.id === id);
+  if (list) {
+    list.title = el.innerText;
+    db.set('customListsMeta', meta);
+    // Toggle border
+    el.style.borderBottom = list.title === 'Custom List' ? '1px dashed rgba(255,255,255,0.2)' : 'none';
+  }
+};
+
+window.deleteList = (id) => {
+  if (!confirm('Delete this list?')) return;
+  const meta = db.get('customListsMeta', []);
+  const newMeta = meta.filter(m => m.id !== id);
+  db.set('customListsMeta', newMeta);
+  localStorage.removeItem('list-' + id);
+  renderUnifiedLists();
+};
 
 // ===== WEEKLY REVIEW =====
 let reviewDebounceTimer = null;

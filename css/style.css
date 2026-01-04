@@ -2019,12 +2019,12 @@ body.dark .task-item:hover {
 }
 
 /* ===== MINI LISTS ROW (Goals 2026, Shopping, Chores) ===== */
-.mini-lists-row {
+/* ===== DYNAMIC LISTS GRID ===== */
+.lists-grid {
     display: grid;
-    grid-template-columns: 360px 1fr 1fr;
-    /* Match Pomo width */
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 24px;
-    /* Match main layout gap */
+    align-items: start;
     margin-bottom: 24px;
 }
 
@@ -2033,12 +2033,48 @@ body.dark .task-item:hover {
     margin-bottom: 0;
     display: flex;
     flex-direction: column;
+    position: relative;
+    /* For absolute delete button */
 }
 
 .list-panel h3 {
     margin-bottom: 16px;
     font-size: 1rem;
     text-align: center;
+    width: 100%;
+    display: block;
+}
+
+.delete-list-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(255, 100, 100, 0.1);
+    color: var(--danger-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s;
+    border: none;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0;
+    padding-bottom: 2px;
+    /* Visual center adjustment */
+}
+
+.list-panel:hover .delete-list-btn {
+    opacity: 1;
+}
+
+.delete-list-btn:hover {
+    background: var(--danger-color);
+    color: white;
 }
 
 .quick-notes:focus {
