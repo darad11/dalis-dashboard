@@ -1314,13 +1314,22 @@ window.deleteGoal = (idx) => {
 };
 
 // ===== QUICK NOTES =====
+let notesDebounceTimer = null;
+
 function loadNotes() {
   els.quickNotes.value = db.getNotes(currentNotesDate);
+
+  // Set up auto-save on input
+  els.quickNotes.oninput = () => {
+    clearTimeout(notesDebounceTimer);
+    notesDebounceTimer = setTimeout(() => {
+      db.setNotes(els.quickNotes.value, currentNotesDate);
+    }, 500);
+  };
 }
 
 window.saveNotes = () => {
   db.setNotes(els.quickNotes.value, currentNotesDate);
-  sounds.click();
 };
 
 // ===== SIMPLE LISTS (Goals 2026, Shopping, Chores) =====
@@ -1440,15 +1449,23 @@ function renderAllLists() {
 }
 
 // ===== WEEKLY REVIEW =====
+let reviewDebounceTimer = null;
+
 function loadWeeklyReview() {
   els.weeklyReview.value = db.getWeeklyReview(currentReviewWeekDate);
   updateReviewTitle();
+
+  // Set up auto-save on input
+  els.weeklyReview.oninput = () => {
+    clearTimeout(reviewDebounceTimer);
+    reviewDebounceTimer = setTimeout(() => {
+      db.setWeeklyReview(els.weeklyReview.value, currentReviewWeekDate);
+    }, 500);
+  };
 }
 
 window.saveWeeklyReview = () => {
   db.setWeeklyReview(els.weeklyReview.value, currentReviewWeekDate);
-  sounds.click();
-  alert("Review saved!");
 };
 
 function updateReviewTitle() {
