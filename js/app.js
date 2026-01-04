@@ -808,7 +808,14 @@ function completePomodoro() {
 function updatePomoDisplay() {
   const mins = Math.floor(pomo.timeLeft / 60);
   const secs = pomo.timeLeft % 60;
-  els.pomoTime.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  els.pomoTime.textContent = timeStr;
+
+  // Update PiP timer too
+  const pipTime = document.getElementById('pipTime');
+  const pipPlayPause = document.getElementById('pipPlayPause');
+  if (pipTime) pipTime.textContent = timeStr;
+  if (pipPlayPause) pipPlayPause.textContent = pomo.isRunning ? '⏸' : '▶';
 
   const total = pomo.modes[pomo.currentMode];
   const progress = (total - pomo.timeLeft) / total;
@@ -816,6 +823,12 @@ function updatePomoDisplay() {
   els.pomoRing.style.strokeDashoffset = circumference * (1 - progress);
   els.pomoCount.textContent = pomo.sessions;
 }
+
+// Toggle Picture-in-Picture timer
+window.togglePiP = () => {
+  const pip = document.getElementById('pipTimer');
+  pip.classList.toggle('visible');
+};
 
 // ===== CALENDAR =====
 function changeMonth(delta) {
