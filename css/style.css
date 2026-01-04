@@ -2021,8 +2021,10 @@ body.dark .task-item:hover {
 /* ===== MINI LISTS ROW (Goals 2026, Shopping, Chores) ===== */
 .mini-lists-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
+    grid-template-columns: 360px 1fr 1fr;
+    /* Match Pomo width */
+    gap: 24px;
+    /* Match main layout gap */
     margin-bottom: 24px;
 }
 
@@ -2465,21 +2467,38 @@ body.dark .simple-list-item:hover {
     /* Wrap on small screens */
 }
 
+
+
+/* Right Column (Goals) */
 .dashboard-sidebar {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    /* Push Goals to top, Notes to bottom */
     gap: 24px;
     flex: 1;
+    /* Sidebar fills remaining width */
     min-width: 350px;
 }
 
-.dashboard-sidebar .notes-container {
-    flex: 0 0 auto;
+.dashboard-sidebar .goals-container {
+    flex: 1;
+    /* Goals fills fixed Sidebar height */
+    min-height: 500px;
+    /* Force it to be tall */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-.dashboard-sidebar .quick-notes {
+.dashboard-sidebar .goals-list {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    max-height: 420px;
+    /* Cap at ~7 goals to prevent layout expansion */
+    padding-right: 4px;
+}
+
+.quick-notes {
     width: 100%;
     min-height: 180px;
     resize: vertical;
@@ -2489,11 +2508,8 @@ body.dark .simple-list-item:hover {
     display: flex;
     align-items: flex-start;
     padding: 0 !important;
-    /* Override .glass-panel padding */
     margin-bottom: 0 !important;
-    /* Alignment fix */
     overflow: hidden;
-    /* Ensure rounded corners clip content */
 }
 
 .dashboard-sidebar .glass-panel {
@@ -2502,7 +2518,7 @@ body.dark .simple-list-item:hover {
 }
 
 .pomodoro-section {
-    width: 400px;
+    width: 360px;
     padding: 24px;
     flex-shrink: 0;
 }
@@ -2521,7 +2537,7 @@ body.dark .simple-list-item:hover {
 
 /* Open State */
 .combined-glass-panel.stats-open .stats-section {
-    width: 400px;
+    width: 360px;
     opacity: 1;
     padding: 24px;
     /* No border divider */

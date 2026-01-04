@@ -98,7 +98,7 @@
             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
             <h3 style="margin-bottom: 0;">🍅 Pomodoro</h3>
             <button class="btn icon-btn" onclick="toggleStats()" id="btnToggleStats" title="Show Statistics"
-              style="width: 32px; height: 32px; font-size: 1rem;">📊</button>
+              style="width: 32px; height: 32px; font-size: 1rem; margin-right: 12px;">📊</button>
           </div>
           <div class="pomodoro-modes">
             <button class="pomo-mode-btn active" data-mode="work">Focus</button>
@@ -173,6 +173,10 @@
         </div>
       </div>
 
+
+
+
+
       <!-- PiP Timer (Hidden) -->
       <div class="pip-timer" id="pipTimer">
         <div class="pip-header">
@@ -198,16 +202,17 @@
           <button class="btn" onclick="addGoal()" style="margin-top:12px;">+ Add Goal</button>
         </div>
 
-        <!-- Quick Notes -->
-        <div class="glass-panel notes-container">
-          <div class="section-nav">
-            <button class="btn nav-btn" onclick="changeNotesDate(-1)">◀</button>
-            <h2 id="notesTitle">📝 Quick Notes</h2>
-            <button class="btn nav-btn" onclick="changeNotesDate(1)">▶</button>
-          </div>
-          <textarea class="quick-notes" id="quickNotes" placeholder="Jot down thoughts, ideas, reminders..."></textarea>
-        </div>
       </div>
+    </div>
+
+    <!-- Quick Notes (Full Width) -->
+    <div class="glass-panel notes-container" style="margin-bottom: 24px;">
+      <div class="section-nav">
+        <button class="btn nav-btn" onclick="changeNotesDate(-1)">◀</button>
+        <h2 id="notesTitle">📝 Quick Notes</h2>
+        <button class="btn nav-btn" onclick="changeNotesDate(1)">▶</button>
+      </div>
+      <textarea class="quick-notes" id="quickNotes" placeholder="Jot down thoughts, ideas, reminders..."></textarea>
     </div>
 
 
