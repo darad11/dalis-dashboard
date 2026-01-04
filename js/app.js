@@ -817,6 +817,22 @@ function updatePomoDisplay() {
   if (pipTime) pipTime.textContent = timeStr;
   if (pipPlayPause) pipPlayPause.textContent = pomo.isRunning ? '⏸' : '▶';
 
+  // Update Document PiP window if open
+  if (pomo.pipWindow && !pomo.pipWindow.closed) {
+    const pipDoc = pomo.pipWindow.document;
+    const pipTimeEl = pipDoc.getElementById('docPipTime');
+    const pipBtnEl = pipDoc.getElementById('docPipBtn');
+    if (pipTimeEl) pipTimeEl.textContent = timeStr;
+    if (pipBtnEl) pipBtnEl.textContent = pomo.isRunning ? '⏸' : '▶';
+  }
+
+  // Update browser tab title when timer is running
+  if (pomo.isRunning) {
+    document.title = `${timeStr} - Pomodoro | dali's dashboard`;
+  } else {
+    document.title = "dali's dashboard";
+  }
+
   const total = pomo.modes[pomo.currentMode];
   const progress = (total - pomo.timeLeft) / total;
   const circumference = 283;
@@ -825,9 +841,72 @@ function updatePomoDisplay() {
 }
 
 // Toggle Picture-in-Picture timer
-window.togglePiP = () => {
-  const pip = document.getElementById('pipTimer');
-  pip.classList.toggle('visible');
+window.togglePiP = async () => {
+  // Try Document Picture-in-Picture API first (Chrome 116+)
+  if ('documentPictureInPicture' in window) {
+    try {
+      // If already open, close it
+      if (pomo.pipWindow && !pomo.pipWindow.closed) {
+        pomo.pipWindow.close();
+        pomo.pipWindow = null;
+        return;
+      }
+
+      // Open Document PiP window
+      pomo.pipWindow = await documentPictureInPicture.requestWindow({
+        width: 180,
+        height: 120
+      });
+
+      // Add styles to PiP window
+      const style = pomo.pipWindow.document.createElement('style');
+      style.textContent = `
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+          color: white;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          margin: 0;
+          gap: 10px;
+        }
+        .time { font-size: 2.5rem; font-weight: 700; font-family: monospace; }
+        .btn { 
+          background: #6366f1; border: none; color: white; 
+          width: 40px; height: 40px; border-radius: 50%; 
+          cursor: pointer; font-size: 1.1rem;
+        }
+        .btn:hover { background: #818cf8; }
+      `;
+      pomo.pipWindow.document.head.appendChild(style);
+
+      // Add content
+      const mins = Math.floor(pomo.timeLeft / 60);
+      const secs = pomo.timeLeft % 60;
+      const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+      pomo.pipWindow.document.body.innerHTML = `
+        <div class="time" id="docPipTime">${timeStr}</div>
+        <button class="btn" id="docPipBtn" onclick="parent.togglePomodoro()">${pomo.isRunning ? '⏸' : '▶'}</button>
+      `;
+
+      // Make togglePomodoro available to PiP window
+      pomo.pipWindow.togglePomodoro = togglePomodoro;
+
+    } catch (e) {
+      console.log('Document PiP not supported, using in-page PiP');
+      // Fallback to in-page PiP
+      const pip = document.getElementById('pipTimer');
+      pip.classList.toggle('visible');
+    }
+  } else {
+    // Fallback to in-page PiP for unsupported browsers
+    const pip = document.getElementById('pipTimer');
+    pip.classList.toggle('visible');
+  }
 };
 
 // ===== CALENDAR =====
