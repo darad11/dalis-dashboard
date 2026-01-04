@@ -1855,12 +1855,13 @@ body.dark .task-item:hover {
     max-height: 200px;
     overflow-y: auto;
     overflow-x: hidden;
-    scrollbar-width: thin;
+    scrollbar-width: none;
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */
 .simple-list::-webkit-scrollbar {
-    width: 4px;
+    width: 0;
+    display: none;
 }
 
 .simple-list::-webkit-scrollbar-track {
@@ -1868,8 +1869,7 @@ body.dark .task-item:hover {
 }
 
 .simple-list::-webkit-scrollbar-thumb {
-    background: var(--glass-border);
-    border-radius: 4px;
+    background: transparent;
 }
 
 .simple-list-item {
