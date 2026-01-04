@@ -404,6 +404,15 @@ window.changeWeek = (delta) => {
   updateTitles();
 };
 
+window.goToWeekToday = () => {
+  currentWeekDate = new Date();
+  renderKanban();
+  renderHabits();
+  loadWeeklyReview();
+  updateStats();
+  updateTitles();
+};
+
 function setupEventListeners() {
   document.getElementById('prevMonth').onclick = () => changeMonth(-1);
   document.getElementById('nextMonth').onclick = () => changeMonth(1);
@@ -701,6 +710,12 @@ function updateStatsTitle() {
 
 window.changeStatsWeek = (delta) => {
   currentStatsWeekDate.setDate(currentStatsWeekDate.getDate() + (delta * 7));
+  updateStats();
+  updateStatsTitle();
+};
+
+window.goToStatsToday = () => {
+  currentStatsWeekDate = new Date();
   updateStats();
   updateStatsTitle();
 };
@@ -1256,6 +1271,12 @@ window.changeHabitsWeek = (delta) => {
   updateHabitsTitle();
 };
 
+window.goToHabitsToday = () => {
+  currentHabitsWeekDate = new Date();
+  renderHabits();
+  updateHabitsTitle();
+};
+
 // ===== TODAY'S GOALS =====
 function renderGoals() {
   const goals = db.getGoals();
@@ -1504,6 +1525,11 @@ function updateReviewTitle() {
 
 window.changeReviewWeek = (delta) => {
   currentReviewWeekDate.setDate(currentReviewWeekDate.getDate() + (delta * 7));
+  loadWeeklyReview();
+};
+
+window.goToReviewToday = () => {
+  currentReviewWeekDate = new Date();
   loadWeeklyReview();
 };
 

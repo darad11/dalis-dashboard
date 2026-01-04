@@ -132,7 +132,10 @@
       <div class="stats-container glass-panel">
         <div class="calendar-header">
           <button class="btn" onclick="changeStatsWeek(-1)">◀︎</button>
-          <h3 id="statsWeekTitle">📊 Week of December 30</h3>
+          <div class="calendar-title-group">
+            <h3 id="statsWeekTitle">📊 Week of December 30</h3>
+            <button class="btn today-btn" onclick="goToStatsToday()">Today</button>
+          </div>
           <button class="btn" onclick="changeStatsWeek(1)">▶︎</button>
         </div>
         <div class="stats-grid">
@@ -240,7 +243,10 @@
     <!-- 4. WEEKLY FOCUS -->
     <div class="week-nav-header glass-panel">
       <button class="btn nav-btn" onclick="changeWeek(-1)">◀ Prev</button>
-      <h2 id="weekTitle">⚡ Friday, January 3</h2>
+      <div class="calendar-title-group">
+        <h2 id="weekTitle">⚡ Friday, January 3</h2>
+        <button class="btn today-btn" onclick="goToWeekToday()">Today</button>
+      </div>
       <button class="btn nav-btn" onclick="changeWeek(1)">Next ▶</button>
     </div>
 
@@ -260,7 +266,10 @@
     <div class="glass-panel">
       <div class="calendar-header">
         <button class="btn" onclick="changeHabitsWeek(-1)">◀︎</button>
-        <h3 id="habitsWeekTitle">Today, Week of December 30</h3>
+        <div class="calendar-title-group">
+          <h3 id="habitsWeekTitle">Today, Week of December 30</h3>
+          <button class="btn today-btn" onclick="goToHabitsToday()">Today</button>
+        </div>
         <button class="btn" onclick="changeHabitsWeek(1)">▶︎</button>
       </div>
       <div class="center-actions" style="margin-bottom:20px; justify-content:flex-end;">
@@ -276,7 +285,10 @@
     <div class="glass-panel">
       <div class="calendar-header">
         <button class="btn" onclick="changeReviewWeek(-1)">◀︎</button>
-        <h3 id="reviewWeekTitle">Today, Week of December 30</h3>
+        <div class="calendar-title-group">
+          <h3 id="reviewWeekTitle">Today, Week of December 30</h3>
+          <button class="btn today-btn" onclick="goToReviewToday()">Today</button>
+        </div>
         <button class="btn" onclick="changeReviewWeek(1)">▶︎</button>
       </div>
       <textarea class="weekly-review" id="weeklyReview"
