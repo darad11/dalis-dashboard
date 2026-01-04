@@ -628,20 +628,10 @@ h2 {
     }
 }
 
-/* Austrian Holiday Styling */
-.day-cell.holiday {
-    background: rgba(239, 68, 68, 0.08);
-    border-color: rgba(239, 68, 68, 0.3);
-}
-
-body.dark .day-cell.holiday {
-    background: rgba(239, 68, 68, 0.15);
-    border-color: rgba(239, 68, 68, 0.4);
-}
-
+/* Austrian Holiday Styling - day cell looks normal, turns red on hover */
 .day-cell.holiday:hover {
-    background: rgba(239, 68, 68, 0.15);
-    border-color: rgba(239, 68, 68, 0.5);
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.4);
 }
 
 .holiday-label {
