@@ -567,7 +567,7 @@ h2 {
     background: rgba(255, 255, 255, 0.05);
     border: 2px solid var(--glass-border);
     border-radius: var(--radius-md);
-    min-height: 140px;
+    min-height: 180px;
     padding: 10px;
     position: relative;
     transition: all var(--transition-fast);
