@@ -968,6 +968,150 @@ body.dark .task-item:hover {
     }
 }
 
+/* ===== HABIT ANALYTICS ===== */
+.habit-analytics {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--glass-border);
+}
+
+.habit-analytics h4 {
+    margin: 0 0 20px 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.habit-analytics h5 {
+    margin: 0 0 16px 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.habit-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.habit-stat-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.habit-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.habit-stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent-color);
+    margin-bottom: 4px;
+}
+
+.habit-stat-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* Per-Habit Breakdown */
+.habit-breakdown {
+    margin-bottom: 24px;
+}
+
+.habit-breakdown-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.habit-breakdown-item:last-child {
+    border-bottom: none;
+}
+
+.habit-breakdown-name {
+    width: 120px;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.habit-breakdown-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.habit-breakdown-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-color), var(--accent-light));
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.habit-breakdown-percent {
+    width: 50px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent-color);
+    text-align: right;
+}
+
+/* Weekly Trend Chart */
+.habit-chart-container {
+    margin-top: 24px;
+}
+
+.habit-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px;
+    height: 120px;
+    padding: 16px 0;
+}
+
+.habit-chart-bar {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.habit-chart-bar-fill {
+    width: 100%;
+    max-width: 40px;
+    background: linear-gradient(180deg, var(--accent-color), var(--accent-light));
+    border-radius: 4px 4px 0 0;
+    transition: height 0.5s ease;
+    min-height: 4px;
+}
+
+.habit-chart-bar-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.habit-chart-bar-value {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
 /* Week complete celebration */
 .habit-week-complete {
     animation: weekComplete 2s ease;
@@ -2509,6 +2653,29 @@ body {
     .goals-container .section-nav h2 {
         font-size: 0.85rem;
         white-space: nowrap;
+    }
+
+    /* Habit Analytics Mobile */
+    .habit-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .habit-stat-value {
+        font-size: 1.5rem;
+    }
+
+    .habit-breakdown-name {
+        width: 80px;
+        font-size: 0.75rem;
+    }
+
+    .habit-chart {
+        height: 100px;
+    }
+
+    .habit-chart-bar-fill {
+        max-width: 30px;
     }
 }
 

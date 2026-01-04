@@ -1197,6 +1197,9 @@ function renderHabits() {
 
     els.habitsList.appendChild(row);
   });
+
+  // Update analytics
+  calculateHabitAnalytics();
 }
 
 function deleteHabit(index) {
@@ -1236,6 +1239,205 @@ window.goToHabitsToday = () => {
   renderHabits();
   updateHabitsTitle();
 };
+
+// ===== HABIT ANALYTICS =====
+function getMondayOfWeek(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function getHabitKeyForWeek(weekDate, hIdx, dayIdx) {
+  const monday = getMondayOfWeek(weekDate);
+  const year = monday.getFullYear();
+
+  // Calculate week number for the Monday
+  const firstDayOfYear = new Date(year, 0, 1);
+  const pastDaysOfYear = (monday - firstDayOfYear) / 86400000;
+  const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+
+  return `habitsData-${year}-W${weekNum}-h${hIdx}-d${dayIdx}`;
+}
+
+function calculateHabitAnalytics() {
+  const habits = db.getAllHabits();
+  if (habits.length === 0) {
+    document.getElementById('habitAnalytics').style.display = 'none';
+    return;
+  }
+  document.getElementById('habitAnalytics').style.display = 'block';
+
+  const today = new Date();
+  const currentMonday = getMondayOfWeek(today);
+
+  // Calculate this week's completion rate
+  let thisWeekDone = 0;
+  let thisWeekTotal = 0;
+  const todayDayIdx = today.getDay() === 0 ? 6 : today.getDay() - 1;
+
+  for (let h = 0; h < habits.length; h++) {
+    for (let d = 0; d <= todayDayIdx; d++) {
+      thisWeekTotal++;
+      const key = getHabitKeyForWeek(currentMonday, h, d);
+      if (localStorage.getItem(key)) thisWeekDone++;
+    }
+  }
+  const thisWeekRate = thisWeekTotal > 0 ? Math.round((thisWeekDone / thisWeekTotal) * 100) : 0;
+  document.getElementById('habitOverallRate').textContent = `${thisWeekRate}%`;
+
+  // Calculate last 4 weeks completion rate
+  let last4WeeksDone = 0;
+  let last4WeeksTotal = 0;
+  for (let w = 0; w < 4; w++) {
+    const weekDate = new Date(currentMonday);
+    weekDate.setDate(currentMonday.getDate() - (w * 7));
+    const maxDay = w === 0 ? todayDayIdx : 6;
+
+    for (let h = 0; h < habits.length; h++) {
+      for (let d = 0; d <= maxDay; d++) {
+        last4WeeksTotal++;
+        const key = getHabitKeyForWeek(weekDate, h, d);
+        if (localStorage.getItem(key)) last4WeeksDone++;
+      }
+    }
+  }
+  const monthlyRate = last4WeeksTotal > 0 ? Math.round((last4WeeksDone / last4WeeksTotal) * 100) : 0;
+  document.getElementById('habitMonthlyRate').textContent = `${monthlyRate}%`;
+
+  // Calculate current streak (consecutive days with ALL habits done)
+  let currentStreak = 0;
+  let checkDate = new Date(today);
+  checkDate.setHours(0, 0, 0, 0);
+
+  while (true) {
+    const dayOfWeek = checkDate.getDay();
+    const dayIdx = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    let allDone = true;
+
+    for (let h = 0; h < habits.length; h++) {
+      const key = getHabitKeyForWeek(checkDate, h, dayIdx);
+      if (!localStorage.getItem(key)) {
+        allDone = false;
+        break;
+      }
+    }
+
+    if (allDone) {
+      currentStreak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
+    }
+
+    // Limit search to 365 days
+    if (currentStreak > 365) break;
+  }
+  document.getElementById('habitCurrentStreak').textContent = currentStreak;
+
+  // Calculate best streak (search last 52 weeks)
+  let bestStreak = currentStreak;
+  let tempStreak = 0;
+  checkDate = new Date(today);
+  checkDate.setDate(checkDate.getDate() - 365);
+
+  for (let i = 0; i < 365; i++) {
+    const dayOfWeek = checkDate.getDay();
+    const dayIdx = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    let allDone = true;
+
+    for (let h = 0; h < habits.length; h++) {
+      const key = getHabitKeyForWeek(checkDate, h, dayIdx);
+      if (!localStorage.getItem(key)) {
+        allDone = false;
+        break;
+      }
+    }
+
+    if (allDone) {
+      tempStreak++;
+      if (tempStreak > bestStreak) bestStreak = tempStreak;
+    } else {
+      tempStreak = 0;
+    }
+
+    checkDate.setDate(checkDate.getDate() + 1);
+  }
+  document.getElementById('habitBestStreak').textContent = bestStreak;
+
+  // Per-habit breakdown (last 4 weeks)
+  const breakdownContainer = document.getElementById('habitBreakdown');
+  breakdownContainer.innerHTML = '<h5>Per-Habit Performance (Last 4 Weeks)</h5>';
+
+  habits.forEach((habit, hIdx) => {
+    let habitDone = 0;
+    let habitTotal = 0;
+
+    for (let w = 0; w < 4; w++) {
+      const weekDate = new Date(currentMonday);
+      weekDate.setDate(currentMonday.getDate() - (w * 7));
+      const maxDay = w === 0 ? todayDayIdx : 6;
+
+      for (let d = 0; d <= maxDay; d++) {
+        habitTotal++;
+        const key = getHabitKeyForWeek(weekDate, hIdx, d);
+        if (localStorage.getItem(key)) habitDone++;
+      }
+    }
+
+    const percent = habitTotal > 0 ? Math.round((habitDone / habitTotal) * 100) : 0;
+
+    const item = document.createElement('div');
+    item.className = 'habit-breakdown-item';
+    item.innerHTML = `
+      <div class="habit-breakdown-name" title="${habit}">${habit}</div>
+      <div class="habit-breakdown-bar">
+        <div class="habit-breakdown-fill" style="width: ${percent}%"></div>
+      </div>
+      <div class="habit-breakdown-percent">${percent}%</div>
+    `;
+    breakdownContainer.appendChild(item);
+  });
+
+  // Weekly trend chart (last 8 weeks)
+  const chartContainer = document.getElementById('habitChart');
+  chartContainer.innerHTML = '';
+
+  const weeklyRates = [];
+  for (let w = 7; w >= 0; w--) {
+    const weekDate = new Date(currentMonday);
+    weekDate.setDate(currentMonday.getDate() - (w * 7));
+
+    let weekDone = 0;
+    let weekTotal = 0;
+    const maxDay = w === 0 ? todayDayIdx : 6;
+
+    for (let h = 0; h < habits.length; h++) {
+      for (let d = 0; d <= maxDay; d++) {
+        weekTotal++;
+        const key = getHabitKeyForWeek(weekDate, h, d);
+        if (localStorage.getItem(key)) weekDone++;
+      }
+    }
+
+    const rate = weekTotal > 0 ? Math.round((weekDone / weekTotal) * 100) : 0;
+    const weekLabel = w === 0 ? 'Now' : `-${w}w`;
+    weeklyRates.push({ rate, label: weekLabel });
+  }
+
+  weeklyRates.forEach(({ rate, label }) => {
+    const bar = document.createElement('div');
+    bar.className = 'habit-chart-bar';
+    bar.innerHTML = `
+      <div class="habit-chart-bar-value">${rate}%</div>
+      <div class="habit-chart-bar-fill" style="height: ${rate}px"></div>
+      <div class="habit-chart-bar-label">${label}</div>
+    `;
+    chartContainer.appendChild(bar);
+  });
+}
 
 // ===== TODAY'S GOALS =====
 function renderGoals() {
