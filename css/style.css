@@ -2209,13 +2209,13 @@ body.dark .simple-list-item:hover {
 
 /* Urgency colors for goals */
 .focus-item.urgency-high {
-    border-left: 3px solid hsl(35, 60%, 55%);
-    background: rgba(210, 160, 80, 0.08);
+    border-left: 3px solid hsl(0, 55%, 50%);
+    background: rgba(180, 80, 80, 0.08);
 }
 
 .focus-item.urgency-medium {
-    border-left: 3px solid hsl(0, 55%, 50%);
-    background: rgba(180, 80, 80, 0.08);
+    border-left: 3px solid hsl(35, 60%, 55%);
+    background: rgba(210, 160, 80, 0.08);
 }
 
 .focus-item.urgency-low {
