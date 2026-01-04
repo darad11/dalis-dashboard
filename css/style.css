@@ -1651,6 +1651,22 @@ body.dark .task-item:hover {
     min-height: 120px;
     max-height: 200px;
     overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.simple-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.simple-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.simple-list::-webkit-scrollbar-thumb {
+    background: var(--glass-border);
+    border-radius: 4px;
 }
 
 .simple-list-item {
@@ -1663,6 +1679,7 @@ body.dark .task-item:hover {
     border: 1px solid var(--glass-border);
     font-size: 0.85rem;
     transition: all 0.2s ease;
+    overflow: hidden;
 }
 
 .simple-list-item:hover {
@@ -1690,18 +1707,15 @@ body.dark .simple-list-item:hover {
 
 @keyframes listItemComplete {
     0% {
-        transform: scale(1);
         background: rgba(255, 255, 255, 0.05);
     }
 
     50% {
-        transform: scale(1.02);
         background: var(--success-color);
         border-color: var(--success-color);
     }
 
     100% {
-        transform: scale(1);
         background: rgba(255, 255, 255, 0.05);
     }
 }
