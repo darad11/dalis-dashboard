@@ -858,16 +858,19 @@ function getAustrianHolidays(year) {
   const easter = getEasterDate(year);
   const holidays = new Map();
 
-  // Fixed holidays
-  holidays.set(`${year}-01-01`, 'Neujahr');
-  holidays.set(`${year}-01-06`, 'Hl. Drei Könige');
-  holidays.set(`${year}-05-01`, 'Staatsfeiertag');
-  holidays.set(`${year}-08-15`, 'Mariä Himmelfahrt');
-  holidays.set(`${year}-10-26`, 'Nationalfeiertag');
-  holidays.set(`${year}-11-01`, 'Allerheiligen');
-  holidays.set(`${year}-12-08`, 'Mariä Empfängnis');
-  holidays.set(`${year}-12-25`, 'Christtag');
-  holidays.set(`${year}-12-26`, 'Stefanitag');
+  // Fixed holidays - Helper function for consistent date formatting
+  const pad = (n) => String(n).padStart(2, '0');
+  const makeKey = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
+
+  holidays.set(makeKey(year, 1, 1), 'Neujahr');
+  holidays.set(makeKey(year, 1, 6), 'Hl. Drei Könige');
+  holidays.set(makeKey(year, 5, 1), 'Staatsfeiertag');
+  holidays.set(makeKey(year, 8, 15), 'Mariä Himmelfahrt');
+  holidays.set(makeKey(year, 10, 26), 'Nationalfeiertag');
+  holidays.set(makeKey(year, 11, 1), 'Allerheiligen');
+  holidays.set(makeKey(year, 12, 8), 'Mariä Empfängnis');
+  holidays.set(makeKey(year, 12, 25), 'Christtag');
+  holidays.set(makeKey(year, 12, 26), 'Stefanitag');
 
   // Easter-based holidays
   const addDays = (date, days) => {
