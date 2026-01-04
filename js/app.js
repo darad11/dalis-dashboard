@@ -237,7 +237,7 @@ const db = {
   reviewKey: (d) => `review-${d.getFullYear()}-W${getWeekNumber(d)}`,
   habitsKey: (d) => `habitsData-${d.getFullYear()}-W${getWeekNumber(d)}`,
 
-  getAllHabits: () => db.get('habits', ["No Phone Morgens", "Steps", "Lesen", "Spanisch"]),
+  getAllHabits: () => db.get('habits', []),
   setHabits: (habits) => db.set('habits', habits),
   getKanban: (weekDate) => db.get(db.weekKey(weekDate || currentWeekDate), {}),
   setKanban: (data, weekDate) => db.set(db.weekKey(weekDate || currentWeekDate), data),
