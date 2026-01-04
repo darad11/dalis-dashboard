@@ -2481,9 +2481,6 @@ body.dark .simple-list-item:hover {
 
 .dashboard-sidebar .goals-container {
     flex: 1;
-    /* Goals fills fixed Sidebar height */
-    min-height: 500px;
-    /* Force it to be tall */
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -2494,8 +2491,14 @@ body.dark .simple-list-item:hover {
     overflow-y: auto;
     min-height: 0;
     max-height: 420px;
-    /* Cap at ~7 goals to prevent layout expansion */
+    /* Scroll after ~7 goals */
     padding-right: 4px;
+    margin-bottom: 24px;
+    scrollbar-width: none;
+}
+
+.dashboard-sidebar .goals-list::-webkit-scrollbar {
+    display: none;
 }
 
 .quick-notes {
