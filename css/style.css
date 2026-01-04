@@ -590,7 +590,7 @@ h2 {
 }
 
 .pip-title {
-    font-size: 0.9rem;
+    display: none;
 }
 
 .pip-close {

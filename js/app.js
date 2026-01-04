@@ -726,18 +726,19 @@ function switchPomoMode(mode) {
   updatePomoDisplay();
 }
 
-function togglePomodoro() {
+window.togglePomodoro = function () {
   if (pomo.isRunning) {
     pausePomodoro();
   } else {
     startPomodoro();
   }
-}
+};
 
 function startPomodoro() {
   pomo.isRunning = true;
   els.pomoStart.textContent = '⏸ Pause';
   document.getElementById('focusStart').textContent = '⏸ Pause';
+  updatePomoDisplay();
 
   // Start ambient sound
   const ambientType = document.getElementById('ambientSelect').value;
@@ -760,6 +761,7 @@ function pausePomodoro() {
   pomo.isRunning = false;
   els.pomoStart.textContent = '▶ Start';
   document.getElementById('focusStart').textContent = '▶ Start';
+  updatePomoDisplay();
   clearInterval(pomo.interval);
 
   // Stop ambient sound
@@ -858,40 +860,78 @@ window.togglePiP = async () => {
         height: 120
       });
 
-      // Add styles to PiP window
-      const style = pomo.pipWindow.document.createElement('style');
-      style.textContent = `
+      // Copy all stylesheets from main window to PiP window
+      [...document.styleSheets].forEach((styleSheet) => {
+        try {
+          const cssRules = [...styleSheet.cssRules].map((rule) => rule.cssText).join('');
+          const style = document.createElement('style');
+          style.textContent = cssRules;
+          pomo.pipWindow.document.head.appendChild(style);
+        } catch (e) {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.type = styleSheet.type;
+          link.media = styleSheet.media;
+          link.href = styleSheet.href;
+          pomo.pipWindow.document.head.appendChild(link);
+        }
+      });
+
+      // Add specific body style for PiP window (dark background, no padding)
+      const bodyStyle = pomo.pipWindow.document.createElement('style');
+      bodyStyle.textContent = `
         body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-          color: white;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          height: 100vh;
-          margin: 0;
-          gap: 10px;
+            background: linear-gradient(135deg, #111827 0%, #1f2937 100%) !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
         }
-        .time { font-size: 2.5rem; font-weight: 700; font-family: monospace; }
-        .btn { 
-          background: #6366f1; border: none; color: white; 
-          width: 40px; height: 40px; border-radius: 50%; 
-          cursor: pointer; font-size: 1.1rem;
+        .pip-timer {
+            position: static !important;
+            display: flex !important;
+            border: none;
+            box-shadow: none;
+            background: transparent;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            animation: none;
+            width: 100%;
+            height: 100%;
         }
-        .btn:hover { background: #818cf8; }
+        .pip-time {
+            color: #ffffff !important;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            font-weight: 800;
+        }
+        .pip-title {
+            display: none !important;
+        }
+        .pip-close { display: none; }
       `;
-      pomo.pipWindow.document.head.appendChild(style);
+      pomo.pipWindow.document.head.appendChild(bodyStyle);
 
-      // Add content
-      const mins = Math.floor(pomo.timeLeft / 60);
-      const secs = pomo.timeLeft % 60;
-      const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      // Add content - clone the existing PiP timer HTML
+      const pipContent = document.getElementById('pipTimer').cloneNode(true);
+      pipContent.id = 'docPipTimer';
 
-      pomo.pipWindow.document.body.innerHTML = `
-        <div class="time" id="docPipTime">${timeStr}</div>
-        <button class="btn" id="docPipBtn" onclick="parent.togglePomodoro()">${pomo.isRunning ? '⏸' : '▶'}</button>
-      `;
+      // Update IDs to be unique in the new window context
+      const timeDisplay = pipContent.querySelector('#pipTime');
+      if (timeDisplay) timeDisplay.id = 'docPipTime';
+
+      // Update button to call parent window function
+      const playBtn = pipContent.querySelector('#pipPlayPause');
+      if (playBtn) {
+        playBtn.id = 'docPipBtn';
+        // Use simple inline attribute which persists in the new window context
+        playBtn.setAttribute('onclick', 'window.opener.togglePomodoro()');
+      }
+
+      // Append content
+      pomo.pipWindow.document.body.appendChild(pipContent);
 
       // Make togglePomodoro available to PiP window
       pomo.pipWindow.togglePomodoro = togglePomodoro;
