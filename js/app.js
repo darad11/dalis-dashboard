@@ -700,7 +700,7 @@ function updateStats() {
 
 function updateStatsTitle() {
   const statsTitle = document.getElementById('statsWeekTitle');
-  statsTitle.textContent = `📊 ${formatWeekRange(currentStatsWeekDate)}`;
+  statsTitle.textContent = formatWeekRange(currentStatsWeekDate);
 }
 
 window.changeStatsWeek = (delta) => {

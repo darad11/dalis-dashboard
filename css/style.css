@@ -1991,13 +1991,7 @@ body.dark .task-item:hover {
     color: var(--text-secondary);
 }
 
-/* ===== GOALS + NOTES ROW (LARGER) ===== */
-.goals-notes-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    margin-bottom: 24px;
-}
+
 
 .goals-container,
 .notes-container {
@@ -2458,11 +2452,37 @@ body.dark .simple-list-item:hover {
 }
 
 /* ===== POMO + STATS ROW ===== */
-/* ===== POMO + STATS MERGED ===== */
-.pomo-stats-row {
+/* ===== MAIN LAYOUT (Pomo + Sidebar) ===== */
+.dashboard-main-layout {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
+    /* Align to left */
+    align-items: stretch;
+    /* Stretch children to match height */
+    gap: 24px;
     margin-bottom: 24px;
+    flex-wrap: wrap;
+    /* Wrap on small screens */
+}
+
+.dashboard-sidebar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    /* Push Goals to top, Notes to bottom */
+    gap: 24px;
+    flex: 1;
+    min-width: 350px;
+}
+
+.dashboard-sidebar .notes-container {
+    flex: 0 0 auto;
+}
+
+.dashboard-sidebar .quick-notes {
+    width: 100%;
+    min-height: 180px;
+    resize: vertical;
 }
 
 .combined-glass-panel {
@@ -2470,8 +2490,15 @@ body.dark .simple-list-item:hover {
     align-items: flex-start;
     padding: 0 !important;
     /* Override .glass-panel padding */
+    margin-bottom: 0 !important;
+    /* Alignment fix */
     overflow: hidden;
     /* Ensure rounded corners clip content */
+}
+
+.dashboard-sidebar .glass-panel {
+    margin-bottom: 0 !important;
+    /* Alignment fix */
 }
 
 .pomodoro-section {
@@ -2497,8 +2524,8 @@ body.dark .simple-list-item:hover {
     width: 400px;
     opacity: 1;
     padding: 24px;
-    border-left: 1px solid var(--glass-border);
-    /* Vertical divider */
+    /* No border divider */
+    transform: translateX(0);
 }
 
 .stats-grid {
