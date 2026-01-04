@@ -1666,9 +1666,43 @@ function renderSimpleList(listName) {
     return;
   }
 
+  // Setup drop zone for drag reordering
+  container.ondragover = (e) => {
+    e.preventDefault();
+    const dragging = container.querySelector('.dragging');
+    const siblings = [...container.querySelectorAll('.simple-list-item:not(.dragging)')];
+    const afterElement = siblings.find(sibling => {
+      const box = sibling.getBoundingClientRect();
+      return e.clientY < box.top + box.height / 2;
+    });
+    if (afterElement) {
+      container.insertBefore(dragging, afterElement);
+    } else if (dragging) {
+      container.appendChild(dragging);
+    }
+  };
+
   items.forEach((item, idx) => {
     const div = document.createElement('div');
     div.className = `simple-list-item ${item.done ? 'done' : ''}`;
+    div.draggable = true;
+    div.dataset.idx = idx;
+
+    // Drag events for reordering
+    div.ondragstart = (e) => {
+      div.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', idx);
+    };
+    div.ondragend = () => {
+      div.classList.remove('dragging');
+      // Save new order
+      const newOrder = [...container.querySelectorAll('.simple-list-item')].map(el => {
+        const i = parseInt(el.dataset.idx);
+        return items[i];
+      });
+      setListItems(listName, newOrder);
+    };
 
     const span = document.createElement('span');
     span.textContent = item.text;

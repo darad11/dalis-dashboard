@@ -1850,6 +1850,17 @@ body.dark .task-item:hover {
     font-size: 0.85rem;
     transition: all 0.2s ease;
     overflow: hidden;
+    cursor: grab;
+}
+
+.simple-list-item:active {
+    cursor: grabbing;
+}
+
+.simple-list-item.dragging {
+    opacity: 0.5;
+    border-color: var(--accent-color);
+    transform: scale(1.02);
 }
 
 .simple-list-item:hover {
