@@ -240,13 +240,14 @@
     <div class="divider"></div>
 
     <!-- 4. WEEKLY FOCUS -->
-    <div class="week-nav-header glass-panel">
-      <button class="btn nav-btn" onclick="changeWeek(-1)">◀ Prev</button>
-      <div class="calendar-title-group">
-        <h2 id="weekTitle">⚡ Friday, January 3</h2>
-        <button class="btn today-btn" onclick="goToWeekToday()">Today</button>
+    <h2>⚡ Weekly Overview & Tasks</h2>
+    <div class="week-nav-header glass-panel" style="flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 24px;">
+        <button class="btn nav-btn" onclick="changeWeek(-1)">◀ Prev</button>
+        <h2 id="weekTitle" style="margin: 0; min-width: 200px; text-align: center;">Friday, January 3</h2>
+        <button class="btn nav-btn" onclick="changeWeek(1)">Next ▶</button>
       </div>
-      <button class="btn nav-btn" onclick="changeWeek(1)">Next ▶</button>
+      <button class="btn today-btn" onclick="goToWeekToday()">Today</button>
     </div>
 
     <h3 class="inspirational-quote">Your future is created by what you do today, not tomorrow</h3>

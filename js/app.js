@@ -379,7 +379,7 @@ function updateTitles() {
 
   // Week title - show date range format DD.MM.YY - DD.MM.YY
   const weekTitle = document.getElementById('weekTitle');
-  weekTitle.textContent = `⚡ ${formatWeekRange(currentWeekDate)}`;
+  weekTitle.textContent = formatWeekRange(currentWeekDate);
 }
 
 window.changeGoalDate = (delta) => {
