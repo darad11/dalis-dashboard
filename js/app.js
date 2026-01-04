@@ -338,6 +338,7 @@ function init() {
   renderCalendar();
   renderHabits();
   renderKanban();
+  rolloverIncompleteGoals(); // Move incomplete goals from previous days to today
   renderGoals();
   loadNotes();
   renderAllLists();
@@ -1440,6 +1441,64 @@ function calculateHabitAnalytics() {
 }
 
 // ===== TODAY'S GOALS =====
+
+// Rollover incomplete goals from previous days to today
+function rolloverIncompleteGoals() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const todayKey = db.goalKey(today);
+  let todayGoals = db.get(todayKey, []);
+  let hasRollovers = false;
+
+  // Check last 30 days for incomplete goals
+  for (let daysAgo = 1; daysAgo <= 30; daysAgo++) {
+    const pastDate = new Date(today);
+    pastDate.setDate(today.getDate() - daysAgo);
+    const pastKey = db.goalKey(pastDate);
+
+    let pastGoals = db.get(pastKey, []);
+    if (pastGoals.length === 0) continue;
+
+    const incomplete = [];
+    const completed = [];
+
+    pastGoals.forEach(goal => {
+      const goalObj = typeof goal === 'string' ? { text: goal, done: false } : goal;
+      if (!goalObj.done) {
+        // Add rollover indicator to the goal
+        incomplete.push({
+          text: goalObj.text,
+          done: false,
+          rolledFrom: pastDate.toISOString()
+        });
+        hasRollovers = true;
+      } else {
+        completed.push(goalObj);
+      }
+    });
+
+    // If there were incomplete goals, move them to today
+    if (incomplete.length > 0) {
+      // Keep only completed goals in the past day
+      db.set(pastKey, completed);
+
+      // Add incomplete goals to today (avoid duplicates)
+      incomplete.forEach(incompleteGoal => {
+        const alreadyExists = todayGoals.some(g => g.text === incompleteGoal.text);
+        if (!alreadyExists) {
+          todayGoals.push(incompleteGoal);
+        }
+      });
+    }
+  }
+
+  // Save today's goals with rollovers
+  if (hasRollovers) {
+    db.set(todayKey, todayGoals);
+  }
+}
+
 function renderGoals() {
   const goals = db.getGoals();
   els.goalsList.innerHTML = "";
