@@ -260,6 +260,28 @@ function getWeekNumber(d) {
   return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
 }
 
+// Helper: Format week range as DD.MM.YY - DD.MM.YY
+function formatWeekRange(weekDate) {
+  const monday = new Date(weekDate);
+  const d = monday.getDay();
+  const diff = monday.getDate() - d + (d === 0 ? -6 : 1);
+  monday.setDate(diff);
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const formatDate = (date) => {
+    const day = pad(date.getDate());
+    const month = pad(date.getMonth() + 1);
+    const year = String(date.getFullYear()).slice(-2);
+    return `${day}.${month}.${year}`;
+  };
+
+  return `${formatDate(monday)} - ${formatDate(sunday)}`;
+}
+
 // ===== UI STATE =====
 let currentDate = new Date();
 let currentGoalDate = new Date(); // For Today's Goals navigation
@@ -355,32 +377,9 @@ function updateTitles() {
     notesTitle.textContent = `📝 Notes - ${currentNotesDate.toLocaleDateString('en-US', options)}`;
   }
 
-  // Week title - show "Week of [Monday date]"
+  // Week title - show date range format DD.MM.YY - DD.MM.YY
   const weekTitle = document.getElementById('weekTitle');
-
-  // Get the Monday of the current week being viewed
-  const monday = new Date(currentWeekDate);
-  const day = monday.getDay();
-  const diff = monday.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
-  monday.setDate(diff);
-
-  // Get the Monday of today's actual week
-  const todayMonday = new Date();
-  const todayDay = todayMonday.getDay();
-  const todayDiff = todayMonday.getDate() - todayDay + (todayDay === 0 ? -6 : 1);
-  todayMonday.setDate(todayDiff);
-  todayMonday.setHours(0, 0, 0, 0);
-  monday.setHours(0, 0, 0, 0);
-
-  const options = { month: 'long', day: 'numeric' };
-  const weekStart = monday.toLocaleDateString('en-US', options);
-
-  // Check if viewing current week
-  if (monday.getTime() === todayMonday.getTime()) {
-    weekTitle.textContent = `⚡ Today, Week of ${weekStart}`;
-  } else {
-    weekTitle.textContent = `⚡ Week of ${weekStart}`;
-  }
+  weekTitle.textContent = `⚡ ${formatWeekRange(currentWeekDate)}`;
 }
 
 window.changeGoalDate = (delta) => {
@@ -683,29 +682,7 @@ function updateStats() {
 
 function updateStatsTitle() {
   const statsTitle = document.getElementById('statsWeekTitle');
-
-  // Get Monday of viewed stats week
-  const monday = new Date(currentStatsWeekDate);
-  const d = monday.getDay();
-  const diff = monday.getDate() - d + (d === 0 ? -6 : 1);
-  monday.setDate(diff);
-  monday.setHours(0, 0, 0, 0);
-
-  // Get Monday of actual current week
-  const todayMonday = new Date();
-  const td = todayMonday.getDay();
-  const tdiff = todayMonday.getDate() - td + (td === 0 ? -6 : 1);
-  todayMonday.setDate(tdiff);
-  todayMonday.setHours(0, 0, 0, 0);
-
-  const options = { month: 'long', day: 'numeric' };
-  const weekStart = monday.toLocaleDateString('en-US', options);
-
-  if (monday.getTime() === todayMonday.getTime()) {
-    statsTitle.textContent = `📊 Today, Week of ${weekStart}`;
-  } else {
-    statsTitle.textContent = `📊 Week of ${weekStart}`;
-  }
+  statsTitle.textContent = `📊 ${formatWeekRange(currentStatsWeekDate)}`;
 }
 
 window.changeStatsWeek = (delta) => {
@@ -1240,29 +1217,7 @@ window.addHabit = async () => {
 
 function updateHabitsTitle() {
   const habitsTitle = document.getElementById('habitsWeekTitle');
-
-  // Get Monday of viewed habits week
-  const monday = new Date(currentHabitsWeekDate);
-  const d = monday.getDay();
-  const diff = monday.getDate() - d + (d === 0 ? -6 : 1);
-  monday.setDate(diff);
-  monday.setHours(0, 0, 0, 0);
-
-  // Get Monday of actual current week
-  const todayMonday = new Date();
-  const td = todayMonday.getDay();
-  const tdiff = todayMonday.getDate() - td + (td === 0 ? -6 : 1);
-  todayMonday.setDate(tdiff);
-  todayMonday.setHours(0, 0, 0, 0);
-
-  const options = { month: 'long', day: 'numeric' };
-  const weekStart = monday.toLocaleDateString('en-US', options);
-
-  if (monday.getTime() === todayMonday.getTime()) {
-    habitsTitle.textContent = `Today, Week of ${weekStart}`;
-  } else {
-    habitsTitle.textContent = `Week of ${weekStart}`;
-  }
+  habitsTitle.textContent = formatWeekRange(currentHabitsWeekDate);
 }
 
 window.changeHabitsWeek = (delta) => {
@@ -1498,29 +1453,7 @@ window.saveWeeklyReview = () => {
 
 function updateReviewTitle() {
   const reviewTitle = document.getElementById('reviewWeekTitle');
-
-  // Get Monday of viewed review week
-  const monday = new Date(currentReviewWeekDate);
-  const d = monday.getDay();
-  const diff = monday.getDate() - d + (d === 0 ? -6 : 1);
-  monday.setDate(diff);
-  monday.setHours(0, 0, 0, 0);
-
-  // Get Monday of actual current week
-  const todayMonday = new Date();
-  const td = todayMonday.getDay();
-  const tdiff = todayMonday.getDate() - td + (td === 0 ? -6 : 1);
-  todayMonday.setDate(tdiff);
-  todayMonday.setHours(0, 0, 0, 0);
-
-  const options = { month: 'long', day: 'numeric' };
-  const weekStart = monday.toLocaleDateString('en-US', options);
-
-  if (monday.getTime() === todayMonday.getTime()) {
-    reviewTitle.textContent = `Today, Week of ${weekStart}`;
-  } else {
-    reviewTitle.textContent = `Week of ${weekStart}`;
-  }
+  reviewTitle.textContent = formatWeekRange(currentReviewWeekDate);
 }
 
 window.changeReviewWeek = (delta) => {
