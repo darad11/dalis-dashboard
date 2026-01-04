@@ -105,7 +105,25 @@ body:not(.dark) .input-modal-field {
     border: 2px solid rgba(0, 0, 0, 0.12);
 }
 
+/* Light mode ambient controls */
+body:not(.dark) .ambient-controls {
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
 
+body:not(.dark) .ambient-select {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+body:not(.dark) .ambient-select:hover {
+    background: rgba(255, 255, 255, 1);
+    border-color: rgba(0, 0, 0, 0.25);
+}
+
+body:not(.dark) .ambient-volume {
+    background: rgba(0, 0, 0, 0.1);
+}
 
 * {
     box-sizing: border-box;
