@@ -615,7 +615,8 @@ h2 {
 .pip-time {
     font-size: 2rem;
     font-weight: 700;
-    font-family: var(--font-mono);
+    font-family: var(--font-main);
+    font-variant-numeric: tabular-nums;
     color: var(--text-primary);
     letter-spacing: -1px;
 }
@@ -1746,8 +1747,9 @@ body.dark .task-item:hover {
 
 .focus-exit-btn {
     position: absolute;
-    top: 20px;
+    top: 80px;
     right: 20px;
+    left: auto;
     background: var(--surface-color);
     border: 1px solid var(--glass-border);
     color: var(--text-primary);

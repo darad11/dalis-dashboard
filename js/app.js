@@ -906,6 +906,8 @@ window.togglePiP = async () => {
             color: #ffffff !important;
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
             font-weight: 800;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            font-variant-numeric: tabular-nums !important;
         }
         .pip-title {
             display: none !important;
