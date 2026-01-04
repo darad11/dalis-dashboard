@@ -946,7 +946,7 @@ function renderCalendar() {
 
     const addBtn = document.createElement("button");
     addBtn.className = "add-task-btn";
-    addBtn.textContent = "+ Task";
+    addBtn.textContent = "+";
     addBtn.onclick = async (e) => {
       e.stopPropagation();
       const text = await showInputModal('New Task', 'What needs to be done?');
@@ -1553,7 +1553,7 @@ function renderKanbanBoard(container, columns, isWeekBased) {
 
     const btn = document.createElement("button");
     btn.className = "kanban-add-btn";
-    btn.textContent = "+ Card";
+    btn.textContent = "+";
     btn.onclick = async () => {
       const t = await showInputModal(`New Card - ${colName}`, 'What needs to be done?');
       if (t && t.trim()) addKanbanItem(colName, { text: t.trim(), done: false, priority: null }, isWeekBased);
