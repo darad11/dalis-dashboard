@@ -80,6 +80,25 @@ body:not(.dark) .habit-check {
     background: rgba(255, 255, 255, 0.9);
 }
 
+body:not(.dark) .habit-check.done {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+/* Light mode habit analytics */
+body:not(.dark) .habit-stat-card {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+body:not(.dark) .habit-breakdown-bar {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+body:not(.dark) .habit-chart-bar {
+    background: rgba(0, 0, 0, 0.04);
+}
+
 body:not(.dark) .focus-item {
     background: rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(0, 0, 0, 0.06);
