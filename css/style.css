@@ -519,8 +519,19 @@ h2 {
 
 .section-nav h2 {
     margin: 0;
-    min-width: 200px;
     text-align: center;
+    min-width: 180px;
+    /* Reduced slightly to keep it compact */
+}
+
+.section-nav .nav-btn {
+    width: 32px;
+    /* Fixed width for perfect alignment */
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
 }
 
 .week-nav-header {
