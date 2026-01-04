@@ -1769,6 +1769,29 @@ body.dark .simple-list-item:hover {
     color: var(--text-secondary);
 }
 
+/* Green flash animation when completing goal */
+.focus-item.completing {
+    animation: goalComplete 0.4s ease;
+}
+
+@keyframes goalComplete {
+    0% {
+        transform: scale(1);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    50% {
+        transform: scale(1.02);
+        background: var(--success-color);
+        border-color: var(--success-color);
+    }
+
+    100% {
+        transform: scale(1);
+        background: rgba(255, 255, 255, 0.05);
+    }
+}
+
 .focus-checkbox {
     appearance: none;
     -webkit-appearance: none;

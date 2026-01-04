@@ -1284,7 +1284,11 @@ function renderGoals() {
 
       if (cb.checked) {
         sounds.success();
-        item.classList.add('done');
+        item.classList.add('completing');
+        setTimeout(() => {
+          item.classList.remove('completing');
+          item.classList.add('done');
+        }, 400);
       } else {
         item.classList.remove('done');
       }
@@ -1404,8 +1408,9 @@ function renderSimpleList(listName) {
       setTimeout(() => renderSimpleList(listName), 450);
     };
 
-    // Double-click to edit
-    span.ondblclick = async (e) => {
+    // Two-finger click (right-click) to edit
+    span.oncontextmenu = async (e) => {
+      e.preventDefault();
       e.stopPropagation();
       const newText = await showInputModal('Edit Item', 'Update...', item.text);
       if (newText && newText.trim()) {
