@@ -954,6 +954,7 @@ function renderCalendar() {
         tasks.push({ text: text.trim(), done: false, priority: null });
         db.set(db.calKey(dateObj), tasks);
         renderCalendar();
+        renderKanban(); // Update weekly overview
       }
     };
 
@@ -1010,6 +1011,7 @@ function createTaskEl(task, dateObj, index) {
       task.text = newText.trim();
       updateTask(dateObj, index, task);
       renderCalendar();
+      renderKanban(); // Update weekly overview
     }
   };
 
@@ -1022,6 +1024,7 @@ function createTaskEl(task, dateObj, index) {
     task.priority = priorities[(currentIdx + 1) % priorities.length];
     updateTask(dateObj, index, task);
     renderCalendar();
+    renderKanban(); // Update weekly overview
   };
 
   const del = document.createElement("button");
@@ -1057,6 +1060,7 @@ function handleCalendarDrop(e, targetDate, box) {
   db.set(toKey, toTasks);
 
   renderCalendar();
+  renderKanban(); // Update weekly overview
 }
 
 function updateTask(dateObj, index, newTask) {
@@ -1070,6 +1074,7 @@ function deleteTask(dateObj, index) {
   tasks.splice(index, 1);
   db.set(db.calKey(dateObj), tasks);
   renderCalendar();
+  renderKanban(); // Update weekly overview
 }
 
 // ===== HABITS =====
@@ -1491,11 +1496,30 @@ function renderKanban() {
   renderKanbanBoard(els.longKanban, ["To Do", "Waiting", "Ideas"], false);
 }
 
+// Helper: Get the date for a weekday column (MO, DI, MI, etc.) in the current viewed week
+function getDateForWeekday(weekdayIndex) {
+  const monday = new Date(currentWeekDate);
+  const d = monday.getDay();
+  const diff = monday.getDate() - d + (d === 0 ? -6 : 1);
+  monday.setDate(diff);
+  monday.setHours(0, 0, 0, 0);
+
+  const targetDate = new Date(monday);
+  targetDate.setDate(monday.getDate() + weekdayIndex);
+  return targetDate;
+}
+
+// Helper: Get calendar tasks for a specific date
+function getCalendarTasksForDate(date) {
+  const key = db.calKey(date);
+  return db.get(key, []);
+}
+
 function renderKanbanBoard(container, columns, isWeekBased) {
   container.innerHTML = "";
   const boardData = isWeekBased ? db.getKanban() : db.get('backlog', {});
 
-  columns.forEach(colName => {
+  columns.forEach((colName, colIndex) => {
     const colDiv = document.createElement("div");
     colDiv.className = "kanban-column";
 
@@ -1506,7 +1530,6 @@ function renderKanbanBoard(container, columns, isWeekBased) {
       // weekdays array is ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]
       // JS getDay(): 0=Sunday, 1=Monday, etc.
       const todayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert to our array
-      const colIndex = columns.indexOf(colName);
 
       // Check if we're viewing current week
       const mondayViewing = new Date(currentWeekDate);
@@ -1544,11 +1567,24 @@ function renderKanbanBoard(container, columns, isWeekBased) {
     };
     itemsDiv.ondrop = e => handleKanbanDrop(e, colName, isWeekBased);
 
+    // For week-based kanban, first add calendar tasks for this day
+    if (isWeekBased) {
+      const dayDate = getDateForWeekday(colIndex);
+      const calendarTasks = getCalendarTasksForDate(dayDate);
+
+      calendarTasks.forEach((task, idx) => {
+        const taskObj = typeof task === 'string' ? { text: task, done: false, priority: null } : task;
+        const card = createKanbanCard(taskObj, colName, idx, isWeekBased, true, dayDate);
+        itemsDiv.appendChild(card);
+      });
+    }
+
+    // Then add kanban-only tasks
     const items = boardData[colName] || [];
     items.forEach((item, idx) => {
       // Support both old string format and new object format
       const task = typeof item === 'string' ? { text: item, done: false, priority: null } : item;
-      itemsDiv.appendChild(createKanbanCard(task, colName, idx, isWeekBased));
+      itemsDiv.appendChild(createKanbanCard(task, colName, idx, isWeekBased, false, null));
     });
 
     const btn = document.createElement("button");
@@ -1564,11 +1600,12 @@ function renderKanbanBoard(container, columns, isWeekBased) {
   });
 }
 
-function createKanbanCard(task, colName, index, isWeekBased) {
+function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = false, sourceDate = null) {
   const div = document.createElement("div");
   div.className = `kanban-card ${task.done ? 'done' : ''}`;
   if (task.priority) div.classList.add(`priority-${task.priority}`);
-  div.draggable = true;
+  if (isFromCalendar) div.classList.add('from-calendar');
+  div.draggable = true; // All tasks can be dragged
 
   // Checkbox
   const cb = document.createElement("input");
@@ -1578,7 +1615,19 @@ function createKanbanCard(task, colName, index, isWeekBased) {
   cb.onclick = (e) => {
     e.stopPropagation();
     task.done = cb.checked;
-    updateKanbanItem(colName, index, task, isWeekBased);
+
+    if (isFromCalendar && sourceDate) {
+      // Update the calendar task
+      const key = db.calKey(sourceDate);
+      const tasks = db.get(key, []);
+      if (tasks[index]) {
+        tasks[index] = task;
+        db.set(key, tasks);
+        renderCalendar(); // Refresh calendar to reflect change
+      }
+    } else {
+      updateKanbanItem(colName, index, task, isWeekBased);
+    }
 
     if (cb.checked) {
       sounds.success();
@@ -1599,7 +1648,18 @@ function createKanbanCard(task, colName, index, isWeekBased) {
     const priorities = [null, 'high', 'medium', 'low'];
     const currentIdx = priorities.indexOf(task.priority);
     task.priority = priorities[(currentIdx + 1) % priorities.length];
-    updateKanbanItem(colName, index, task, isWeekBased);
+
+    if (isFromCalendar && sourceDate) {
+      const key = db.calKey(sourceDate);
+      const tasks = db.get(key, []);
+      if (tasks[index]) {
+        tasks[index] = task;
+        db.set(key, tasks);
+        renderCalendar();
+      }
+    } else {
+      updateKanbanItem(colName, index, task, isWeekBased);
+    }
     renderKanban();
   };
 
@@ -1608,14 +1668,33 @@ function createKanbanCard(task, colName, index, isWeekBased) {
   deleteBtn.innerHTML = "&times;";
   deleteBtn.onclick = (e) => {
     e.stopPropagation();
-    deleteKanbanItem(colName, index, isWeekBased);
+    if (isFromCalendar && sourceDate) {
+      // Delete from calendar
+      const key = db.calKey(sourceDate);
+      const tasks = db.get(key, []);
+      tasks.splice(index, 1);
+      db.set(key, tasks);
+      renderCalendar();
+      renderKanban();
+    } else {
+      deleteKanbanItem(colName, index, isWeekBased);
+    }
   };
 
   div.append(cb, textSpan, deleteBtn);
 
+  // Enable dragging for all tasks
   div.ondragstart = (e) => {
     div.classList.add('dragging');
-    e.dataTransfer.setData("text/plain", JSON.stringify({ type: 'kanban', col: colName, idx: index, task, isWeekBased }));
+    e.dataTransfer.setData("text/plain", JSON.stringify({
+      type: 'kanban',
+      col: colName,
+      idx: index,
+      task,
+      isWeekBased,
+      isFromCalendar,
+      sourceDate: sourceDate ? sourceDate.toISOString() : null
+    }));
   };
   div.ondragend = () => {
     div.classList.remove('dragging');
@@ -1626,7 +1705,18 @@ function createKanbanCard(task, colName, index, isWeekBased) {
     const newText = await showInputModal('Edit Card', 'Update your card...', task.text);
     if (newText && newText.trim() && newText.trim() !== task.text) {
       task.text = newText.trim();
-      updateKanbanItem(colName, index, task, isWeekBased);
+
+      if (isFromCalendar && sourceDate) {
+        const key = db.calKey(sourceDate);
+        const tasks = db.get(key, []);
+        if (tasks[index]) {
+          tasks[index] = task;
+          db.set(key, tasks);
+          renderCalendar();
+        }
+      } else {
+        updateKanbanItem(colName, index, task, isWeekBased);
+      }
       renderKanban();
     }
   };
@@ -1677,6 +1767,37 @@ function handleKanbanDrop(e, targetCol, isWeekBased) {
     // Only allow drop within same board type
     if (data.isWeekBased !== isWeekBased) return;
 
+    // Handle calendar-sourced task move
+    if (data.isFromCalendar && data.sourceDate) {
+      const sourceDate = new Date(data.sourceDate);
+      const sourceCol = data.col;
+
+      // If dropping to same column, do nothing
+      if (sourceCol === targetCol) return;
+
+      // Get the target date based on the column
+      const targetColIndex = weekdays.indexOf(targetCol);
+      if (targetColIndex === -1) return;
+      const targetDate = getDateForWeekday(targetColIndex);
+
+      // Remove from source date in calendar
+      const sourceKey = db.calKey(sourceDate);
+      const sourceTasks = db.get(sourceKey, []);
+      sourceTasks.splice(data.idx, 1);
+      db.set(sourceKey, sourceTasks);
+
+      // Add to target date in calendar
+      const targetKey = db.calKey(targetDate);
+      const targetTasks = db.get(targetKey, []);
+      targetTasks.push(data.task);
+      db.set(targetKey, targetTasks);
+
+      renderCalendar();
+      renderKanban();
+      return;
+    }
+
+    // Handle normal kanban task move
     const board = getKanbanBoard(isWeekBased);
     if (board[data.col]) board[data.col].splice(data.idx, 1);
     if (!board[targetCol]) board[targetCol] = [];

@@ -1160,6 +1160,16 @@ body.dark .task-item:hover {
     animation: taskComplete 0.4s ease;
 }
 
+/* Calendar-sourced tasks in weekly overview */
+.kanban-card.from-calendar {
+    border-left: 3px solid var(--accent-color);
+    cursor: default;
+}
+
+.kanban-card.from-calendar:hover {
+    transform: translateY(-2px) scale(1.01);
+}
+
 .kanban-add-btn {
     margin-top: 12px;
     width: 100%;
