@@ -608,7 +608,7 @@ function toggleDark() {
 
 function updateThemeBtn() {
   const isDark = document.body.classList.contains("dark");
-  if (els.btnDark) els.btnDark.textContent = isDark ? "☀️ Light Mode" : "🌙 Dark Mode";
+  if (els.btnDark) els.btnDark.textContent = isDark ? "☀️" : "🌙";
 }
 
 // ===== STATISTICS =====
