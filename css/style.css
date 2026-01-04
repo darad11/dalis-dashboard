@@ -1938,6 +1938,17 @@ body.dark .simple-list-item:hover {
     border-radius: var(--radius-md);
     border: 1px solid var(--glass-border);
     transition: all var(--transition-fast);
+    cursor: grab;
+}
+
+.focus-item:active {
+    cursor: grabbing;
+}
+
+.focus-item.dragging {
+    opacity: 0.5;
+    border-color: var(--accent-color);
+    transform: scale(1.02);
 }
 
 .focus-item:hover {

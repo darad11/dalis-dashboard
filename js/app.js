@@ -1508,9 +1508,43 @@ function renderGoals() {
     return;
   }
 
+  // Setup drop zone for the goals list
+  els.goalsList.ondragover = (e) => {
+    e.preventDefault();
+    const dragging = els.goalsList.querySelector('.dragging');
+    const siblings = [...els.goalsList.querySelectorAll('.focus-item:not(.dragging)')];
+    const afterElement = siblings.find(sibling => {
+      const box = sibling.getBoundingClientRect();
+      return e.clientY < box.top + box.height / 2;
+    });
+    if (afterElement) {
+      els.goalsList.insertBefore(dragging, afterElement);
+    } else if (dragging) {
+      els.goalsList.appendChild(dragging);
+    }
+  };
+
   goals.forEach((goal, idx) => {
     const item = document.createElement("div");
     item.className = `focus-item ${goal.done ? 'done' : ''}`;
+    item.draggable = true;
+    item.dataset.idx = idx;
+
+    // Drag events for reordering
+    item.ondragstart = (e) => {
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', idx);
+    };
+    item.ondragend = () => {
+      item.classList.remove('dragging');
+      // Save new order
+      const newOrder = [...els.goalsList.querySelectorAll('.focus-item')].map(el => {
+        const i = parseInt(el.dataset.idx);
+        return goals[i];
+      });
+      db.setGoals(newOrder);
+    };
 
     // Checkbox
     const cb = document.createElement("input");
