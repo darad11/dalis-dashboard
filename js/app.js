@@ -1367,7 +1367,13 @@ function renderSimpleList(listName) {
   container.innerHTML = '';
 
   if (items.length === 0) {
-    container.innerHTML = '<div style="color: var(--text-secondary); text-align: center; padding: 20px; font-size: 0.85rem;">No items yet</div>';
+    const emptyMessages = {
+      goals2026: 'No goals yet',
+      shopping: 'No groceries yet',
+      chores: 'No chores yet'
+    };
+    const message = emptyMessages[listName] || 'No items yet';
+    container.innerHTML = `<div style="color: var(--text-secondary); text-align: center; padding: 20px; font-size: 0.85rem;">${message}</div>`;
     return;
   }
 
@@ -1375,19 +1381,32 @@ function renderSimpleList(listName) {
     const div = document.createElement('div');
     div.className = `simple-list-item ${item.done ? 'done' : ''}`;
 
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = item.done || false;
-    cb.onclick = () => {
-      item.done = cb.checked;
-      setListItems(listName, items);
-      renderSimpleList(listName);
-      if (cb.checked) sounds.click();
-    };
-
     const span = document.createElement('span');
     span.textContent = item.text;
-    span.ondblclick = async () => {
+
+    // Click to toggle done state
+    span.onclick = () => {
+      item.done = !item.done;
+      setListItems(listName, items);
+
+      if (item.done) {
+        sounds.success();
+        div.classList.add('completing');
+        setTimeout(() => {
+          div.classList.remove('completing');
+          div.classList.add('done');
+        }, 400);
+      } else {
+        div.classList.remove('done');
+      }
+
+      // Re-render after animation
+      setTimeout(() => renderSimpleList(listName), 450);
+    };
+
+    // Double-click to edit
+    span.ondblclick = async (e) => {
+      e.stopPropagation();
       const newText = await showInputModal('Edit Item', 'Update...', item.text);
       if (newText && newText.trim()) {
         item.text = newText.trim();
@@ -1399,13 +1418,14 @@ function renderSimpleList(listName) {
     const del = document.createElement('button');
     del.className = 'delete-btn';
     del.innerHTML = '✕';
-    del.onclick = () => {
+    del.onclick = (e) => {
+      e.stopPropagation();
       items.splice(idx, 1);
       setListItems(listName, items);
       renderSimpleList(listName);
     };
 
-    div.append(cb, span, del);
+    div.append(span, del);
     container.appendChild(div);
   });
 }
