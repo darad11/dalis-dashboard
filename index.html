@@ -89,53 +89,91 @@
     </div>
 
     <!-- 1. POMODORO + STATS SIDE BY SIDE -->
+    <!-- 1. POMODORO + STATS MERGED -->
     <div class="pomo-stats-row">
-      <!-- Pomodoro Timer -->
-      <div class="pomodoro-container glass-panel">
-        <h3>🍅 Pomodoro</h3>
-        <div class="pomodoro-modes">
-          <button class="pomo-mode-btn active" data-mode="work">Focus</button>
-          <button class="pomo-mode-btn" data-mode="short">Break</button>
-          <button class="pomo-mode-btn" data-mode="long">Long</button>
+      <div class="combined-glass-panel glass-panel" id="pomoStatsWrapper">
+        <!-- Pomodoro Section -->
+        <div class="pomodoro-section">
+          <div class="pomo-header-row"
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h3 style="margin-bottom: 0;">🍅 Pomodoro</h3>
+            <button class="btn icon-btn" onclick="toggleStats()" id="btnToggleStats" title="Show Statistics"
+              style="width: 32px; height: 32px; font-size: 1rem;">📊</button>
+          </div>
+          <div class="pomodoro-modes">
+            <button class="pomo-mode-btn active" data-mode="work">Focus</button>
+            <button class="pomo-mode-btn" data-mode="short">Break</button>
+            <button class="pomo-mode-btn" data-mode="long">Long</button>
+          </div>
+          <div class="pomodoro-display">
+            <svg class="pomo-ring" viewBox="0 0 100 100">
+              <circle class="pomo-ring-bg" cx="50" cy="50" r="45" />
+              <circle class="pomo-ring-progress" cx="50" cy="50" r="45" />
+            </svg>
+            <div class="pomo-time" id="pomoTime">25:00</div>
+          </div>
+          <div class="pomodoro-controls">
+            <button class="btn pomo-btn" id="pomoStart">▶ Start</button>
+            <button class="btn pomo-btn" id="pomoReset">↺ Reset</button>
+          </div>
+          <div class="pomo-sessions">
+            <span id="pomoCount">0</span> sessions today
+          </div>
+          <!-- Ambient Sound -->
+          <div class="ambient-controls">
+            <label class="ambient-label">🔊</label>
+            <select id="ambientSelect" class="ambient-select">
+              <option value="none">None</option>
+              <option value="white">White Noise</option>
+              <option value="brown">Brown Noise</option>
+              <option value="pink">Pink Noise</option>
+              <option value="rain">Rain</option>
+              <option value="forest">Forest</option>
+              <option value="cafe">Café</option>
+            </select>
+            <input type="range" id="ambientVolume" class="ambient-volume" min="0" max="100" value="30">
+          </div>
+          <button class="btn pip-btn" onclick="togglePiP()" title="Picture-in-Picture">
+            <svg class="pip-icon" viewBox="0 0 24 20" width="16" height="14" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <rect x="1" y="1" width="22" height="14" rx="2" />
+              <rect x="12" y="8" width="10" height="6" rx="1" fill="currentColor" />
+            </svg>
+          </button>
         </div>
-        <div class="pomodoro-display">
-          <svg class="pomo-ring" viewBox="0 0 100 100">
-            <circle class="pomo-ring-bg" cx="50" cy="50" r="45" />
-            <circle class="pomo-ring-progress" cx="50" cy="50" r="45" />
-          </svg>
-          <div class="pomo-time" id="pomoTime">25:00</div>
+
+        <!-- Statistics Section (Collapsed by default) -->
+        <div class="stats-section">
+          <div class="calendar-header">
+            <button class="btn" onclick="changeStatsWeek(-1)">◀︎</button>
+            <div class="calendar-title-group">
+              <h3 id="statsWeekTitle">📊 Week of December 30</h3>
+              <button class="btn today-btn" onclick="goToStatsToday()">Today</button>
+            </div>
+            <button class="btn" onclick="changeStatsWeek(1)">▶︎</button>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value" id="statPomos">0</div>
+              <div class="stat-label">Pomodoros</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="statTasks">0</div>
+              <div class="stat-label">Tasks Done</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="statHabits">0%</div>
+              <div class="stat-label">Habits</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="statStreak">0</div>
+              <div class="stat-label">Day Streak</div>
+            </div>
+          </div>
         </div>
-        <div class="pomodoro-controls">
-          <button class="btn pomo-btn" id="pomoStart">▶ Start</button>
-          <button class="btn pomo-btn" id="pomoReset">↺ Reset</button>
-        </div>
-        <div class="pomo-sessions">
-          <span id="pomoCount">0</span> sessions today
-        </div>
-        <!-- Ambient Sound -->
-        <div class="ambient-controls">
-          <label class="ambient-label">🔊</label>
-          <select id="ambientSelect" class="ambient-select">
-            <option value="none">None</option>
-            <option value="white">White Noise</option>
-            <option value="brown">Brown Noise</option>
-            <option value="pink">Pink Noise</option>
-            <option value="rain">Rain</option>
-            <option value="forest">Forest</option>
-            <option value="cafe">Café</option>
-          </select>
-          <input type="range" id="ambientVolume" class="ambient-volume" min="0" max="100" value="30">
-        </div>
-        <button class="btn pip-btn" onclick="togglePiP()" title="Picture-in-Picture">
-          <svg class="pip-icon" viewBox="0 0 24 20" width="16" height="14" fill="none" stroke="currentColor"
-            stroke-width="2">
-            <rect x="1" y="1" width="22" height="14" rx="2" />
-            <rect x="12" y="8" width="10" height="6" rx="1" fill="currentColor" />
-          </svg>
-        </button>
       </div>
 
-      <!-- Picture-in-Picture Mini Timer -->
+      <!-- PiP Timer (Hidden) -->
       <div class="pip-timer" id="pipTimer">
         <div class="pip-header">
           <span class="pip-title"></span>
@@ -144,36 +182,6 @@
         <div class="pip-time" id="pipTime">25:00</div>
         <div class="pip-controls">
           <button class="pip-control-btn" id="pipPlayPause" onclick="togglePomodoro()">▶</button>
-        </div>
-      </div>
-
-      <!-- Statistics Dashboard -->
-      <div class="stats-container glass-panel">
-        <div class="calendar-header">
-          <button class="btn" onclick="changeStatsWeek(-1)">◀︎</button>
-          <div class="calendar-title-group">
-            <h3 id="statsWeekTitle">📊 Week of December 30</h3>
-            <button class="btn today-btn" onclick="goToStatsToday()">Today</button>
-          </div>
-          <button class="btn" onclick="changeStatsWeek(1)">▶︎</button>
-        </div>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value" id="statPomos">0</div>
-            <div class="stat-label">Pomodoros</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="statTasks">0</div>
-            <div class="stat-label">Tasks Done</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="statHabits">0%</div>
-            <div class="stat-label">Habits</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="statStreak">0</div>
-            <div class="stat-label">Day Streak</div>
-          </div>
         </div>
       </div>
     </div>

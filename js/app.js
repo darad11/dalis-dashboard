@@ -338,6 +338,7 @@ function init() {
   renderCalendar();
   renderHabits();
   restoreAnalyticsState(); // Restore collapsed state
+  loadStatsState(); // Restore stats panel visibility
   renderKanban();
   rolloverIncompleteGoals(); // Move incomplete goals from previous days to today
   renderGoals();
@@ -615,6 +616,21 @@ function updateThemeBtn() {
 function initStats() {
   updateStats();
   updateStatsTitle();
+}
+
+// Toggle Statistics Panel
+window.toggleStats = () => {
+  const wrapper = document.getElementById('pomoStatsWrapper');
+  wrapper.classList.toggle('stats-open');
+  // Save state preference
+  localStorage.setItem('statsOpen', wrapper.classList.contains('stats-open'));
+};
+
+function loadStatsState() {
+  const isOpen = localStorage.getItem('statsOpen') === 'true';
+  if (isOpen) {
+    document.getElementById('pomoStatsWrapper').classList.add('stats-open');
+  }
 }
 
 function updateStats() {
