@@ -447,11 +447,14 @@ h2 {
     box-shadow: var(--shadow-md);
     padding: 24px;
     margin-bottom: 24px;
-    transition: box-shadow var(--transition-normal);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .glass-panel:hover {
-    box-shadow: var(--shadow-lg);
+    transform: scale(1.01);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* ===== CALENDAR ===== */
@@ -1024,7 +1027,12 @@ body.dark .task-item:hover {
     border: 1px solid var(--glass-border);
     display: flex;
     flex-direction: column;
-    transition: all var(--transition-fast);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.kanban-column:hover {
+    transform: scale(1.02);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
 }
 
 .kanban-header {
@@ -1085,7 +1093,7 @@ body.dark .task-item:hover {
     box-shadow: var(--shadow-sm);
     cursor: grab;
     border: 1px solid transparent;
-    transition: all var(--transition-fast);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
     display: flex;
     align-items: flex-start;
@@ -1125,8 +1133,8 @@ body.dark .task-item:hover {
 }
 
 .kanban-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
     border-color: var(--accent-color);
 }
 
