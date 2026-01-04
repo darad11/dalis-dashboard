@@ -976,15 +976,58 @@ body.dark .task-item:hover {
 }
 
 .habit-analytics h4 {
-    margin: 0 0 20px 0;
-    font-size: 1.1rem;
+    margin: 0;
+    font-size: 0.95rem;
     color: var(--text-primary);
+    font-weight: 600;
 }
 
 .habit-analytics h5 {
-    margin: 0 0 16px 0;
-    font-size: 0.95rem;
+    margin: 0 0 12px 0;
+    font-size: 0.85rem;
     color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* Collapsible Analytics Header */
+.analytics-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 8px 0;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+}
+
+.analytics-header:hover {
+    opacity: 0.8;
+}
+
+.analytics-toggle {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    transition: transform 0.3s ease;
+}
+
+.habit-analytics.collapsed .analytics-toggle {
+    transform: rotate(-90deg);
+}
+
+.habit-analytics.collapsed .analytics-header {
+    margin-bottom: 0;
+}
+
+.analytics-content {
+    max-height: 1000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    opacity: 1;
+}
+
+.habit-analytics.collapsed .analytics-content {
+    max-height: 0;
+    opacity: 0;
 }
 
 .habit-stats-grid {

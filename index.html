@@ -295,35 +295,40 @@
       </div>
       <div class="habits-grid" id="habits"></div>
 
-      <!-- Habit Analytics -->
+      <!-- Habit Analytics (Collapsible) -->
       <div class="habit-analytics" id="habitAnalytics">
-        <h4>📊 Habit Analytics</h4>
-        <div class="habit-stats-grid">
-          <div class="habit-stat-card">
-            <div class="habit-stat-value" id="habitOverallRate">--%</div>
-            <div class="habit-stat-label">This Week</div>
-          </div>
-          <div class="habit-stat-card">
-            <div class="habit-stat-value" id="habitMonthlyRate">--%</div>
-            <div class="habit-stat-label">Last 4 Weeks</div>
-          </div>
-          <div class="habit-stat-card">
-            <div class="habit-stat-value" id="habitCurrentStreak">--</div>
-            <div class="habit-stat-label">Current Streak (days)</div>
-          </div>
-          <div class="habit-stat-card">
-            <div class="habit-stat-value" id="habitBestStreak">--</div>
-            <div class="habit-stat-label">Best Streak (days)</div>
-          </div>
+        <div class="analytics-header" onclick="toggleAnalytics()">
+          <h4>📊 Analytics</h4>
+          <span class="analytics-toggle" id="analyticsToggle">▼</span>
         </div>
+        <div class="analytics-content" id="analyticsContent">
+          <div class="habit-stats-grid">
+            <div class="habit-stat-card">
+              <div class="habit-stat-value" id="habitOverallRate">--%</div>
+              <div class="habit-stat-label">This Week</div>
+            </div>
+            <div class="habit-stat-card">
+              <div class="habit-stat-value" id="habitMonthlyRate">--%</div>
+              <div class="habit-stat-label">Last 4 Weeks</div>
+            </div>
+            <div class="habit-stat-card">
+              <div class="habit-stat-value" id="habitCurrentStreak">--</div>
+              <div class="habit-stat-label">Current Streak</div>
+            </div>
+            <div class="habit-stat-card">
+              <div class="habit-stat-value" id="habitBestStreak">--</div>
+              <div class="habit-stat-label">Best Streak</div>
+            </div>
+          </div>
 
-        <!-- Per-Habit Breakdown -->
-        <div class="habit-breakdown" id="habitBreakdown"></div>
+          <!-- Per-Habit Breakdown -->
+          <div class="habit-breakdown" id="habitBreakdown"></div>
 
-        <!-- Weekly Trend Chart -->
-        <div class="habit-chart-container">
-          <h5>Weekly Completion Trend</h5>
-          <div class="habit-chart" id="habitChart"></div>
+          <!-- Weekly Trend Chart -->
+          <div class="habit-chart-container">
+            <h5>Weekly Trend</h5>
+            <div class="habit-chart" id="habitChart"></div>
+          </div>
         </div>
       </div>
     </div>

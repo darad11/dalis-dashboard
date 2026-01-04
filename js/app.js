@@ -337,6 +337,7 @@ function init() {
   initStats();
   renderCalendar();
   renderHabits();
+  restoreAnalyticsState(); // Restore collapsed state
   renderKanban();
   rolloverIncompleteGoals(); // Move incomplete goals from previous days to today
   renderGoals();
@@ -1438,6 +1439,21 @@ function calculateHabitAnalytics() {
     `;
     chartContainer.appendChild(bar);
   });
+}
+
+// Toggle analytics collapse
+window.toggleAnalytics = () => {
+  const analytics = document.getElementById('habitAnalytics');
+  analytics.classList.toggle('collapsed');
+  localStorage.setItem('analyticsCollapsed', analytics.classList.contains('collapsed'));
+};
+
+// Restore analytics collapsed state on load
+function restoreAnalyticsState() {
+  const collapsed = localStorage.getItem('analyticsCollapsed') === 'true';
+  if (collapsed) {
+    document.getElementById('habitAnalytics')?.classList.add('collapsed');
+  }
 }
 
 // ===== TODAY'S GOALS =====
