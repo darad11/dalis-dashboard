@@ -1543,6 +1543,7 @@ function renderGoals() {
   goals.forEach((goal, idx) => {
     const item = document.createElement("div");
     item.className = `focus-item ${goal.done ? 'done' : ''}`;
+    if (goal.urgency) item.classList.add(`urgency-${goal.urgency}`);
     item.draggable = true;
     item.dataset.idx = idx;
 
@@ -1590,15 +1591,30 @@ function renderGoals() {
     const textDiv = document.createElement("div");
     textDiv.className = "focus-text";
     textDiv.textContent = typeof goal === 'string' ? goal : goal.text;
+
+    // Double-click to edit
     textDiv.ondblclick = async () => {
       const currentText = typeof goal === 'string' ? goal : goal.text;
       const newText = await showInputModal('Edit Goal', 'Update your goal...', currentText);
       if (newText && newText.trim()) {
         const goals = db.getGoals();
-        goals[idx] = { text: newText.trim(), done: goal.done || false };
+        goals[idx] = { text: newText.trim(), done: goal.done || false, urgency: goal.urgency || null };
         db.setGoals(goals);
         renderGoals();
       }
+    };
+
+    // Right-click to set urgency
+    textDiv.oncontextmenu = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const urgencies = [null, 'high', 'medium', 'low'];
+      const currentIdx = urgencies.indexOf(goal.urgency || null);
+      goal.urgency = urgencies[(currentIdx + 1) % urgencies.length];
+      const goals = db.getGoals();
+      goals[idx] = goal;
+      db.setGoals(goals);
+      renderGoals();
     };
 
     // Delete button
