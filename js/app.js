@@ -1666,10 +1666,14 @@ function rolloverIncompleteGoals() {
 }
 
 function renderGoals() {
-  const goals = db.getGoals();
+  const rawGoals = db.getGoals();
+  // Map to preserve original indices then sort: Done (true/1) first
+  const displayGoals = rawGoals.map((g, i) => ({ task: g, idx: i }));
+  displayGoals.sort((a, b) => (b.task.done ? 1 : 0) - (a.task.done ? 1 : 0));
+
   els.goalsList.innerHTML = "";
 
-  if (goals.length === 0) {
+  if (rawGoals.length === 0) {
     els.goalsList.innerHTML = '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">What do you want to accomplish today?</div>';
     return;
   }
@@ -1690,7 +1694,7 @@ function renderGoals() {
     }
   };
 
-  goals.forEach((goal, idx) => {
+  displayGoals.forEach(({ task: goal, idx }) => {
     const item = document.createElement("div");
     item.className = `focus-item ${goal.done ? 'done' : ''}`;
     if (goal.urgency) item.classList.add(`urgency-${goal.urgency}`);
@@ -1708,7 +1712,7 @@ function renderGoals() {
       // Save new order
       const newOrder = [...els.goalsList.querySelectorAll('.focus-item')].map(el => {
         const i = parseInt(el.dataset.idx);
-        return goals[i];
+        return rawGoals[i];
       });
       db.setGoals(newOrder);
     };
@@ -1731,9 +1735,11 @@ function renderGoals() {
         setTimeout(() => {
           item.classList.remove('completing');
           item.classList.add('done');
+          renderGoals(); // Re-sort to top
         }, 400);
       } else {
         item.classList.remove('done');
+        renderGoals(); // Re-sort
       }
     };
 
