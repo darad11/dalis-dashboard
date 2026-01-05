@@ -396,7 +396,8 @@ const pomo = {
   timeLeft: 25 * 60,
   isRunning: false,
   interval: null,
-  sessions: 0
+  sessions: 0,
+  endTime: null  // Track when timer should end (for background accuracy)
 };
 
 const weekdays = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"];
@@ -846,6 +847,15 @@ function startPomodoro() {
   pomo.isRunning = true;
   els.pomoStart.textContent = '⏸ Pause';
   document.getElementById('focusStart').textContent = '⏸ Pause';
+
+  // Calculate end time based on actual clock (for background accuracy)
+  pomo.endTime = Date.now() + (pomo.timeLeft * 1000);
+
+  // Persist to localStorage for reliability across tab switches and even page reloads
+  localStorage.setItem('pomoEndTime', pomo.endTime.toString());
+  localStorage.setItem('pomoRunning', 'true');
+  localStorage.setItem('pomoMode', pomo.currentMode);
+
   updatePomoDisplay();
 
   // Start ambient sound
@@ -855,7 +865,9 @@ function startPomodoro() {
   }
 
   pomo.interval = setInterval(() => {
-    pomo.timeLeft--;
+    // Calculate remaining time from actual clock (fixes background throttling)
+    const remaining = Math.max(0, Math.ceil((pomo.endTime - Date.now()) / 1000));
+    pomo.timeLeft = remaining;
     updatePomoDisplay();
     updateFocusDisplay();
 
@@ -867,6 +879,12 @@ function startPomodoro() {
 
 function pausePomodoro() {
   pomo.isRunning = false;
+  pomo.endTime = null;  // Clear end time
+
+  // Clear from localStorage
+  localStorage.removeItem('pomoEndTime');
+  localStorage.removeItem('pomoRunning');
+
   els.pomoStart.textContent = '▶ Start';
   document.getElementById('focusStart').textContent = '▶ Start';
   updatePomoDisplay();
@@ -2588,3 +2606,43 @@ window.toggleDark = toggleDark;
 if ('Notification' in window && Notification.permission === 'default') {
   Notification.requestPermission();
 }
+
+// Sync Pomodoro timer when tab becomes visible (for background accuracy)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && pomo.isRunning && pomo.endTime) {
+    const remaining = Math.max(0, Math.ceil((pomo.endTime - Date.now()) / 1000));
+    pomo.timeLeft = remaining;
+    updatePomoDisplay();
+    updateFocusDisplay();
+    if (pomo.timeLeft <= 0) {
+      completePomodoro();
+    }
+  }
+});
+
+// Restore timer on page load if it was running
+window.addEventListener('load', () => {
+  const savedEndTime = localStorage.getItem('pomoEndTime');
+  const wasRunning = localStorage.getItem('pomoRunning') === 'true';
+  const savedMode = localStorage.getItem('pomoMode');
+
+  if (wasRunning && savedEndTime) {
+    const endTime = parseInt(savedEndTime);
+    const remaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+
+    if (remaining > 0) {
+      // Timer still has time left - restore it
+      if (savedMode) {
+        pomo.currentMode = savedMode;
+      }
+      pomo.endTime = endTime;
+      pomo.timeLeft = remaining;
+      startPomodoro();
+    } else {
+      // Timer already finished while page was closed
+      localStorage.removeItem('pomoEndTime');
+      localStorage.removeItem('pomoRunning');
+      localStorage.removeItem('pomoMode');
+    }
+  }
+});
