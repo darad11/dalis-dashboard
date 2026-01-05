@@ -1374,6 +1374,8 @@ body.dark .task-item:hover {
     grid-template-columns: repeat(4, 1fr);
     gap: 16px;
     margin-bottom: 24px;
+    padding: 4px;
+    /* Prevent hover clip */
 }
 
 .habit-stat-card {
