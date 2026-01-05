@@ -173,6 +173,44 @@ function stopAmbient() {
   }
 }
 
+// ===== NOTIFICATION BANNERS =====
+function showNotification(title, body, variant = 'info', duration = 5000) {
+  const container = document.getElementById('notificationContainer');
+  if (!container) return;
+
+  const banner = document.createElement('div');
+  banner.className = `notification-banner ${variant}`;
+
+  // Extract emoji from title if present
+  const emojiMatch = title.match(/^(\p{Emoji})/u);
+  const icon = emojiMatch ? emojiMatch[1] : '🔔';
+  const titleText = emojiMatch ? title.replace(emojiMatch[0], '').trim() : title;
+
+  banner.innerHTML = `
+    <div class="notification-icon">${icon}</div>
+    <div class="notification-content">
+      <div class="notification-title">${titleText}</div>
+      <div class="notification-body">${body}</div>
+    </div>
+    <button class="notification-close" aria-label="Close">×</button>
+    <div class="notification-progress"></div>
+  `;
+
+  // Close button action
+  banner.querySelector('.notification-close').onclick = () => dismissNotification(banner);
+
+  container.appendChild(banner);
+
+  // Auto-dismiss after duration
+  setTimeout(() => dismissNotification(banner), duration);
+}
+
+function dismissNotification(banner) {
+  if (!banner || banner.classList.contains('hiding')) return;
+  banner.classList.add('hiding');
+  setTimeout(() => banner.remove(), 300);
+}
+
 // ===== CUSTOM INPUT MODAL =====
 function showInputModal(title, placeholder = '', defaultValue = '') {
   return new Promise((resolve) => {
@@ -869,11 +907,13 @@ function completePomodoro() {
     if (Notification.permission === 'granted') {
       new Notification('🍅 Pomodoro Complete!', { body: 'Time for a break.' });
     }
+    showNotification('🍅 Pomodoro Complete!', 'Great work! Time for a well-deserved break.', 'success');
   } else {
     switchPomoMode('work');
     if (Notification.permission === 'granted') {
       new Notification('⏰ Break Over!', { body: 'Ready to focus?' });
     }
+    showNotification('⏰ Break Over!', 'Ready to focus? Let\'s get back to work!', 'info');
   }
 }
 
@@ -2047,10 +2087,13 @@ window.initUnifiedLists = () => {
   localStorage.setItem('unifiedListsInited', 'true');
 };
 
-window.createNewCustomList = () => {
+window.createNewCustomList = async () => {
+  const name = await showInputModal('New List', 'Enter a name for your new list');
+  if (!name || !name.trim()) return;
+
   const meta = db.get('customListsMeta', []);
   const id = 'custom-' + Date.now();
-  meta.push({ id, title: 'Custom List' });
+  meta.push({ id, title: name.trim() });
   db.set('customListsMeta', meta);
   renderUnifiedLists();
 };
@@ -2092,9 +2135,15 @@ window.updateListTitle = (id, el) => {
   }
 };
 
-window.deleteList = (id) => {
-  if (!confirm('Delete this list?')) return;
+window.deleteList = async (id) => {
+  // Find list name for better UX
   const meta = db.get('customListsMeta', []);
+  const list = meta.find(m => m.id === id);
+  const listName = list ? list.title : 'this list';
+
+  const confirmed = await showConfirmModal('Delete List', `Are you sure you want to delete "${listName}"? This action cannot be undone.`);
+  if (!confirmed) return;
+
   const newMeta = meta.filter(m => m.id !== id);
   db.set('customListsMeta', newMeta);
   localStorage.removeItem('list-' + id);
