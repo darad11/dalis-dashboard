@@ -221,6 +221,60 @@ function showInputModal(title, placeholder = '', defaultValue = '') {
   });
 }
 
+// Custom confirm modal (replaces native confirm())
+function showConfirmModal(title, message = 'Are you sure?') {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('confirmModal');
+    const titleEl = document.getElementById('confirmModalTitle');
+    const messageEl = document.getElementById('confirmModalMessage');
+    const confirmBtn = document.getElementById('confirmModalConfirm');
+    const cancelBtn = document.getElementById('confirmModalCancel');
+
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    modal.classList.add('active');
+
+    const cleanup = () => {
+      modal.classList.remove('active');
+      confirmBtn.onclick = null;
+      cancelBtn.onclick = null;
+      modal.onclick = null;
+      document.onkeydown = null;
+    };
+
+    confirmBtn.onclick = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    cancelBtn.onclick = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    // Close on backdrop click
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        cleanup();
+        resolve(false);
+      }
+    };
+
+    // Keyboard support
+    document.onkeydown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cleanup();
+        resolve(false);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        cleanup();
+        resolve(true);
+      }
+    };
+  });
+}
+
 // ===== STATE MANAGEMENT =====
 const db = {
   get: (key, def = null) => {
@@ -1354,8 +1408,9 @@ function renderHabits() {
   calculateHabitAnalytics();
 }
 
-function deleteHabit(index) {
-  if (!confirm("Delete habit?")) return;
+async function deleteHabit(index) {
+  const confirmed = await showConfirmModal('Delete Habit', 'Are you sure you want to delete this habit? This action cannot be undone.');
+  if (!confirmed) return;
   const habits = db.getAllHabits();
   habits.splice(index, 1);
   db.setHabits(habits);
