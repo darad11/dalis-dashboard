@@ -2811,7 +2811,7 @@ body.dark .simple-list-item:hover {
 .combined-glass-panel.stats-open .stats-section {
     width: 360px;
     opacity: 1;
-    padding: 24px;
+    padding: 40px 24px 24px 24px;
     /* No border divider */
     transform: translateX(0);
 }

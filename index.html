@@ -159,11 +159,11 @@
 
         <!-- Statistics Section (Collapsed by default) -->
         <div class="stats-section">
-          <div class="calendar-header">
+          <div class="calendar-header" style="margin-bottom: 48px;">
             <button class="btn" onclick="changeStatsWeek(-1)">◀︎</button>
-            <div class="calendar-title-group">
-              <h3 id="statsWeekTitle">Week of December 30</h3>
-              <button class="btn today-btn" onclick="goToStatsToday()">Today</button>
+            <div class="calendar-title-group" style="gap: 16px;">
+              <h3 id="statsWeekTitle" style="margin: 0;">Week of December 30</h3>
+              <button class="btn" onclick="goToStatsToday()">Today</button>
             </div>
             <button class="btn" onclick="changeStatsWeek(1)">▶︎</button>
           </div>
@@ -208,13 +208,9 @@
       <div class="dashboard-sidebar">
         <div class="glass-panel goals-container">
           <div class="section-nav">
+            <button class="btn nav-btn" onclick="changeGoalDate(-1)">◀</button>
             <h2 id="goalsTitle">🎯 Today's Goals</h2>
-            <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
-              <!-- Buttons pushed to right via justify-content: flex-end -->
-              <button class="btn" onclick="goToGoalsToday()" style="margin-right: 8px;">Today</button>
-              <button class="btn" onclick="changeGoalDate(-1)">◀︎</button>
-              <button class="btn" onclick="changeGoalDate(1)">▶︎</button>
-            </div>
+            <button class="btn nav-btn" onclick="changeGoalDate(1)">▶</button>
           </div>
           <div class="goals-list" id="goalsList"></div>
           <button class="btn" onclick="addGoal()" style="margin-top:auto;">+ Add Goal</button>
