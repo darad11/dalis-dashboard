@@ -800,6 +800,7 @@ h2 {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    position: relative;
 }
 
 .calendar-header h2 {
@@ -813,6 +814,10 @@ h2 {
     align-items: center;
     justify-content: center;
     gap: 8px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
 }
 
 .calendar-title-group h2 {
@@ -852,16 +857,21 @@ h2 {
 .section-nav {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     gap: 16px;
     margin-bottom: 16px;
+    position: relative;
+    /* For absolute centering */
 }
 
-.section-nav h2 {
+.section-nav h2,
+.section-nav h3 {
     margin: 0;
     text-align: center;
-    min-width: 180px;
-    /* Reduced slightly to keep it compact */
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
 }
 
 .section-nav .nav-btn {
@@ -877,7 +887,7 @@ h2 {
 .week-nav-header {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     gap: 24px;
     margin-bottom: 16px;
     padding: 16px 24px;
@@ -885,8 +895,8 @@ h2 {
 
 .week-nav-header h2 {
     margin: 0;
-    min-width: 250px;
     text-align: center;
+    flex: 1;
 }
 
 .nav-btn {

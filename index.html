@@ -206,12 +206,15 @@
 
       <!-- Right Sidebar (Goals + Notes) -->
       <div class="dashboard-sidebar">
-        <!-- Today's Goals -->
         <div class="glass-panel goals-container">
           <div class="section-nav">
-            <button class="btn nav-btn" onclick="changeGoalDate(-1)">◀</button>
             <h2 id="goalsTitle">🎯 Today's Goals</h2>
-            <button class="btn nav-btn" onclick="changeGoalDate(1)">▶</button>
+            <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+              <!-- Buttons pushed to right via justify-content: flex-end -->
+              <button class="btn" onclick="goToGoalsToday()" style="margin-right: 8px;">Today</button>
+              <button class="btn" onclick="changeGoalDate(-1)">◀︎</button>
+              <button class="btn" onclick="changeGoalDate(1)">▶︎</button>
+            </div>
           </div>
           <div class="goals-list" id="goalsList"></div>
           <button class="btn" onclick="addGoal()" style="margin-top:auto;">+ Add Goal</button>
@@ -223,9 +226,12 @@
     <!-- Quick Notes (Full Width) -->
     <div class="glass-panel notes-container" style="margin-bottom: 24px;">
       <div class="section-nav">
-        <button class="btn nav-btn" onclick="changeNotesDate(-1)">◀</button>
         <h2 id="notesTitle">📝 Quick Notes</h2>
-        <button class="btn nav-btn" onclick="changeNotesDate(1)">▶</button>
+        <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+          <button class="btn" onclick="goToNotesToday()" style="margin-right: 8px;">Today</button>
+          <button class="btn" onclick="changeNotesDate(-1)">◀︎</button>
+          <button class="btn" onclick="changeNotesDate(1)">▶︎</button>
+        </div>
       </div>
       <textarea class="quick-notes" id="quickNotes" placeholder="Jot down thoughts, ideas, reminders..."></textarea>
     </div>
@@ -244,13 +250,15 @@
 
     <!-- 3. WEEKLY FOCUS (moved above calendar) -->
     <h2>⚡ Weekly Overview & Tasks</h2>
-    <div class="week-nav-header glass-panel" style="flex-direction: column; gap: 8px;">
-      <div style="display: flex; align-items: center; justify-content: center; gap: 24px;">
-        <button class="btn nav-btn" onclick="changeWeek(-1)">◀ Prev</button>
-        <h2 id="weekTitle" style="margin: 0; min-width: 200px; text-align: center;">Friday, January 3</h2>
-        <button class="btn nav-btn" onclick="changeWeek(1)">Next ▶</button>
+    <div class="glass-panel" style="padding: 20px 24px;">
+      <div class="section-nav" style="margin-bottom: 0;">
+        <h3 id="weekTitle" style="margin: 0;">Friday, January 3</h3>
+        <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+          <button class="btn" onclick="goToWeekToday()" style="margin-right: 8px;">Today</button>
+          <button class="btn" onclick="changeWeek(-1)">◀︎</button>
+          <button class="btn" onclick="changeWeek(1)">▶︎</button>
+        </div>
       </div>
-      <button class="btn today-btn" onclick="goToWeekToday()">Today</button>
     </div>
 
     <h3 class="inspirational-quote">Your future is created by what you do today, not tomorrow</h3>
@@ -261,12 +269,14 @@
     <!-- 4. CALENDAR -->
     <div class="glass-panel">
       <div class="calendar-header">
-        <button class="btn" id="prevMonth">◀︎</button>
-        <div class="calendar-title-group">
+        <div class="calendar-title-group" style="flex-direction: column;">
           <h2 id="title">User Calendar</h2>
-          <button class="btn today-btn" onclick="goToToday()">Today</button>
         </div>
-        <button class="btn" id="nextMonth">▶︎</button>
+        <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+          <button class="btn" onclick="goToToday()" style="margin-right: 8px;">Today</button>
+          <button class="btn" id="prevMonth">◀︎</button>
+          <button class="btn" id="nextMonth">▶︎</button>
+        </div>
       </div>
 
       <div class="calendar-grid-header">
@@ -296,12 +306,14 @@
     <h2>📝 Weekly Review</h2>
     <div class="glass-panel">
       <div class="calendar-header">
-        <button class="btn" onclick="changeReviewWeek(-1)">◀︎</button>
-        <div class="calendar-title-group">
+        <div class="calendar-title-group" style="flex-direction: column;">
           <h3 id="reviewWeekTitle">Today, Week of December 30</h3>
-          <button class="btn today-btn" onclick="goToReviewToday()">Today</button>
         </div>
-        <button class="btn" onclick="changeReviewWeek(1)">▶︎</button>
+        <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+          <button class="btn" onclick="goToReviewToday()" style="margin-right: 8px;">Today</button>
+          <button class="btn" onclick="changeReviewWeek(-1)">◀︎</button>
+          <button class="btn" onclick="changeReviewWeek(1)">▶︎</button>
+        </div>
       </div>
       <textarea class="weekly-review" id="weeklyReview"
         placeholder="How was your week? What did you accomplish? What could be better?"></textarea>
@@ -314,17 +326,17 @@
     <h3 class="inspirational-quote">You don't look like your goals. You look like your habits. Effort never lies.</h3>
     <div class="glass-panel">
       <div class="calendar-header">
-        <div style="display: flex; gap: 8px; align-items: center; min-width: 140px;">
-          <button class="btn" onclick="changeHabitsWeek(-1)">◀︎</button>
-        </div>
-        <div class="calendar-title-group">
+        <div class="calendar-title-group" style="flex-direction: column;">
           <h3 id="habitsWeekTitle">Today, Week of December 30</h3>
-          <button class="btn today-btn" onclick="goToHabitsToday()">Today</button>
         </div>
-        <div style="display: flex; gap: 8px; align-items: center; min-width: 140px; justify-content: flex-end;">
-          <button class="btn" onclick="addHabit()">+ New Habit</button>
+        <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+          <button class="btn" onclick="goToHabitsToday()" style="margin-right: 8px;">Today</button>
+          <button class="btn" onclick="changeHabitsWeek(-1)">◀︎</button>
           <button class="btn" onclick="changeHabitsWeek(1)">▶︎</button>
         </div>
+      </div>
+      <div style="margin: 12px 0 16px 0;">
+        <button class="btn" onclick="addHabit()">+ New Habit</button>
       </div>
       <div class="habits-grid" id="habits"></div>
 

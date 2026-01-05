@@ -490,6 +490,18 @@ window.changeNotesDate = (delta) => {
   updateTitles();
 };
 
+window.goToGoalsToday = () => {
+  currentGoalDate = new Date();
+  renderGoals();
+  updateTitles();
+};
+
+window.goToNotesToday = () => {
+  currentNotesDate = new Date();
+  loadNotes();
+  updateTitles();
+};
+
 window.changeWeek = (delta) => {
   currentWeekDate.setDate(currentWeekDate.getDate() + (delta * 7));
   renderKanban();
