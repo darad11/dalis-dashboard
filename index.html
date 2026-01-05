@@ -242,7 +242,23 @@
 
     <div class="divider"></div>
 
-    <!-- 3. CALENDAR -->
+    <!-- 3. WEEKLY FOCUS (moved above calendar) -->
+    <h2>⚡ Weekly Overview & Tasks</h2>
+    <div class="week-nav-header glass-panel" style="flex-direction: column; gap: 8px;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 24px;">
+        <button class="btn nav-btn" onclick="changeWeek(-1)">◀ Prev</button>
+        <h2 id="weekTitle" style="margin: 0; min-width: 200px; text-align: center;">Friday, January 3</h2>
+        <button class="btn nav-btn" onclick="changeWeek(1)">Next ▶</button>
+      </div>
+      <button class="btn today-btn" onclick="goToWeekToday()">Today</button>
+    </div>
+
+    <h3 class="inspirational-quote">Your future is created by what you do today, not tomorrow</h3>
+    <div class="kanban-board week-kanban" id="weekKanban"></div>
+
+    <div class="divider"></div>
+
+    <!-- 4. CALENDAR -->
     <div class="glass-panel">
       <div class="calendar-header">
         <button class="btn" id="prevMonth">◀︎</button>
@@ -267,22 +283,6 @@
         <!-- JS generates Calendar -->
       </div>
     </div>
-
-    <div class="divider"></div>
-
-    <!-- 4. WEEKLY FOCUS -->
-    <h2>⚡ Weekly Overview & Tasks</h2>
-    <div class="week-nav-header glass-panel" style="flex-direction: column; gap: 8px;">
-      <div style="display: flex; align-items: center; justify-content: center; gap: 24px;">
-        <button class="btn nav-btn" onclick="changeWeek(-1)">◀ Prev</button>
-        <h2 id="weekTitle" style="margin: 0; min-width: 200px; text-align: center;">Friday, January 3</h2>
-        <button class="btn nav-btn" onclick="changeWeek(1)">Next ▶</button>
-      </div>
-      <button class="btn today-btn" onclick="goToWeekToday()">Today</button>
-    </div>
-
-    <h3 class="inspirational-quote">Your future is created by what you do today, not tomorrow</h3>
-    <div class="kanban-board week-kanban" id="weekKanban"></div>
 
     <div class="divider"></div>
 
@@ -314,15 +314,17 @@
     <h3 class="inspirational-quote">You don't look like your goals. You look like your habits. Effort never lies.</h3>
     <div class="glass-panel">
       <div class="calendar-header">
-        <button class="btn" onclick="changeHabitsWeek(-1)">◀︎</button>
+        <div style="display: flex; gap: 8px; align-items: center; min-width: 140px;">
+          <button class="btn" onclick="changeHabitsWeek(-1)">◀︎</button>
+        </div>
         <div class="calendar-title-group">
           <h3 id="habitsWeekTitle">Today, Week of December 30</h3>
           <button class="btn today-btn" onclick="goToHabitsToday()">Today</button>
         </div>
-        <button class="btn" onclick="changeHabitsWeek(1)">▶︎</button>
-      </div>
-      <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
-        <button class="btn" onclick="addHabit()">+ New Habit</button>
+        <div style="display: flex; gap: 8px; align-items: center; min-width: 140px; justify-content: flex-end;">
+          <button class="btn" onclick="addHabit()">+ New Habit</button>
+          <button class="btn" onclick="changeHabitsWeek(1)">▶︎</button>
+        </div>
       </div>
       <div class="habits-grid" id="habits"></div>
 
