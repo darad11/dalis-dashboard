@@ -1554,6 +1554,9 @@ body.dark .task-item:hover {
     display: flex;
     flex-direction: column;
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    margin-top: 32px;
+    /* Space for date */
 }
 
 .kanban-column:hover {
@@ -1569,6 +1572,18 @@ body.dark .task-item:hover {
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
+}
+
+.kanban-date {
+    position: absolute;
+    top: -28px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+    pointer-events: none;
 }
 
 /* Today's kanban column highlight */

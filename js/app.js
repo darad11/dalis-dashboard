@@ -2276,7 +2276,21 @@ function renderKanbanBoard(container, columns, isWeekBased) {
 
     const header = document.createElement("div");
     header.className = "kanban-header";
-    header.textContent = colName;
+
+    // Add date for week-based view
+    if (isWeekBased) {
+      const dayDate = getDateForWeekday(colIndex);
+      const dateStr = dayDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+
+      const dateDiv = document.createElement("div");
+      dateDiv.className = "kanban-date";
+      dateDiv.textContent = dateStr;
+      header.appendChild(dateDiv);
+    }
+
+    const titleSpan = document.createElement("div");
+    titleSpan.textContent = colName;
+    header.appendChild(titleSpan);
 
     // Add holiday indicator for week-based view
     if (isWeekBased) {
