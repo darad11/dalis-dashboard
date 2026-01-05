@@ -430,7 +430,7 @@ function init() {
   initStats();
   renderCalendar();
   renderHabits();
-  restoreAnalyticsState(); // Restore collapsed state
+  // restoreAnalyticsState(); // Disabled to keep closed by default
   loadStatsState(); // Restore stats panel visibility
   renderKanban();
   rolloverIncompleteGoals(); // Move incomplete goals from previous days to today
