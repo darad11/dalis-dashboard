@@ -1797,7 +1797,7 @@ function renderGoals() {
   els.goalsList.innerHTML = "";
 
   if (rawGoals.length === 0) {
-    els.goalsList.innerHTML = '<div style="color: var(--text-secondary); text-align: center; padding: 20px;">What do you want to accomplish today?</div>';
+    els.goalsList.innerHTML = '<div style="color: var(--text-secondary); text-align: center; height: 100%; display: flex; align-items: center; justify-content: center;">What do you want to accomplish today?</div>';
     return;
   }
 
