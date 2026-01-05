@@ -1459,6 +1459,31 @@ body.dark .task-item:hover {
     font-weight: 700;
 }
 
+/* Holiday kanban column styling */
+.kanban-column.holiday {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.kanban-column.holiday:hover {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.kanban-holiday {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: #dc2626;
+    background: rgba(239, 68, 68, 0.15);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
 .kanban-items {
     flex: 1;
     min-height: 40px;
