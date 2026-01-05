@@ -925,13 +925,11 @@ function completePomodoro() {
     if (Notification.permission === 'granted') {
       new Notification('🍅 Pomodoro Complete!', { body: 'Time for a break.' });
     }
-    showNotification('🍅 Pomodoro Complete!', 'Great work! Time for a well-deserved break.', 'success');
   } else {
     switchPomoMode('work');
     if (Notification.permission === 'granted') {
       new Notification('⏰ Break Over!', { body: 'Ready to focus?' });
     }
-    showNotification('⏰ Break Over!', 'Ready to focus? Let\'s get back to work!', 'info');
   }
 }
 
