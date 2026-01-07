@@ -405,6 +405,13 @@ const db = {
       if (habitChecks && Object.keys(habitChecks).length > 0) {
         db.loadHabitChecks(habitChecks);
         console.log('  - Loaded habit check data');
+      } else {
+        // Auto-upload local checks if cloud is empty
+        const localChecks = db.get('habitChecks', {});
+        if (Object.keys(localChecks).length > 0) {
+          await window.supabaseDB.setSetting('habitChecks', localChecks);
+          console.log('  - Uploaded local habit checks');
+        }
       }
 
       // Load all goals (includes calendar tasks 'cal-*' and daily goals 'goals-*')
@@ -1795,14 +1802,19 @@ function renderHabits() {
 
       check.onclick = () => {
         check.classList.toggle("done");
-        if (check.classList.contains("done")) {
-          localStorage.setItem(key, "1");
+        const isDone = check.classList.contains("done");
+
+        // Use db.setHabitCheck to ensure cloud sync
+        db.setHabitCheck(key, isDone);
+
+        if (isDone) {
           sounds.click();
 
           // Check if all habits are done for a day (only celebrate on Sunday)
           if (dayIdx === 6) {
             let allDayDone = true;
             for (let h = 0; h < habits.length; h++) {
+              // Check local storage directly for other habits' status (fast check)
               if (!localStorage.getItem(getHabitKey(h, dayIdx))) {
                 allDayDone = false;
                 break;
@@ -1826,8 +1838,6 @@ function renderHabits() {
             row.classList.add('habit-week-complete');
             setTimeout(() => row.classList.remove('habit-week-complete'), 2000);
           }
-        } else {
-          localStorage.removeItem(key);
         }
         updateStats();
       };
