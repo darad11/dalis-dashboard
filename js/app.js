@@ -412,8 +412,8 @@ const db = {
           db.set(dateKey, goals);
         });
 
-        // 2. Remove local keys that don't exist in cloud (handle deletions)
-        // We only remove 'goals-' or 'cal-' keys that are NOT in the fetched dataset
+        // DISABLE DELETION for now to prevent data loss
+        /*
         const cloudKeys = new Set(Object.keys(allGoals));
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
@@ -423,6 +423,7 @@ const db = {
             }
           }
         }
+        */
 
         console.log('  - Synced goals/calendar for ' + Object.keys(allGoals).length + ' days');
       } // Load today's notes
