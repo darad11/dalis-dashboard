@@ -596,16 +596,22 @@ async function init() {
   initPomodoro();
   initAmbient();
   initStats();
-  renderCalendar();
-  renderHabits();
+
+  try { renderCalendar(); } catch (e) { console.error('Calendar render failed', e); }
+  try { renderHabits(); } catch (e) { console.error('Habits render failed', e); }
+
   // restoreAnalyticsState(); // Disabled to keep closed by default
   loadStatsState(); // Restore stats panel visibility
-  renderKanban();
+
+  try { renderKanban(); } catch (e) { console.error('Kanban render failed', e); }
+
   rolloverIncompleteGoals(); // Move incomplete goals from previous days to today
-  renderGoals();
-  loadNotes();
-  renderAllLists();
-  loadWeeklyReview();
+
+  try { renderGoals(); } catch (e) { console.error('Goals render failed', e); }
+  try { loadNotes(); } catch (e) { console.error('Notes load failed', e); }
+  try { renderAllLists(); } catch (e) { console.error('Lists render failed', e); }
+  try { loadWeeklyReview(); } catch (e) { console.error('Review load failed', e); }
+
   updateTitles();
   updateHabitsTitle();
   setupEventListeners();
