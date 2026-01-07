@@ -86,10 +86,21 @@
             }
 
             // Group by date
-            const grouped = {};
+            var grouped = {};
             data.forEach(function (g) {
                 if (!grouped[g.date]) grouped[g.date] = [];
-                grouped[g.date].push({ text: g.text, done: g.done, rolledFrom: g.rolled_from, id: g.id });
+                
+                // Deduplication: Prevent duplicate tasks (same text)
+                const isDuplicate = grouped[g.date].some(existing => existing.text === g.text);
+                
+                if (!isDuplicate) {
+                    grouped[g.date].push({
+                        text: g.text,
+                        done: g.done,
+                        urgency: g.urgency,
+                        priority: g.priority
+                    });
+                }
             });
             return grouped;
         },
