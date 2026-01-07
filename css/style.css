@@ -2765,6 +2765,16 @@ body.dark .simple-list-item:hover {
     min-width: 350px;
 }
 
+.sidebar-datetime {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-align: right;
+    margin-bottom: 8px;
+    opacity: 0.8;
+}
+
 .dashboard-sidebar .goals-container {
     flex: 1;
     display: flex;

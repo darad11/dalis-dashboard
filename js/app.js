@@ -2670,3 +2670,23 @@ window.addEventListener('load', () => {
     }
   }
 });
+
+// ===== SIDEBAR DATE TIME =====
+function updateSidebarDateTime() {
+  const el = document.getElementById('sidebarDateTime');
+  if (!el) return;
+  const now = new Date();
+  // Format: 07.01.2026
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  // Format: 09:16:45
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  el.textContent = `${day}.${month}.${year} - ${hours}:${minutes}:${seconds}`;
+}
+
+// Start the clock
+updateSidebarDateTime();
+setInterval(updateSidebarDateTime, 1000);
