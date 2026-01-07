@@ -2736,6 +2736,8 @@ window.importData = (event) => {
 };
 
 // ===== START =====
+// Export init for auth module to call after login
+window.initDashboard = init;
 window.addEventListener('DOMContentLoaded', init);
 window.toggleDark = toggleDark;
 
