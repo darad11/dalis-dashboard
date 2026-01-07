@@ -14,13 +14,22 @@
     // Initialize Supabase client
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // Helper to get current user ID
+    function getUserId() {
+        return window.currentUserId || null;
+    }
+
     // ===== SUPABASE DATABASE API =====
     const supabaseDB = {
         // ===== GOALS =====
         async getGoals(dateKey) {
+            const userId = getUserId();
+            if (!userId) return [];
+
             const { data, error } = await supabase
                 .from('goals')
                 .select('*')
+                .eq('user_id', userId)
                 .eq('date', dateKey)
                 .order('created_at', { ascending: true });
 
@@ -34,13 +43,17 @@
         },
 
         async setGoals(dateKey, goals) {
-            // Delete existing goals for this date
-            await supabase.from('goals').delete().eq('date', dateKey);
+            const userId = getUserId();
+            if (!userId) return;
+
+            // Delete existing goals for this date and user
+            await supabase.from('goals').delete().eq('user_id', userId).eq('date', dateKey);
 
             // Insert new goals
             if (goals.length > 0) {
                 const rows = goals.map(function (g) {
                     return {
+                        user_id: userId,
                         date: dateKey,
                         text: typeof g === 'string' ? g : g.text,
                         done: typeof g === 'string' ? false : (g.done || false),
@@ -54,9 +67,13 @@
         },
 
         async getAllGoals() {
+            const userId = getUserId();
+            if (!userId) return {};
+
             const { data, error } = await supabase
                 .from('goals')
                 .select('*')
+                .eq('user_id', userId)
                 .order('date', { ascending: false });
 
             if (error) {
@@ -75,9 +92,13 @@
 
         // ===== HABITS =====
         async getHabits() {
+            const userId = getUserId();
+            if (!userId) return [];
+
             const { data, error } = await supabase
                 .from('habits')
                 .select('*')
+                .eq('user_id', userId)
                 .order('created_at', { ascending: true });
 
             if (error) {
@@ -90,6 +111,9 @@
         },
 
         async setHabits(habits) {
+            const userId = getUserId();
+            if (!userId) return;
+
             // For simplicity, we'll upsert all habits
             for (var i = 0; i < habits.length; i++) {
                 var habit = habits[i];
@@ -98,22 +122,26 @@
                     var result = await supabase
                         .from('habits')
                         .update({ name: habit.name, color: habit.color, history: habit.history })
-                        .eq('id', habit.id);
+                        .eq('id', habit.id)
+                        .eq('user_id', userId);
                     if (result.error) console.error('Error updating habit:', result.error);
                 } else {
                     // Insert new
                     var insertResult = await supabase
                         .from('habits')
-                        .insert({ name: habit.name, color: habit.color, history: habit.history || {} });
+                        .insert({ user_id: userId, name: habit.name, color: habit.color, history: habit.history || {} });
                     if (insertResult.error) console.error('Error inserting habit:', insertResult.error);
                 }
             }
         },
 
         async addHabit(habit) {
+            const userId = getUserId();
+            if (!userId) return null;
+
             const { data, error } = await supabase
                 .from('habits')
-                .insert({ name: habit.name, color: habit.color, history: habit.history || {} })
+                .insert({ user_id: userId, name: habit.name, color: habit.color, history: habit.history || {} })
                 .select()
                 .single();
 
@@ -125,28 +153,40 @@
         },
 
         async updateHabit(habit) {
+            const userId = getUserId();
+            if (!userId) return;
+
             const { error } = await supabase
                 .from('habits')
                 .update({ name: habit.name, color: habit.color, history: habit.history })
-                .eq('id', habit.id);
+                .eq('id', habit.id)
+                .eq('user_id', userId);
 
             if (error) console.error('Error updating habit:', error);
         },
 
         async deleteHabit(habitId) {
+            const userId = getUserId();
+            if (!userId) return;
+
             const { error } = await supabase
                 .from('habits')
                 .delete()
-                .eq('id', habitId);
+                .eq('id', habitId)
+                .eq('user_id', userId);
 
             if (error) console.error('Error deleting habit:', error);
         },
 
         // ===== NOTES =====
         async getNotes(dateKey) {
+            const userId = getUserId();
+            if (!userId) return '';
+
             const { data, error } = await supabase
                 .from('notes')
                 .select('content')
+                .eq('user_id', userId)
                 .eq('date', dateKey)
                 .single();
 
@@ -157,18 +197,40 @@
         },
 
         async setNotes(dateKey, content) {
-            const { error } = await supabase
-                .from('notes')
-                .upsert({ date: dateKey, content: content }, { onConflict: 'date' });
+            const userId = getUserId();
+            if (!userId) return;
 
-            if (error) console.error('Error saving notes:', error);
+            // First try to update, then insert if needed
+            const { data: existing } = await supabase
+                .from('notes')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('date', dateKey)
+                .single();
+
+            if (existing) {
+                const { error } = await supabase
+                    .from('notes')
+                    .update({ content: content })
+                    .eq('id', existing.id);
+                if (error) console.error('Error saving notes:', error);
+            } else {
+                const { error } = await supabase
+                    .from('notes')
+                    .insert({ user_id: userId, date: dateKey, content: content });
+                if (error) console.error('Error saving notes:', error);
+            }
         },
 
         // ===== KANBAN (Weekly) =====
         async getKanban(weekKey) {
+            const userId = getUserId();
+            if (!userId) return {};
+
             const { data, error } = await supabase
                 .from('kanban_tasks')
                 .select('*')
+                .eq('user_id', userId)
                 .eq('week_key', weekKey)
                 .order('sort_order', { ascending: true });
 
@@ -187,8 +249,11 @@
         },
 
         async setKanban(weekKey, kanbanData) {
-            // Delete existing for this week
-            await supabase.from('kanban_tasks').delete().eq('week_key', weekKey);
+            const userId = getUserId();
+            if (!userId) return;
+
+            // Delete existing for this week and user
+            await supabase.from('kanban_tasks').delete().eq('user_id', userId).eq('week_key', weekKey);
 
             // Insert new
             var rows = [];
@@ -196,7 +261,7 @@
                 var colName = entry[0];
                 var tasks = entry[1];
                 tasks.forEach(function (text, idx) {
-                    rows.push({ week_key: weekKey, column_name: colName, text: text, sort_order: idx });
+                    rows.push({ user_id: userId, week_key: weekKey, column_name: colName, text: text, sort_order: idx });
                 });
             });
 
@@ -208,9 +273,13 @@
 
         // ===== BACKLOG =====
         async getBacklog() {
+            const userId = getUserId();
+            if (!userId) return {};
+
             const { data, error } = await supabase
                 .from('backlog_tasks')
                 .select('*')
+                .eq('user_id', userId)
                 .order('sort_order', { ascending: true });
 
             if (error) {
@@ -227,8 +296,11 @@
         },
 
         async setBacklog(backlogData) {
-            // Delete all existing
-            await supabase.from('backlog_tasks').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+            const userId = getUserId();
+            if (!userId) return;
+
+            // Delete all existing for this user
+            await supabase.from('backlog_tasks').delete().eq('user_id', userId);
 
             // Insert new
             var rows = [];
@@ -236,7 +308,7 @@
                 var colName = entry[0];
                 var tasks = entry[1];
                 tasks.forEach(function (text, idx) {
-                    rows.push({ column_name: colName, text: text, sort_order: idx });
+                    rows.push({ user_id: userId, column_name: colName, text: text, sort_order: idx });
                 });
             });
 
@@ -248,9 +320,13 @@
 
         // ===== LISTS (Shopping, Chores, Goals2026, Custom) =====
         async getList(listName) {
+            const userId = getUserId();
+            if (!userId) return { items: [], icon: 'list' };
+
             const { data, error } = await supabase
                 .from('lists')
                 .select('*')
+                .eq('user_id', userId)
                 .eq('name', listName)
                 .single();
 
@@ -261,18 +337,41 @@
         },
 
         async setList(listName, items, icon) {
-            icon = icon || 'list';
-            const { error } = await supabase
-                .from('lists')
-                .upsert({ name: listName, items: items, icon: icon }, { onConflict: 'name' });
+            const userId = getUserId();
+            if (!userId) return;
 
-            if (error) console.error('Error saving list:', error);
+            icon = icon || 'list';
+
+            // Check if list exists
+            const { data: existing } = await supabase
+                .from('lists')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('name', listName)
+                .single();
+
+            if (existing) {
+                const { error } = await supabase
+                    .from('lists')
+                    .update({ items: items, icon: icon })
+                    .eq('id', existing.id);
+                if (error) console.error('Error saving list:', error);
+            } else {
+                const { error } = await supabase
+                    .from('lists')
+                    .insert({ user_id: userId, name: listName, items: items, icon: icon });
+                if (error) console.error('Error saving list:', error);
+            }
         },
 
         async getAllLists() {
+            const userId = getUserId();
+            if (!userId) return [];
+
             const { data, error } = await supabase
                 .from('lists')
                 .select('*')
+                .eq('user_id', userId)
                 .order('created_at', { ascending: true });
 
             if (error) {
@@ -285,9 +384,13 @@
         },
 
         async deleteList(listName) {
+            const userId = getUserId();
+            if (!userId) return;
+
             const { error } = await supabase
                 .from('lists')
                 .delete()
+                .eq('user_id', userId)
                 .eq('name', listName);
 
             if (error) console.error('Error deleting list:', error);
@@ -295,9 +398,13 @@
 
         // ===== POMODORO STATS =====
         async getPomodoroCount(dateKey) {
+            const userId = getUserId();
+            if (!userId) return 0;
+
             const { data, error } = await supabase
                 .from('pomodoro_stats')
                 .select('count')
+                .eq('user_id', userId)
                 .eq('date', dateKey)
                 .single();
 
@@ -308,17 +415,39 @@
         },
 
         async setPomodoroCount(dateKey, count) {
-            const { error } = await supabase
-                .from('pomodoro_stats')
-                .upsert({ date: dateKey, count: count }, { onConflict: 'date' });
+            const userId = getUserId();
+            if (!userId) return;
 
-            if (error) console.error('Error saving pomo count:', error);
+            // Check if exists
+            const { data: existing } = await supabase
+                .from('pomodoro_stats')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('date', dateKey)
+                .single();
+
+            if (existing) {
+                const { error } = await supabase
+                    .from('pomodoro_stats')
+                    .update({ count: count })
+                    .eq('id', existing.id);
+                if (error) console.error('Error saving pomo count:', error);
+            } else {
+                const { error } = await supabase
+                    .from('pomodoro_stats')
+                    .insert({ user_id: userId, date: dateKey, count: count });
+                if (error) console.error('Error saving pomo count:', error);
+            }
         },
 
         async getAllPomodoroStats() {
+            const userId = getUserId();
+            if (!userId) return {};
+
             const { data, error } = await supabase
                 .from('pomodoro_stats')
                 .select('*')
+                .eq('user_id', userId)
                 .order('date', { ascending: false });
 
             if (error) {
@@ -333,10 +462,14 @@
 
         // ===== SETTINGS =====
         async getSetting(key, defaultValue) {
+            const userId = getUserId();
+            if (!userId) return defaultValue || null;
+
             defaultValue = defaultValue || null;
             const { data, error } = await supabase
                 .from('settings')
                 .select('value')
+                .eq('user_id', userId)
                 .eq('key', key)
                 .single();
 
@@ -347,11 +480,29 @@
         },
 
         async setSetting(key, value) {
-            const { error } = await supabase
-                .from('settings')
-                .upsert({ key: key, value: value }, { onConflict: 'key' });
+            const userId = getUserId();
+            if (!userId) return;
 
-            if (error) console.error('Error saving setting:', error);
+            // Check if exists
+            const { data: existing } = await supabase
+                .from('settings')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('key', key)
+                .single();
+
+            if (existing) {
+                const { error } = await supabase
+                    .from('settings')
+                    .update({ value: value })
+                    .eq('id', existing.id);
+                if (error) console.error('Error saving setting:', error);
+            } else {
+                const { error } = await supabase
+                    .from('settings')
+                    .insert({ user_id: userId, key: key, value: value });
+                if (error) console.error('Error saving setting:', error);
+            }
         }
     };
 

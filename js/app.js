@@ -3,6 +3,13 @@
  * Full-featured productivity system
  */
 
+// ===== SIGN OUT FUNCTION =====
+function signOut() {
+  if (window.authModule && window.authModule.signOut) {
+    window.authModule.signOut();
+  }
+}
+
 // ===== SOUND EFFECTS =====
 const sounds = {
   click: () => playSound(800, 0.05, 'sine'),
