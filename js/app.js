@@ -395,6 +395,18 @@ const db = {
 
       // Load all goals
       const allGoals = await window.supabaseDB.getAllGoals();
+
+      // Clear all existing goal keys in localStorage first to handle deletions
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('goals-')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+
+      // Then set the goals from cloud
       Object.entries(allGoals).forEach(([dateKey, goals]) => {
         db.set(dateKey, goals);
       });
