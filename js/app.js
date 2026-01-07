@@ -867,21 +867,22 @@ window.goToNotesToday = () => {
 
 window.changeWeek = (delta) => {
   currentWeekDate.setDate(currentWeekDate.getDate() + (delta * 7));
-  renderKanban();
-  renderHabits();
-  loadWeeklyReview();
-  updateStats();
-  updateTitles();
+  updateTitles(); // Update UI first
+  try { renderKanban(); } catch (e) { console.error(e); }
+  try { renderHabits(); } catch (e) { console.error(e); }
+  try { loadWeeklyReview(); } catch (e) { console.error(e); }
+  try { updateStats(); } catch (e) { console.error(e); }
 };
 
 window.goToWeekToday = () => {
   currentWeekDate = new Date();
-  renderKanban();
-  renderHabits();
-  loadWeeklyReview();
-  updateStats();
   updateTitles();
+  try { renderKanban(); } catch (e) { console.error(e); }
+  try { renderHabits(); } catch (e) { console.error(e); }
+  try { loadWeeklyReview(); } catch (e) { console.error(e); }
+  try { updateStats(); } catch (e) { console.error(e); }
 };
+
 
 function setupEventListeners() {
   document.getElementById('prevMonth').onclick = () => changeMonth(-1);
@@ -1900,14 +1901,14 @@ function updateHabitsTitle() {
 
 window.changeHabitsWeek = (delta) => {
   currentHabitsWeekDate.setDate(currentHabitsWeekDate.getDate() + (delta * 7));
-  renderHabits();
-  updateHabitsTitle();
+  updateHabitsTitle(); // Update UI first
+  try { renderHabits(); } catch (e) { console.error(e); }
 };
 
 window.goToHabitsToday = () => {
   currentHabitsWeekDate = new Date();
-  renderHabits();
   updateHabitsTitle();
+  try { renderHabits(); } catch (e) { console.error(e); }
 };
 
 // ===== HABIT ANALYTICS =====
