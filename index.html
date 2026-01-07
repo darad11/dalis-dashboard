@@ -219,6 +219,25 @@
       </div>
     </div>
 
+    <!-- 3. WEEKLY FOCUS (moved above quick notes) -->
+    <h2>⚡ Weekly Overview & Tasks</h2>
+    <div class="glass-panel" style="padding: 20px 24px;">
+      <div class="section-nav" style="margin-bottom: 0;">
+        <h3 id="weekTitle" style="margin: 0;">Friday, January 3</h3>
+        <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+          <button class="btn" onclick="goToWeekToday()" style="margin-right: 8px;">Today</button>
+          <button class="btn" onclick="changeWeek(-1)">◀︎</button>
+          <button class="btn" onclick="changeWeek(1)">▶︎</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="kanban-board week-kanban" id="weekKanban"></div>
+    <h3 class="inspirational-quote" style="margin-top: 24px;">Your future is created by what you do today, not tomorrow
+    </h3>
+
+    <div class="divider"></div>
+
     <!-- Quick Notes (Full Width) -->
     <div class="glass-panel notes-container" style="margin-bottom: 24px;">
       <div class="section-nav">
@@ -243,25 +262,6 @@
       style="width: auto; min-width: 200px; border: 1px dashed rgba(255,255,255,0.3); justify-content: center; padding: 12px 24px; opacity: 0.8; margin: 48px auto 48px auto; display: flex;">
       + Create New List
     </button>
-
-    <div class="divider"></div>
-
-    <!-- 3. WEEKLY FOCUS (moved above calendar) -->
-    <h2>⚡ Weekly Overview & Tasks</h2>
-    <div class="glass-panel" style="padding: 20px 24px;">
-      <div class="section-nav" style="margin-bottom: 0;">
-        <h3 id="weekTitle" style="margin: 0;">Friday, January 3</h3>
-        <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
-          <button class="btn" onclick="goToWeekToday()" style="margin-right: 8px;">Today</button>
-          <button class="btn" onclick="changeWeek(-1)">◀︎</button>
-          <button class="btn" onclick="changeWeek(1)">▶︎</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="kanban-board week-kanban" id="weekKanban"></div>
-    <h3 class="inspirational-quote" style="margin-top: 24px;">Your future is created by what you do today, not tomorrow
-    </h3>
 
     <div class="divider"></div>
 
