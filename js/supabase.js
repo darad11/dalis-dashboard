@@ -89,10 +89,10 @@
             var grouped = {};
             data.forEach(function (g) {
                 if (!grouped[g.date]) grouped[g.date] = [];
-                
+
                 // Deduplication: Prevent duplicate tasks (same text)
                 const isDuplicate = grouped[g.date].some(existing => existing.text === g.text);
-                
+
                 if (!isDuplicate) {
                     grouped[g.date].push({
                         text: g.text,
@@ -129,23 +129,35 @@
             const userId = getUserId();
             if (!userId) return;
 
-            // For simplicity, we'll upsert all habits
+            // 1. Get current cloud IDs to detect deletions
+            const { data: existing } = await supabase
+                .from('habits')
+                .select('id')
+                .eq('user_id', userId);
+
+            const currentIds = existing ? existing.map(h => h.id) : [];
+            const newIds = habits.map(h => h.id).filter(id => id); // Valid IDs only
+
+            // 2. Delete habits that are missing from the new list
+            const idsToDelete = currentIds.filter(id => !newIds.includes(id));
+            if (idsToDelete.length > 0) {
+                await supabase.from('habits').delete().in('id', idsToDelete).eq('user_id', userId);
+            }
+
+            // 3. Upsert (Insert/Update)
             for (var i = 0; i < habits.length; i++) {
                 var habit = habits[i];
+                var payload = {
+                    user_id: userId,
+                    name: habit.name,
+                    color: habit.color,
+                    history: habit.history || {}
+                };
+
                 if (habit.id) {
-                    // Update existing
-                    var result = await supabase
-                        .from('habits')
-                        .update({ name: habit.name, color: habit.color, history: habit.history })
-                        .eq('id', habit.id)
-                        .eq('user_id', userId);
-                    if (result.error) console.error('Error updating habit:', result.error);
+                    await supabase.from('habits').update(payload).eq('id', habit.id).eq('user_id', userId);
                 } else {
-                    // Insert new
-                    var insertResult = await supabase
-                        .from('habits')
-                        .insert({ user_id: userId, name: habit.name, color: habit.color, history: habit.history || {} });
-                    if (insertResult.error) console.error('Error inserting habit:', insertResult.error);
+                    await supabase.from('habits').insert(payload);
                 }
             }
         },

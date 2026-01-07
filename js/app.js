@@ -470,7 +470,7 @@ const db = {
           if (key.startsWith('goals-') || key.startsWith('cal-')) err = await window.supabaseDB.setGoals(key, val);
           else if (key.startsWith('notes-') || key.startsWith('review-')) err = await window.supabaseDB.setNotes(key, val);
           else if (key === 'habits') err = await window.supabaseDB.setHabits(val);
-          else if (key === 'habitChecks') err = await window.supabaseDB.setSetting('habitChecks', val);
+          else if (key === 'habitChecks' || key === 'customListsMeta') err = await window.supabaseDB.setSetting(key, val);
           else if (key === 'backlog') err = await window.supabaseDB.setBacklog(val);
           else if (key.startsWith('week-')) err = await window.supabaseDB.setKanban(key, val);
           else if (key.startsWith('list-')) {
@@ -486,6 +486,14 @@ const db = {
     }
 
     // --- Phase 2: Pull Cloud & Prune Clean (Server State) ---
+
+    // 0. Metadata (Lists, Checks)
+    const habitChecks = await window.supabaseDB.getSetting('habitChecks', {});
+    if (habitChecks) db.set('habitChecks', habitChecks, true);
+    db.loadHabitChecks(db.get('habitChecks', {}));
+
+    const listMeta = await window.supabaseDB.getSetting('customListsMeta', []);
+    if (listMeta && listMeta.length > 0) db.set('customListsMeta', listMeta, true);
 
     // 1. Goals
     const allGoals = await window.supabaseDB.getAllGoals();
@@ -524,11 +532,7 @@ const db = {
     const habits = await window.supabaseDB.getHabits();
     if (habits && habits.length > 0) db.set('habits', habits, true);
 
-    const habitChecks = await window.supabaseDB.getSetting('habitChecks', {});
-    // Merging checks is safer than overwriting if robust?
-    // But cloud is source of truth.
-    if (habitChecks) db.set('habitChecks', habitChecks, true);
-    db.loadHabitChecks(db.get('habitChecks', {})); // Refresh local keys
+
 
     // 4. Kanban & Backlog
     const weekKey = db.weekKey(new Date());
