@@ -453,12 +453,13 @@ const db = {
         console.log('  - Loaded backlog');
       }
 
-      // Load all lists
+      // Load all lists (shopping, chores, goals2026, custom lists)
       const lists = await window.supabaseDB.getAllLists();
       if (lists.length > 0) {
         db.set('customLists', lists.map(l => l.name));
         lists.forEach(list => {
-          db.set(`list_${list.name}`, list.items);
+          // Use 'list-' prefix to match getListConfig format
+          db.set(`list-${list.name}`, list.items);
           db.set(`listIcon_${list.name}`, list.icon);
         });
         console.log('  - Loaded ' + lists.length + ' lists');
@@ -2096,7 +2097,12 @@ function getListItems(listName) {
 }
 
 function setListItems(listName, items) {
-  db.set(getListConfig(listName).key, items);
+  const config = getListConfig(listName);
+  db.set(config.key, items);
+  // Sync to Supabase
+  if (isSupabaseAvailable()) {
+    window.supabaseDB.setList(listName, items);
+  }
 }
 
 function renderSimpleList(listName) {
