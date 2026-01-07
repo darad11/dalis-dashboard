@@ -1774,7 +1774,10 @@ function rolloverIncompleteGoals() {
 
       // Add incomplete goals to today (avoid duplicates)
       incomplete.forEach(incompleteGoal => {
-        const alreadyExists = todayGoals.some(g => g.text === incompleteGoal.text);
+        const alreadyExists = todayGoals.some(g => {
+          const goalText = typeof g === 'string' ? g : g.text;
+          return goalText === incompleteGoal.text;
+        });
         if (!alreadyExists) {
           todayGoals.push(incompleteGoal);
         }
