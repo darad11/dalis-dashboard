@@ -349,6 +349,38 @@ const db = {
     db.set('habits', habits);
     if (isSupabaseAvailable()) window.supabaseDB.setHabits(habits);
   },
+  // Sync habit check data to cloud
+  getHabitData: () => db.get('habitChecks', {}),
+  setHabitCheck: (key, value) => {
+    // Store locally
+    if (value) {
+      localStorage.setItem(key, '1');
+    } else {
+      localStorage.removeItem(key);
+    }
+    // Also save to a consolidated object for cloud sync
+    const checks = db.get('habitChecks', {});
+    if (value) {
+      checks[key] = true;
+    } else {
+      delete checks[key];
+    }
+    db.set('habitChecks', checks);
+    // Sync to Supabase
+    if (isSupabaseAvailable()) {
+      window.supabaseDB.setSetting('habitChecks', checks);
+    }
+  },
+  // Load habit checks from cloud
+  loadHabitChecks: (checks) => {
+    if (!checks || typeof checks !== 'object') return;
+    Object.keys(checks).forEach(key => {
+      if (checks[key]) {
+        localStorage.setItem(key, '1');
+      }
+    });
+    db.set('habitChecks', checks);
+  },
   getKanban: (weekDate) => db.get(db.weekKey(weekDate || currentWeekDate), {}),
   setKanban: (data, weekDate) => {
     const key = db.weekKey(weekDate || currentWeekDate);
@@ -401,6 +433,13 @@ const db = {
       if (habits.length > 0) {
         db.set('habits', habits);
         console.log('  - Loaded ' + habits.length + ' habits');
+      }
+
+      // Load habit check data
+      const habitChecks = await window.supabaseDB.getSetting('habitChecks', {});
+      if (habitChecks && Object.keys(habitChecks).length > 0) {
+        db.loadHabitChecks(habitChecks);
+        console.log('  - Loaded habit check data');
       }
 
       // Load all goals (includes calendar tasks 'cal-*' and daily goals 'goals-*')
@@ -1571,7 +1610,7 @@ function renderHabits() {
       check.onclick = () => {
         check.classList.toggle("done");
         if (check.classList.contains("done")) {
-          localStorage.setItem(key, "1");
+          db.setHabitCheck(key, true);
           sounds.click();
 
           // Check if all habits are done for a day (only celebrate on Sunday)
@@ -1602,7 +1641,7 @@ function renderHabits() {
             setTimeout(() => row.classList.remove('habit-week-complete'), 2000);
           }
         } else {
-          localStorage.removeItem(key);
+          db.setHabitCheck(key, false);
         }
         updateStats();
       };
