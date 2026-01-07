@@ -2769,7 +2769,7 @@ body.dark .simple-list-item:hover {
 
 .sidebar-datetime {
     position: absolute;
-    top: -28px;
+    top: -36px;
     right: 0;
     color: var(--text-secondary);
     font-size: 0.85rem;
