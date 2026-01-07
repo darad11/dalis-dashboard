@@ -1,26 +1,26 @@
 // ===== AUTHENTICATION MODULE =====
 (function () {
-    'use strict';
+  'use strict';
 
-    const SUPABASE_URL = 'https://jbkufpyyfmbxjeswagli.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impia3VmcHl5Zm1ieGplc3dhZ2xpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc1MjgyMjYsImV4cCI6MjA4MzEwNDIyNn0.vmi9FErxUI2bZy_0vEqoCwoZ8RMgH7uRAtJ8QAhU8VY';
+  const SUPABASE_URL = 'https://jbkufpyyfmbxjeswagli.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impia3VmcHl5Zm1ieGplc3dhZ2xpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc1MjgyMjYsImV4cCI6MjA4MzEwNDIyNn0.vmi9FErxUI2bZy_0vEqoCwoZ8RMgH7uRAtJ8QAhU8VY';
 
-    // Wait for Supabase library
-    if (typeof window.supabase === 'undefined') {
-        console.error('[Auth] Supabase library not loaded');
-        return;
-    }
+  // Wait for Supabase library
+  if (typeof window.supabase === 'undefined') {
+    console.error('[Auth] Supabase library not loaded');
+    return;
+  }
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Auth state
-    let currentUser = null;
+  // Auth state
+  let currentUser = null;
 
-    // Create login overlay
-    function createLoginUI() {
-        const overlay = document.createElement('div');
-        overlay.id = 'authOverlay';
-        overlay.innerHTML = `
+  // Create login overlay
+  function createLoginUI() {
+    const overlay = document.createElement('div');
+    overlay.id = 'authOverlay';
+    overlay.innerHTML = `
       <div class="auth-container">
         <div class="auth-card glass-panel">
           <div class="auth-logo">d.</div>
@@ -48,11 +48,11 @@
         </div>
       </div>
     `;
-        document.body.insertBefore(overlay, document.body.firstChild);
+    document.body.insertBefore(overlay, document.body.firstChild);
 
-        // Add styles
-        const style = document.createElement('style');
-        style.textContent = `
+    // Add styles
+    const style = document.createElement('style');
+    style.textContent = `
       #authOverlay {
         position: fixed;
         top: 0;
@@ -64,12 +64,13 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        opacity: 1;
-        transition: opacity 0.4s ease;
-      }
-      #authOverlay.hidden {
         opacity: 0;
-        pointer-events: none;
+        visibility: hidden;
+        transition: opacity 0.4s ease, visibility 0.4s ease;
+      }
+      #authOverlay.visible {
+        opacity: 1;
+        visibility: visible;
       }
       .auth-container {
         width: 100%;
@@ -206,169 +207,169 @@
         color: #4ade80;
       }
     `;
-        document.head.appendChild(style);
+    document.head.appendChild(style);
 
-        // Event handlers
-        let isSignUp = false;
-        const form = document.getElementById('authForm');
-        const emailInput = document.getElementById('authEmail');
-        const passwordInput = document.getElementById('authPassword');
-        const submitBtn = document.getElementById('authSubmit');
-        const toggleBtn = document.getElementById('authToggle');
-        const toggleText = document.getElementById('authToggleText');
-        const magicLinkBtn = document.getElementById('authMagicLink');
-        const messageEl = document.getElementById('authMessage');
+    // Event handlers
+    let isSignUp = false;
+    const form = document.getElementById('authForm');
+    const emailInput = document.getElementById('authEmail');
+    const passwordInput = document.getElementById('authPassword');
+    const submitBtn = document.getElementById('authSubmit');
+    const toggleBtn = document.getElementById('authToggle');
+    const toggleText = document.getElementById('authToggleText');
+    const magicLinkBtn = document.getElementById('authMagicLink');
+    const messageEl = document.getElementById('authMessage');
 
-        function showMessage(msg, isSuccess) {
-            messageEl.textContent = msg;
-            messageEl.className = 'auth-message' + (isSuccess ? ' success' : '');
-        }
-
-        toggleBtn.addEventListener('click', function () {
-            isSignUp = !isSignUp;
-            submitBtn.textContent = isSignUp ? 'Sign Up' : 'Sign In';
-            toggleText.textContent = isSignUp ? 'Already have an account?' : "Don't have an account?";
-            toggleBtn.textContent = isSignUp ? 'Sign In' : 'Sign Up';
-            showMessage('', false);
-        });
-
-        form.addEventListener('submit', async function (e) {
-            e.preventDefault();
-            const email = emailInput.value.trim();
-            const password = passwordInput.value;
-
-            if (!email || !password) {
-                showMessage('Please fill in all fields', false);
-                return;
-            }
-
-            submitBtn.disabled = true;
-            submitBtn.textContent = isSignUp ? 'Creating account...' : 'Signing in...';
-
-            try {
-                let result;
-                if (isSignUp) {
-                    result = await supabase.auth.signUp({ email: email, password: password });
-                } else {
-                    result = await supabase.auth.signInWithPassword({ email: email, password: password });
-                }
-
-                if (result.error) {
-                    showMessage(result.error.message, false);
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = isSignUp ? 'Sign Up' : 'Sign In';
-                } else if (isSignUp && !result.data.session) {
-                    showMessage('Check your email to confirm your account!', true);
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Sign Up';
-                }
-                // If successful login, onAuthStateChange will handle hiding the overlay
-            } catch (err) {
-                showMessage('An error occurred. Please try again.', false);
-                submitBtn.disabled = false;
-                submitBtn.textContent = isSignUp ? 'Sign Up' : 'Sign In';
-            }
-        });
-
-        magicLinkBtn.addEventListener('click', async function () {
-            const email = emailInput.value.trim();
-            if (!email) {
-                showMessage('Please enter your email first', false);
-                return;
-            }
-
-            magicLinkBtn.disabled = true;
-            magicLinkBtn.textContent = 'Sending...';
-
-            try {
-                const { error } = await supabase.auth.signInWithOtp({
-                    email: email,
-                    options: {
-                        emailRedirectTo: window.location.origin + window.location.pathname
-                    }
-                });
-
-                if (error) {
-                    showMessage(error.message, false);
-                } else {
-                    showMessage('Magic link sent! Check your email.', true);
-                }
-            } catch (err) {
-                showMessage('Failed to send magic link', false);
-            }
-
-            magicLinkBtn.disabled = false;
-            magicLinkBtn.textContent = 'Send Magic Link';
-        });
+    function showMessage(msg, isSuccess) {
+      messageEl.textContent = msg;
+      messageEl.className = 'auth-message' + (isSuccess ? ' success' : '');
     }
 
-    function hideLoginUI() {
-        const overlay = document.getElementById('authOverlay');
-        if (overlay) {
-            overlay.classList.add('hidden');
-            setTimeout(function () {
-                overlay.remove();
-            }, 400);
-        }
-    }
-
-    function showLoginUI() {
-        const overlay = document.getElementById('authOverlay');
-        if (overlay) {
-            overlay.classList.remove('hidden');
-        }
-    }
-
-    // Listen for auth state changes
-    supabase.auth.onAuthStateChange(function (event, session) {
-        console.log('[Auth] State change:', event);
-
-        if (session && session.user) {
-            currentUser = session.user;
-            window.currentUserId = session.user.id;
-            console.log('[Auth] User logged in:', session.user.email);
-            hideLoginUI();
-
-            // Trigger app initialization if it hasn't happened yet
-            if (window.initDashboard && typeof window.initDashboard === 'function') {
-                window.initDashboard();
-            }
-        } else {
-            currentUser = null;
-            window.currentUserId = null;
-            console.log('[Auth] User logged out');
-            showLoginUI();
-        }
+    toggleBtn.addEventListener('click', function () {
+      isSignUp = !isSignUp;
+      submitBtn.textContent = isSignUp ? 'Sign Up' : 'Sign In';
+      toggleText.textContent = isSignUp ? 'Already have an account?' : "Don't have an account?";
+      toggleBtn.textContent = isSignUp ? 'Sign In' : 'Sign Up';
+      showMessage('', false);
     });
 
-    // Check initial session
-    async function checkSession() {
-        const { data } = await supabase.auth.getSession();
-        if (data.session) {
-            currentUser = data.session.user;
-            window.currentUserId = data.session.user.id;
-            console.log('[Auth] Existing session found:', data.session.user.email);
-            hideLoginUI();
-            return true;
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      if (!email || !password) {
+        showMessage('Please fill in all fields', false);
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = isSignUp ? 'Creating account...' : 'Signing in...';
+
+      try {
+        let result;
+        if (isSignUp) {
+          result = await supabase.auth.signUp({ email: email, password: password });
+        } else {
+          result = await supabase.auth.signInWithPassword({ email: email, password: password });
         }
-        return false;
+
+        if (result.error) {
+          showMessage(result.error.message, false);
+          submitBtn.disabled = false;
+          submitBtn.textContent = isSignUp ? 'Sign Up' : 'Sign In';
+        } else if (isSignUp && !result.data.session) {
+          showMessage('Check your email to confirm your account!', true);
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Sign Up';
+        }
+        // If successful login, onAuthStateChange will handle hiding the overlay
+      } catch (err) {
+        showMessage('An error occurred. Please try again.', false);
+        submitBtn.disabled = false;
+        submitBtn.textContent = isSignUp ? 'Sign Up' : 'Sign In';
+      }
+    });
+
+    magicLinkBtn.addEventListener('click', async function () {
+      const email = emailInput.value.trim();
+      if (!email) {
+        showMessage('Please enter your email first', false);
+        return;
+      }
+
+      magicLinkBtn.disabled = true;
+      magicLinkBtn.textContent = 'Sending...';
+
+      try {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: email,
+          options: {
+            emailRedirectTo: window.location.origin + window.location.pathname
+          }
+        });
+
+        if (error) {
+          showMessage(error.message, false);
+        } else {
+          showMessage('Magic link sent! Check your email.', true);
+        }
+      } catch (err) {
+        showMessage('Failed to send magic link', false);
+      }
+
+      magicLinkBtn.disabled = false;
+      magicLinkBtn.textContent = 'Send Magic Link';
+    });
+  }
+
+  function hideLoginUI() {
+    const overlay = document.getElementById('authOverlay');
+    if (overlay) {
+      overlay.classList.remove('visible');
+      setTimeout(function () {
+        overlay.remove();
+      }, 400);
     }
+  }
 
-    // Initialize
-    createLoginUI();
+  function showLoginUI() {
+    const overlay = document.getElementById('authOverlay');
+    if (overlay) {
+      overlay.classList.add('visible');
+    }
+  }
 
-    // Export auth functions
-    window.authModule = {
-        getUser: function () { return currentUser; },
-        getUserId: function () { return currentUser ? currentUser.id : null; },
-        signOut: async function () {
-            await supabase.auth.signOut();
-            window.location.reload();
-        },
-        checkSession: checkSession
-    };
+  // Listen for auth state changes
+  supabase.auth.onAuthStateChange(function (event, session) {
+    console.log('[Auth] State change:', event);
 
-    // Check for existing session
-    checkSession();
+    if (session && session.user) {
+      currentUser = session.user;
+      window.currentUserId = session.user.id;
+      console.log('[Auth] User logged in:', session.user.email);
+      hideLoginUI();
+
+      // Trigger app initialization if it hasn't happened yet
+      if (window.initDashboard && typeof window.initDashboard === 'function') {
+        window.initDashboard();
+      }
+    } else {
+      currentUser = null;
+      window.currentUserId = null;
+      console.log('[Auth] User logged out');
+      showLoginUI();
+    }
+  });
+
+  // Check initial session
+  async function checkSession() {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      currentUser = data.session.user;
+      window.currentUserId = data.session.user.id;
+      console.log('[Auth] Existing session found:', data.session.user.email);
+      hideLoginUI();
+      return true;
+    }
+    return false;
+  }
+
+  // Initialize
+  createLoginUI();
+
+  // Export auth functions
+  window.authModule = {
+    getUser: function () { return currentUser; },
+    getUserId: function () { return currentUser ? currentUser.id : null; },
+    signOut: async function () {
+      await supabase.auth.signOut();
+      window.location.reload();
+    },
+    checkSession: checkSession
+  };
+
+  // Check for existing session
+  checkSession();
 
 })();
