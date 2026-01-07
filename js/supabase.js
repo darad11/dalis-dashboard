@@ -105,9 +105,8 @@
                 console.error('Error fetching habits:', error);
                 return [];
             }
-            // Return just the habit names (strings) to match app format
             return data.map(function (h) {
-                return h.name;
+                return { id: h.id, name: h.name, color: h.color, history: h.history || {} };
             });
         },
 
@@ -115,26 +114,24 @@
             const userId = getUserId();
             if (!userId) return;
 
-            // Delete all existing habits for this user first
-            await supabase.from('habits').delete().eq('user_id', userId);
-
-            // Insert all habits
-            if (habits.length > 0) {
-                const rows = habits.map(function (habit, idx) {
-                    // Handle both string and object formats
-                    var name = typeof habit === 'string' ? habit : habit.name;
-                    var color = typeof habit === 'object' ? habit.color : null;
-                    var history = typeof habit === 'object' ? (habit.history || {}) : {};
-                    return {
-                        user_id: userId,
-                        name: name,
-                        color: color,
-                        history: history
-                    };
-                });
-
-                const { error } = await supabase.from('habits').insert(rows);
-                if (error) console.error('Error saving habits:', error);
+            // For simplicity, we'll upsert all habits
+            for (var i = 0; i < habits.length; i++) {
+                var habit = habits[i];
+                if (habit.id) {
+                    // Update existing
+                    var result = await supabase
+                        .from('habits')
+                        .update({ name: habit.name, color: habit.color, history: habit.history })
+                        .eq('id', habit.id)
+                        .eq('user_id', userId);
+                    if (result.error) console.error('Error updating habit:', result.error);
+                } else {
+                    // Insert new
+                    var insertResult = await supabase
+                        .from('habits')
+                        .insert({ user_id: userId, name: habit.name, color: habit.color, history: habit.history || {} });
+                    if (insertResult.error) console.error('Error inserting habit:', insertResult.error);
+                }
             }
         },
 

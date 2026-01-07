@@ -330,9 +330,9 @@
       console.log('[Auth] User logged in:', session.user.email);
       hideLoginUI();
 
-      // Trigger app initialization if it hasn't happened yet
+      // Trigger app initialization (with slight delay to ensure state settles)
       if (window.initDashboard && typeof window.initDashboard === 'function') {
-        window.initDashboard();
+        setTimeout(() => window.initDashboard(), 50);
       }
     } else {
       currentUser = null;

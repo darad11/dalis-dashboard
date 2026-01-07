@@ -349,38 +349,6 @@ const db = {
     db.set('habits', habits);
     if (isSupabaseAvailable()) window.supabaseDB.setHabits(habits);
   },
-  // Sync habit check data to cloud
-  getHabitData: () => db.get('habitChecks', {}),
-  setHabitCheck: (key, value) => {
-    // Store locally
-    if (value) {
-      localStorage.setItem(key, '1');
-    } else {
-      localStorage.removeItem(key);
-    }
-    // Also save to a consolidated object for cloud sync
-    const checks = db.get('habitChecks', {});
-    if (value) {
-      checks[key] = true;
-    } else {
-      delete checks[key];
-    }
-    db.set('habitChecks', checks);
-    // Sync to Supabase
-    if (isSupabaseAvailable()) {
-      window.supabaseDB.setSetting('habitChecks', checks);
-    }
-  },
-  // Load habit checks from cloud
-  loadHabitChecks: (checks) => {
-    if (!checks || typeof checks !== 'object') return;
-    Object.keys(checks).forEach(key => {
-      if (checks[key]) {
-        localStorage.setItem(key, '1');
-      }
-    });
-    db.set('habitChecks', checks);
-  },
   getKanban: (weekDate) => db.get(db.weekKey(weekDate || currentWeekDate), {}),
   setKanban: (data, weekDate) => {
     const key = db.weekKey(weekDate || currentWeekDate);
@@ -425,12 +393,6 @@ const db = {
       return;
     }
 
-    // Wait for user to be authenticated
-    if (!window.currentUserId) {
-      console.log('[Storage] No user logged in, using localStorage only');
-      return;
-    }
-
     console.log('[Supabase] Loading data from cloud...');
 
     try {
@@ -441,36 +403,29 @@ const db = {
         console.log('  - Loaded ' + habits.length + ' habits');
       }
 
-      // Load habit check data
-      const habitChecks = await window.supabaseDB.getSetting('habitChecks', {});
-      if (habitChecks && Object.keys(habitChecks).length > 0) {
-        db.loadHabitChecks(habitChecks);
-        console.log('  - Loaded habit check data');
-      }
-
       // Load all goals (includes calendar tasks 'cal-*' and daily goals 'goals-*')
-      const allGoals = await window.supabaseDB.getAllGoals();
-
       // Only clear localStorage if we actually got data from cloud
       if (Object.keys(allGoals).length > 0) {
-        // Clear existing goal and calendar keys in localStorage to handle deletions
-        const keysToRemove = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.startsWith('goals-') || key.startsWith('cal-'))) {
-            keysToRemove.push(key);
-          }
-        }
-        keysToRemove.forEach(key => localStorage.removeItem(key));
-
-        // Then set the goals/calendar from cloud
+        // Granular sync:
+        // 1. Update/Add keys from cloud
         Object.entries(allGoals).forEach(([dateKey, goals]) => {
           db.set(dateKey, goals);
         });
-        console.log('  - Loaded goals/calendar for ' + Object.keys(allGoals).length + ' days');
-      }
 
-      // Load today's notes
+        // 2. Remove local keys that don't exist in cloud (handle deletions)
+        // We only remove 'goals-' or 'cal-' keys that are NOT in the fetched dataset
+        const cloudKeys = new Set(Object.keys(allGoals));
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('goals-') || key.startsWith('cal-'))) {
+            if (!cloudKeys.has(key)) {
+              localStorage.removeItem(key);
+            }
+          }
+        }
+
+        console.log('  - Synced goals/calendar for ' + Object.keys(allGoals).length + ' days');
+      } // Load today's notes
       const todayNotesKey = db.notesKey(new Date());
       const notes = await window.supabaseDB.getNotes(todayNotesKey);
       if (notes) {
@@ -1619,7 +1574,7 @@ function renderHabits() {
       check.onclick = () => {
         check.classList.toggle("done");
         if (check.classList.contains("done")) {
-          db.setHabitCheck(key, true);
+          localStorage.setItem(key, "1");
           sounds.click();
 
           // Check if all habits are done for a day (only celebrate on Sunday)
@@ -1650,7 +1605,7 @@ function renderHabits() {
             setTimeout(() => row.classList.remove('habit-week-complete'), 2000);
           }
         } else {
-          db.setHabitCheck(key, false);
+          localStorage.removeItem(key);
         }
         updateStats();
       };
