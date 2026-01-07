@@ -1563,9 +1563,10 @@ function renderHabits() {
     const nameEl = document.createElement("div");
     nameEl.className = "habit-name";
 
+    const habitName = typeof habit === 'string' ? habit : habit.name;
     const nameText = document.createElement("span");
     nameText.className = "habit-name-text";
-    nameText.textContent = habit;
+    nameText.textContent = habitName;
 
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "habit-delete-btn";
@@ -1577,9 +1578,13 @@ function renderHabits() {
 
     nameEl.append(nameText, deleteBtn);
     nameEl.ondblclick = async () => {
-      const newName = await showInputModal('Rename Habit', 'Enter new name...', habit);
+      const newName = await showInputModal('Rename Habit', 'Enter new name...', habitName);
       if (newName && newName.trim()) {
-        habits[hIdx] = newName.trim();
+        if (typeof habits[hIdx] === 'object') {
+          habits[hIdx].name = newName.trim();
+        } else {
+          habits[hIdx] = newName.trim();
+        }
         db.setHabits(habits);
         renderHabits();
       }
