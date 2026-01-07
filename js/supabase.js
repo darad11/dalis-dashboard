@@ -62,8 +62,12 @@
                 });
 
                 const { error } = await supabase.from('goals').insert(rows);
-                if (error) console.error('Error saving goals:', error);
+                if (error) {
+                    console.error('Error saving goals:', error);
+                    return error;
+                }
             }
+            return null;
         },
 
         async getAllGoals() {
@@ -213,13 +217,14 @@
                     .from('notes')
                     .update({ content: content })
                     .eq('id', existing.id);
-                if (error) console.error('Error saving notes:', error);
+                if (error) { console.error('Error saving notes:', error); return error; }
             } else {
                 const { error } = await supabase
                     .from('notes')
                     .insert({ user_id: userId, date: dateKey, content: content });
-                if (error) console.error('Error saving notes:', error);
+                if (error) { console.error('Error saving notes:', error); return error; }
             }
+            return null;
         },
 
         // ===== KANBAN (Weekly) =====
@@ -274,8 +279,12 @@
 
             if (rows.length > 0) {
                 const { error } = await supabase.from('kanban_tasks').insert(rows);
-                if (error) console.error('Error saving kanban:', error);
+                if (error) {
+                    console.error('Error saving kanban:', error);
+                    return error;
+                }
             }
+            return null;
         },
 
         // ===== BACKLOG =====
@@ -328,8 +337,9 @@
 
             if (rows.length > 0) {
                 const { error } = await supabase.from('backlog_tasks').insert(rows);
-                if (error) console.error('Error saving backlog:', error);
+                if (error) { console.error('Error saving backlog:', error); return error; }
             }
+            return null;
         },
 
         // ===== LISTS (Shopping, Chores, Goals2026, Custom) =====

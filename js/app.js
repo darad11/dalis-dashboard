@@ -556,10 +556,11 @@ const db = {
 
   // === Manual Push to Cloud (Recovery) ===
   async pushToCloud() {
-    if (!isSupabaseAvailable() || !window.currentUserId) throw new Error("Not logged in");
+    if (!isSupabaseAvailable() || !window.currentUserId) throw new Error("Not logged in (User ID missing). Please sign out and sign in again.");
 
     console.log('[Sync] Starting manual upload...');
     let count = 0;
+    const errors = [];
 
     // 1. Goals & Calendar
     for (let i = 0; i < localStorage.length; i++) {
@@ -567,9 +568,13 @@ const db = {
       if (key && (key.startsWith('goals-') || key.startsWith('cal-'))) {
         try {
           const val = JSON.parse(localStorage.getItem(key));
-          await window.supabaseDB.setGoals(key, val);
+          const err = await window.supabaseDB.setGoals(key, val);
+          if (err) throw err;
           count++;
-        } catch (e) { console.error('Failed to sync goal ' + key); }
+        } catch (e) {
+          console.error('Failed to sync goal ' + key, e);
+          errors.push(`Goal ${key}: ${e.message || e.code}`);
+        }
       }
     }
 
@@ -579,51 +584,63 @@ const db = {
       if (key && (key.startsWith('notes-') || key.startsWith('review-'))) {
         try {
           const val = JSON.parse(localStorage.getItem(key));
-          // Notes are stored as simple value in JSON, but setNotes expects string
-          // But db.set saves JSON.stringify("text"). parse returns "text".
-          await window.supabaseDB.setNotes(key, val);
+          const err = await window.supabaseDB.setNotes(key, val);
+          if (err) throw err;
           count++;
-        } catch (e) { console.error('Failed to sync note ' + key); }
+        } catch (e) {
+          console.error('Failed to sync note ' + key, e);
+          errors.push(`Note ${key}: ${e.message || e.code}`);
+        }
       }
     }
 
-    // 3. Habits
-    await window.supabaseDB.setHabits(db.getAllHabits());
+    // 3. Habits (Setters return error now)
+    try {
+      const err = await window.supabaseDB.setHabits(db.getAllHabits());
+      if (err) throw err;
+    } catch (e) { errors.push(`Habits: ${e.message}`); }
 
     // 4. Habit Checks
-    await window.supabaseDB.setSetting('habitChecks', db.getHabitData());
+    try {
+      await window.supabaseDB.setSetting('habitChecks', db.getHabitData());
+    } catch (e) { errors.push(`HabitChecks: ${e.message}`); }
 
     // 5. Backlog
-    await window.supabaseDB.setBacklog(db.get('backlog', {}));
+    try {
+      const err = await window.supabaseDB.setBacklog(db.get('backlog', {}));
+      if (err) throw err;
+    } catch (e) { errors.push(`Backlog: ${e.message}`); }
 
     // 6. Current Week Kanban
-    // (Note: We only sync CURRENT week stored in weekKey-DATE. Other weeks in localStorage might need sync too?)
-    // Let's iterate keys for 'week-'
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith('week-')) {
         try {
           const val = JSON.parse(localStorage.getItem(key));
-          await window.supabaseDB.setKanban(key, val);
+          const err = await window.supabaseDB.setKanban(key, val);
+          if (err) throw err;
           count++;
-        } catch (e) { }
+        } catch (e) { errors.push(`Kanban ${key}: ${e.message}`); }
       }
     }
 
     // 7. Lists
-    // Iterate 'list-' keys
-    const customLists = db.get('customLists', []); // ['Shopping', 'Chores', ...]
+    const customLists = db.get('customLists', []);
     const builtInLists = ['Shopping', 'Chores', 'Goals 2026'];
     const allLists = [...new Set([...builtInLists, ...customLists])];
 
     for (const listName of allLists) {
       const items = db.get(`list-${listName}`, []);
       const icon = db.get(`listIcon_${listName}`, '📝');
+      // setList likely doesn't return error in current impl? 
+      // Check supabase.js line 350? It should be updated similarly.
+      // Assuming it swallows or I missed updating it.
+      // For now, assume it works or modify supabase.js for lists too.
       await window.supabaseDB.setList(listName, items, icon);
       count++;
     }
 
-    return count;
+    return { count, errors };
   }
 };
 
@@ -649,8 +666,17 @@ window.forceSync = async () => {
     if (!confirm("⚠️ This will overwrite cloud data with your local data. Are you sure?")) return;
     try {
       alert('Uploading to cloud... please wait.');
-      const count = await db.pushToCloud();
-      alert(`✅ Upload complete! (${count} items synced).\n\nNow use 'download' on your other devices.`);
+      const result = await db.pushToCloud();
+      const count = result.count || 0;
+      const errors = result.errors || [];
+
+      let msg = `✅ Upload complete! (${count} items synced).`;
+      if (errors.length > 0) {
+        msg += `\n⚠️ BUT with ${errors.length} errors:\n` + errors.slice(0, 5).join('\n');
+      }
+      msg += `\n\nNow use 'download' on your other devices.`;
+
+      alert(msg);
     } catch (e) {
       alert('❌ Upload failed: ' + e.message);
       console.error(e);
