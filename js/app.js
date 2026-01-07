@@ -314,7 +314,13 @@ function showConfirmModal(title, message = 'Are you sure?') {
 }
 
 // ===== STATE MANAGEMENT =====
+// Check if Supabase is available at runtime (function instead of constant to avoid race condition)
+function isSupabaseAvailable() {
+  return typeof window.supabaseDB !== 'undefined';
+}
+
 const db = {
+  // === Local storage (cache/fallback) ===
   get: (key, def = null) => {
     try { return JSON.parse(localStorage.getItem(key)) || def; }
     catch { return def; }
@@ -322,6 +328,7 @@ const db = {
   set: (key, val) => localStorage.setItem(key, JSON.stringify(val)),
   del: (key) => localStorage.removeItem(key),
 
+  // === Key generators ===
   calKey: (d) => `cal-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
   goalKey: (d) => `goals-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
   notesKey: (d) => `notes-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
@@ -329,18 +336,110 @@ const db = {
   reviewKey: (d) => `review-${d.getFullYear()}-W${getWeekNumber(d)}`,
   habitsKey: (d) => `habitsData-${d.getFullYear()}-W${getWeekNumber(d)}`,
 
+  // === Local getters (sync, use cache) ===
   getAllHabits: () => db.get('habits', []),
-  setHabits: (habits) => db.set('habits', habits),
+  setHabits: (habits) => {
+    db.set('habits', habits);
+    if (isSupabaseAvailable()) window.supabaseDB.setHabits(habits);
+  },
   getKanban: (weekDate) => db.get(db.weekKey(weekDate || currentWeekDate), {}),
-  setKanban: (data, weekDate) => db.set(db.weekKey(weekDate || currentWeekDate), data),
+  setKanban: (data, weekDate) => {
+    const key = db.weekKey(weekDate || currentWeekDate);
+    db.set(key, data);
+    if (isSupabaseAvailable()) window.supabaseDB.setKanban(key, data);
+  },
   getGoals: (date) => db.get(db.goalKey(date || currentGoalDate), []),
-  setGoals: (goals, date) => db.set(db.goalKey(date || currentGoalDate), goals),
+  setGoals: (goals, date) => {
+    const key = db.goalKey(date || currentGoalDate);
+    db.set(key, goals);
+    if (isSupabaseAvailable()) window.supabaseDB.setGoals(key, goals);
+  },
   getNotes: (date) => db.get(db.notesKey(date || currentNotesDate), ''),
-  setNotes: (text, date) => db.set(db.notesKey(date || currentNotesDate), text),
+  setNotes: (text, date) => {
+    const key = db.notesKey(date || currentNotesDate);
+    db.set(key, text);
+    if (isSupabaseAvailable()) window.supabaseDB.setNotes(key, text);
+  },
   getWeeklyReview: (weekDate) => db.get(db.reviewKey(weekDate || currentReviewWeekDate), ''),
-  setWeeklyReview: (text, weekDate) => db.set(db.reviewKey(weekDate || currentReviewWeekDate), text),
+  setWeeklyReview: (text, weekDate) => {
+    const key = db.reviewKey(weekDate || currentReviewWeekDate);
+    db.set(key, text);
+    // Weekly review can be added to Supabase later if needed
+  },
   getStats: () => db.get('stats', { pomos: 0, tasks: 0, streak: 0, lastActive: null }),
-  setStats: (stats) => db.set('stats', stats)
+  setStats: (stats) => db.set('stats', stats),
+
+  // === Cloud sync functions ===
+  async loadFromCloud() {
+    if (!isSupabaseAvailable()) {
+      console.log('[Storage] Using localStorage only (Supabase not available)');
+      return;
+    }
+
+    console.log('[Supabase] Loading data from cloud...');
+
+    try {
+      // Load habits
+      const habits = await window.supabaseDB.getHabits();
+      if (habits.length > 0) {
+        db.set('habits', habits);
+        console.log('  - Loaded ' + habits.length + ' habits');
+      }
+
+      // Load all goals
+      const allGoals = await window.supabaseDB.getAllGoals();
+      Object.entries(allGoals).forEach(([dateKey, goals]) => {
+        db.set(dateKey, goals);
+      });
+      console.log('  - Loaded goals for ' + Object.keys(allGoals).length + ' days');
+
+      // Load today's notes
+      const todayNotesKey = db.notesKey(new Date());
+      const notes = await window.supabaseDB.getNotes(todayNotesKey);
+      if (notes) {
+        db.set(todayNotesKey, notes);
+        console.log('  - Loaded today\'s notes');
+      }
+
+      // Load current week kanban
+      const weekKey = db.weekKey(new Date());
+      const kanban = await window.supabaseDB.getKanban(weekKey);
+      if (Object.keys(kanban).length > 0) {
+        db.set(weekKey, kanban);
+        console.log('  - Loaded weekly kanban');
+      }
+
+      // Load backlog
+      const backlog = await window.supabaseDB.getBacklog();
+      if (Object.keys(backlog).length > 0) {
+        db.set('backlog', backlog);
+        console.log('  - Loaded backlog');
+      }
+
+      // Load all lists
+      const lists = await window.supabaseDB.getAllLists();
+      if (lists.length > 0) {
+        db.set('customLists', lists.map(l => l.name));
+        lists.forEach(list => {
+          db.set(`list_${list.name}`, list.items);
+          db.set(`listIcon_${list.name}`, list.icon);
+        });
+        console.log('  - Loaded ' + lists.length + ' lists');
+      }
+
+      // Load pomodoro stats
+      const pomoStats = await window.supabaseDB.getAllPomodoroStats();
+      Object.entries(pomoStats).forEach(([dateKey, count]) => {
+        db.set(`pomo_${dateKey}`, count);
+      });
+      console.log('  - Loaded pomodoro stats');
+
+      console.log('[Supabase] Cloud sync complete!');
+    } catch (err) {
+      console.error('[Error] Loading from Supabase:', err);
+      console.log('[Storage] Falling back to localStorage');
+    }
+  }
 };
 
 // Helper: Get ISO week number
@@ -403,7 +502,7 @@ const pomo = {
 const weekdays = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"];
 
 // ===== INITIALIZATION =====
-function init() {
+async function init() {
   // Get DOM elements
   els.calList = document.getElementById('calendar');
   els.calTitle = document.getElementById('title');
@@ -423,6 +522,9 @@ function init() {
   els.focusTime = document.getElementById('focusTime');
   els.focusRing = document.querySelector('.focus-ring');
   els.confettiCanvas = document.getElementById('confettiCanvas');
+
+  // Load data from Supabase (if available)
+  await db.loadFromCloud();
 
   initTheme();
   initPomodoro();
