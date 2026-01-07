@@ -2763,15 +2763,19 @@ body.dark .simple-list-item:hover {
     flex: 1;
     /* Sidebar fills remaining width */
     min-width: 350px;
+    position: relative;
+    /* For absolute datetime positioning */
 }
 
 .sidebar-datetime {
+    position: absolute;
+    top: -28px;
+    right: 0;
     color: var(--text-secondary);
     font-size: 0.85rem;
     font-weight: 500;
     letter-spacing: 0.5px;
     text-align: right;
-    margin-bottom: 8px;
     opacity: 0.8;
 }
 
@@ -2805,7 +2809,7 @@ body.dark .simple-list-item:hover {
 
 .combined-glass-panel {
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
     padding: 0 !important;
     margin-bottom: 0 !important;
     overflow: hidden;
@@ -2820,6 +2824,8 @@ body.dark .simple-list-item:hover {
     width: 360px;
     padding: 24px;
     flex-shrink: 0;
+    height: 100%;
+    box-sizing: border-box;
 }
 
 .stats-section {
