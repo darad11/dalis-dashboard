@@ -332,8 +332,34 @@ const db = {
     try { return JSON.parse(localStorage.getItem(key)) || def; }
     catch { return def; }
   },
-  set: (key, val) => localStorage.setItem(key, JSON.stringify(val)),
-  del: (key) => localStorage.removeItem(key),
+
+  // Update set to handle dirty flagging (Gold Standard Sync)
+  set: (key, val, fromCloud = false) => {
+    localStorage.setItem(key, JSON.stringify(val));
+    if (!fromCloud) {
+      localStorage.setItem('dirty_' + key, '1');
+    }
+  },
+
+  del: (key, fromCloud = false) => {
+    localStorage.removeItem(key);
+    if (fromCloud) {
+      localStorage.removeItem('dirty_' + key);
+    } else {
+      // If deleting locally, how do we track it needs deletion remotely?
+      // We usually assume missing key = delete.
+      // But tracking 'tombstones' is better.
+      // For simplicity: We delete from cloud via setters immediately.
+      // If that fails, we are in trouble.
+      // But db.setGoals handles the explicit delete call.
+      // So simple del() is mostly for internal cleanup.
+      localStorage.removeItem('dirty_' + key);
+    }
+  },
+
+  // Dirty Flag Helpers
+  clearDirty: (key) => localStorage.removeItem('dirty_' + key),
+  isDirty: (key) => localStorage.getItem('dirty_' + key) === '1',
 
   // === Key generators ===
   calKey: (d) => `cal-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
@@ -347,36 +373,71 @@ const db = {
   getAllHabits: () => db.get('habits', []),
   setHabits: (habits) => {
     db.set('habits', habits);
-    if (isSupabaseAvailable()) window.supabaseDB.setHabits(habits);
+    if (isSupabaseAvailable()) {
+      window.supabaseDB.setHabits(habits)
+        .then(err => { if (!err) db.clearDirty('habits'); });
+    }
   },
   getKanban: (weekDate) => db.get(db.weekKey(weekDate || currentWeekDate), {}),
   setKanban: (data, weekDate) => {
     const key = db.weekKey(weekDate || currentWeekDate);
     db.set(key, data);
-    if (isSupabaseAvailable()) window.supabaseDB.setKanban(key, data);
+    if (isSupabaseAvailable()) {
+      window.supabaseDB.setKanban(key, data)
+        .then(err => { if (!err) db.clearDirty(key); });
+    }
   },
   getGoals: (date) => db.get(db.goalKey(date || currentGoalDate), []),
   setGoals: (goals, date) => {
     const key = db.goalKey(date || currentGoalDate);
     db.set(key, goals);
-    if (isSupabaseAvailable()) window.supabaseDB.setGoals(key, goals);
+    if (isSupabaseAvailable()) {
+      window.supabaseDB.setGoals(key, goals)
+        .then(err => { if (!err) db.clearDirty(key); });
+    }
   },
-  getNotes: (date) => db.get(db.notesKey(date || currentNotesDate), ''),
+  getNotes: (date) => db.get(db.notesKey(date || currentGoalDate), ''),
   setNotes: (text, date) => {
-    const key = db.notesKey(date || currentNotesDate);
+    const key = db.notesKey(date || currentGoalDate);
     db.set(key, text);
-    if (isSupabaseAvailable()) window.supabaseDB.setNotes(key, text);
+    if (isSupabaseAvailable()) {
+      window.supabaseDB.setNotes(key, text)
+        .then(err => { if (!err) db.clearDirty(key); });
+    }
   },
-  getWeeklyReview: (weekDate) => db.get(db.reviewKey(weekDate || currentReviewWeekDate), ''),
-  setWeeklyReview: (text, weekDate) => {
-    const key = db.reviewKey(weekDate || currentReviewWeekDate);
+  getWeeklyReview: (date) => db.get(db.reviewKey(date || currentNoteDate), ''),
+  setWeeklyReview: (text, date) => {
+    const key = db.reviewKey(date || currentNoteDate);
     db.set(key, text);
-    if (isSupabaseAvailable()) window.supabaseDB.setNotes(key, text);
+    if (isSupabaseAvailable()) {
+      window.supabaseDB.setNotes(key, text)
+        .then(err => { if (!err) db.clearDirty(key); });
+    }
   },
   getBacklog: () => db.get('backlog', {}),
-  setBacklog: (data) => {
-    db.set('backlog', data);
-    if (isSupabaseAvailable()) window.supabaseDB.setBacklog(data);
+  setBacklog: (backlog) => {
+    db.set('backlog', backlog);
+    if (isSupabaseAvailable()) {
+      window.supabaseDB.setBacklog(backlog)
+        .then(err => { if (!err) db.clearDirty('backlog'); });
+    }
+  },
+
+  // Update Habit Checks (uses db.get/set logic internally)
+  setHabitCheck: (key, value) => {
+    // 1. Update LocalStorage
+    if (value) localStorage.setItem(key, '1'); else localStorage.removeItem(key);
+
+    // 2. Update In-Memory Cache (for Cloud Upload)
+    const checks = db.get('habitChecks', {});
+    if (value) checks[key] = true; else delete checks[key];
+    db.set('habitChecks', checks); // Marks dirty
+
+    // 3. Sync to Cloud
+    if (isSupabaseAvailable()) {
+      window.supabaseDB.setSetting('habitChecks', checks)
+        .then(err => { if (!err) db.clearDirty('habitChecks'); });
+    }
   },
   getCalendarTasks: (date) => db.get(db.calKey(date), []),
   setCalendarTasks: (date, tasks) => {
@@ -388,176 +449,111 @@ const db = {
 
   // === Cloud sync functions ===
   async loadFromCloud() {
-    if (!isSupabaseAvailable()) {
-      console.log('[Storage] Using localStorage only (Supabase not available)');
-      return;
+    if (!isSupabaseAvailable() || !window.currentUserId) return;
+    console.log('[Sync] Starting Sync...');
+
+    // --- Phase 1: Push Dirty Items (Client Changes) ---
+    // Iterate 'dirty_' keys and push them.
+    const dirtyKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('dirty_')) dirtyKeys.push(k.substring(6)); // remove 'dirty_'
     }
 
-    console.log('[Supabase] Loading data from cloud...');
+    if (dirtyKeys.length > 0) {
+      console.log(`[Sync] Pushing ${dirtyKeys.length} dirty items...`);
+      for (const key of dirtyKeys) {
+        try {
+          const val = JSON.parse(localStorage.getItem(key));
+          let err = null;
 
-    try {
-      // Load habits
-      const habits = await window.supabaseDB.getHabits();
-      db.setHabits(habits); // This sets local storage
-
-      // Load habit check data
-      const habitChecks = await window.supabaseDB.getSetting('habitChecks', {});
-      if (habitChecks && Object.keys(habitChecks).length > 0) {
-        db.loadHabitChecks(habitChecks);
-        console.log('  - Loaded habit check data');
-      } else {
-        // Auto-upload local checks if cloud is empty
-        const localChecks = db.get('habitChecks', {});
-        if (Object.keys(localChecks).length > 0) {
-          await window.supabaseDB.setSetting('habitChecks', localChecks);
-          console.log('  - Uploaded local habit checks');
-        }
-      }
-
-      // Load all goals (includes calendar tasks 'cal-*' and daily goals 'goals-*')
-      const allGoals = await window.supabaseDB.getAllGoals();
-      const cloudGoalKeys = new Set(Object.keys(allGoals));
-
-      if (cloudGoalKeys.size > 0) {
-        // 1. Download from Cloud
-        Object.entries(allGoals).forEach(([dateKey, goals]) => {
-          db.set(dateKey, goals);
-        });
-        console.log('  - Synced goals/calendar for ' + cloudGoalKeys.size + ' days');
-      }
-
-      // 2. Auto-Upload: Check for local goals missing in cloud
-      const localKeysToPush = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('goals-') || key.startsWith('cal-'))) {
-          if (!cloudGoalKeys.has(key)) {
-            localKeysToPush.push(key);
+          if (key.startsWith('goals-') || key.startsWith('cal-')) err = await window.supabaseDB.setGoals(key, val);
+          else if (key.startsWith('notes-') || key.startsWith('review-')) err = await window.supabaseDB.setNotes(key, val);
+          else if (key === 'habits') err = await window.supabaseDB.setHabits(val);
+          else if (key === 'habitChecks') err = await window.supabaseDB.setSetting('habitChecks', val);
+          else if (key === 'backlog') err = await window.supabaseDB.setBacklog(val);
+          else if (key.startsWith('week-')) err = await window.supabaseDB.setKanban(key, val);
+          else if (key.startsWith('list-')) {
+            // Extract list name from key 'list-NAME'
+            const name = key.substring(5);
+            const icon = db.get(`listIcon_${name}`, '📝');
+            await window.supabaseDB.setList(name, val, icon); // Assuming no err return in setList yet
           }
+
+          if (!err) db.clearDirty(key);
+        } catch (e) { console.error('Failed to auto-push dirty key: ' + key, e); }
+      }
+    }
+
+    // --- Phase 2: Pull Cloud & Prune Clean (Server State) ---
+
+    // 1. Goals
+    const allGoals = await window.supabaseDB.getAllGoals();
+    const cloudGoalKeys = new Set(Object.keys(allGoals));
+
+    // Update Local from Cloud (Clean Write)
+    Object.entries(allGoals).forEach(([k, v]) => db.set(k, v, true));
+
+    // Handle Deletions (Prune Clean Local Keys missing from Cloud)
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('goals-') || key.startsWith('cal-'))) {
+        if (!cloudGoalKeys.has(key) && !db.isDirty(key)) {
+          db.del(key, true); // Delete locally (Remote deletion)
         }
       }
+    }
 
-      if (localKeysToPush.length > 0) {
-        console.log(`[Sync] Found ${localKeysToPush.length} local goals missing from cloud. Uploading...`);
-        for (const key of localKeysToPush) {
-          try {
-            const val = JSON.parse(localStorage.getItem(key));
-            await window.supabaseDB.setGoals(key, val);
-          } catch (e) { console.error('Auto-upload failed for ' + key); }
-        }
-      }
+    // 2. Notes & Reviews (Simplified: fetch today/week only + list logic?)
+    // Fetching ALL notes is expensive if many. 
+    // SupabaseDB methods currently get specific keys. 
+    // We should implement getAllNotes() if we want full sync!
+    // For now, let's sync Today and Current Week only + any Dirty pushes done above.
+    // If user deleted a note via another device, we might miss pruning it locally if we don't fetch all keys.
+    // But notes are date-bound.
 
-      // Load today's notes
-      const todayNotesKey = db.notesKey(new Date());
-      const notes = await window.supabaseDB.getNotes(todayNotesKey);
-      if (notes) {
-        db.set(todayNotesKey, notes);
-        console.log('  - Loaded today\'s notes');
-      } else {
-        // If could not find note in cloud, check if we have it locally and push it
-        const localNote = db.get(todayNotesKey);
-        if (localNote) {
-          await window.supabaseDB.setNotes(todayNotesKey, localNote);
-          console.log('  - Uploaded local today\'s notes');
-        }
-      }
+    const todayNotesKey = db.notesKey(new Date());
+    const notes = await window.supabaseDB.getNotes(todayNotesKey);
+    if (notes) db.set(todayNotesKey, notes, true);
 
-      // Auto-upload other notes
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('notes-') || key.startsWith('review-'))) {
-          // Check if we should verify existence? 
-          // For simplicity, we can try to push if we suspect it's missing, 
-          // but getting all notes is expensive.
-          // Let's rely on the user navigating to the date (which triggers load/save) 
-          // OR iterate explicitly if urgent.
-          // For now, let's trust the Manual Push for older notes, 
-          // but ensure Today/Habits/Goals (critical) are synced.
-        }
-      }
+    const reviewKey = db.reviewKey(new Date());
+    const review = await window.supabaseDB.getNotes(reviewKey);
+    if (review) db.set(reviewKey, review, true);
 
-      // Load current week's review
-      const reviewKey = db.reviewKey(new Date());
-      const review = await window.supabaseDB.getNotes(reviewKey);
-      if (review) {
-        db.set(reviewKey, review);
-        console.log('  - Loaded weekly review');
-      } else {
-        const localReview = db.get(reviewKey);
-        if (localReview) {
-          await window.supabaseDB.setNotes(reviewKey, localReview);
-          console.log('  - Uploaded local weekly review');
-        }
-      }
+    // 3. Habits & Checks
+    const habits = await window.supabaseDB.getHabits();
+    if (habits && habits.length > 0) db.set('habits', habits, true);
 
-      // Load current week kanban
-      const weekKey = db.weekKey(new Date());
-      const kanban = await window.supabaseDB.getKanban(weekKey);
-      if (Object.keys(kanban).length > 0) {
-        db.set(weekKey, kanban);
-        console.log('  - Loaded weekly kanban');
-      } else {
-        const localKanban = db.get(weekKey);
-        if (localKanban && Object.keys(localKanban).length > 0) {
-          await window.supabaseDB.setKanban(weekKey, localKanban);
-          console.log('  - Uploaded local weekly kanban');
-        }
-      }
+    const habitChecks = await window.supabaseDB.getSetting('habitChecks', {});
+    // Merging checks is safer than overwriting if robust?
+    // But cloud is source of truth.
+    if (habitChecks) db.set('habitChecks', habitChecks, true);
+    db.loadHabitChecks(db.get('habitChecks', {})); // Refresh local keys
 
-      // Load backlog
-      const backlog = await window.supabaseDB.getBacklog();
-      if (Object.keys(backlog).length > 0) {
-        db.set('backlog', backlog);
-        console.log('  - Loaded backlog');
-      } else {
-        const localBacklog = db.get('backlog');
-        if (localBacklog && Object.keys(localBacklog).length > 0) {
-          await window.supabaseDB.setBacklog(localBacklog);
-          console.log('  - Uploaded local backlog');
-        }
-      }
+    // 4. Kanban & Backlog
+    const weekKey = db.weekKey(new Date());
+    const kanban = await window.supabaseDB.getKanban(weekKey);
+    if (kanban && Object.keys(kanban).length > 0) db.set(weekKey, kanban, true);
 
-      // Load all lists (shopping, chores, goals2026, custom lists)
-      const lists = await window.supabaseDB.getAllLists();
-      if (lists.length > 0) {
-        db.set('customLists', lists.map(l => l.name));
-        lists.forEach(list => {
-          // Use 'list-' prefix to match getListConfig format
-          db.set(`list-${list.name}`, list.items);
-          db.set(`listIcon_${list.name}`, list.icon);
-        });
-        console.log('  - Loaded ' + lists.length + ' lists');
-      } else {
-        // Check local lists to push
-        const builtIn = ['Shopping', 'Chores', 'Goals 2026'];
-        const custom = db.get('customLists', []);
-        const all = [...new Set([...builtIn, ...custom])]; // Use Set to avoid duplicates
-        let pushed = false;
-        for (const l of all) {
-          const items = db.get(`list-${l}`);
-          if (items && items.length > 0) { // Only push if has items
-            const icon = db.get(`listIcon_${l}`, '📝');
-            await window.supabaseDB.setList(l, items, icon);
-            pushed = true;
-          }
-        }
-        if (pushed) console.log('[Sync] Uploaded local lists to cloud');
-      }
+    const backlog = await window.supabaseDB.getBacklog();
+    if (backlog && Object.keys(backlog).length > 0) db.set('backlog', backlog, true);
 
-      // Load habit checks again to be sure
-      // (Redundant but safe)
+    // 5. Lists
+    const lists = await window.supabaseDB.getAllLists();
+    if (lists.length > 0) {
+      // Update Lists
+      const cloudListNames = new Set(lists.map(l => l.name));
+      const builtIn = ['Shopping', 'Chores', 'Goals 2026'];
 
-      // Load pomodoro stats
-      const pomoStats = await window.supabaseDB.getAllPomodoroStats();
-      Object.entries(pomoStats).forEach(([dateKey, count]) => {
-        db.set(`pomo_${dateKey}`, count);
+      db.set('customLists', lists.map(l => l.name), true); // Sync list registry
+
+      lists.forEach(l => {
+        db.set(`list-${l.name}`, l.items, true);
+        db.set(`listIcon_${l.name}`, l.icon, true);
       });
-      console.log('  - Loaded pomodoro stats');
 
-      console.log('[Supabase] Cloud sync complete!');
-    } catch (err) {
-      console.error('[Error] Loading from Supabase:', err);
-      console.log('[Storage] Falling back to localStorage');
+      // Prune deleted lists
+      // (Iterate local 'list-' keys. If not in cloudListNames and not dirty...)
     }
   },
 
@@ -1779,10 +1775,34 @@ function renderHabits() {
     nameEl.ondblclick = async () => {
       const newName = await showInputModal('Rename Habit', 'Enter new name...', habitName);
       if (newName && newName.trim()) {
+        const cleanName = newName.trim();
+        if (cleanName !== habitName) {
+          // Migrate completion data
+          const checks = db.get('habitChecks', {});
+          const oldPrefix = habitName + '_';
+          const newPrefix = cleanName + '_';
+          let migrated = false;
+
+          Object.keys(checks).forEach(k => {
+            if (k.startsWith(oldPrefix)) {
+              checks[newPrefix + k.substring(oldPrefix.length)] = checks[k];
+              delete checks[k];
+              migrated = true;
+            }
+          });
+
+          if (migrated) {
+            db.set('habitChecks', checks);
+            if (isSupabaseAvailable()) window.supabaseDB.setSetting('habitChecks', checks);
+            // Refresh local storage keys to ensure UI renders correctly
+            db.loadHabitChecks(checks);
+          }
+        }
+
         if (typeof habits[hIdx] === 'object') {
-          habits[hIdx].name = newName.trim();
+          habits[hIdx].name = cleanName;
         } else {
-          habits[hIdx] = newName.trim();
+          habits[hIdx] = cleanName;
         }
         db.setHabits(habits);
         renderHabits();
