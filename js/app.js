@@ -484,6 +484,30 @@ const db = {
   }
 };
 
+// Force Sync Button Handler
+window.forceSync = async () => {
+  if (!confirm('Force download data from cloud?')) return;
+  try {
+    alert('Syncing... please wait.');
+    await db.loadFromCloud();
+
+    // re-render everything
+    renderCalendar();
+    renderKanban();
+    renderHabits();
+    renderGoals();
+    loadNotes();
+    renderAllLists();
+    loadWeeklyReview();
+    updateStats();
+
+    alert('✅ Sync complete! Data refreshed.');
+  } catch (e) {
+    alert('❌ Sync failed: ' + e.message);
+    console.error(e);
+  }
+};
+
 // Helper: Get ISO week number
 function getWeekNumber(d) {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -2478,15 +2502,16 @@ function renderKanbanBoard(container, columns, isWeekBased) {
       const calendarTasks = getCalendarTasksForDate(dayDate);
 
       calendarTasks.forEach((task, idx) => {
+        if (!task) return;
         const taskObj = typeof task === 'string' ? { text: task, done: false, priority: null } : task;
-        const card = createKanbanCard(taskObj, colName, idx, isWeekBased, true, dayDate);
-        itemsDiv.appendChild(card);
+        itemsDiv.appendChild(createKanbanCard(taskObj, colName, idx, isWeekBased, true, dayDate));
       });
     }
 
     // Then add kanban-only tasks
     const items = boardData[colName] || [];
     items.forEach((item, idx) => {
+      if (!item) return;
       // Support both old string format and new object format
       const task = typeof item === 'string' ? { text: item, done: false, priority: null } : item;
       itemsDiv.appendChild(createKanbanCard(task, colName, idx, isWeekBased, false, null));
