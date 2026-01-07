@@ -602,7 +602,7 @@ const db = {
 
     // 4. Habit Checks
     try {
-      await window.supabaseDB.setSetting('habitChecks', db.getHabitData());
+      await window.supabaseDB.setSetting('habitChecks', db.get('habitChecks', {}));
     } catch (e) { errors.push(`HabitChecks: ${e.message}`); }
 
     // 5. Backlog
