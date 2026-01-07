@@ -371,7 +371,17 @@ const db = {
   setWeeklyReview: (text, weekDate) => {
     const key = db.reviewKey(weekDate || currentReviewWeekDate);
     db.set(key, text);
-    // Weekly review can be added to Supabase later if needed
+    if (isSupabaseAvailable()) window.supabaseDB.setNotes(key, text);
+  },
+  getBacklog: () => db.get('backlog', {}),
+  setBacklog: (data) => {
+    db.set('backlog', data);
+    if (isSupabaseAvailable()) window.supabaseDB.setBacklog(data);
+  },
+  getCalendarTasks: (date) => db.get(db.calKey(date), []),
+  setCalendarTasks: (date, tasks) => {
+    db.set(db.calKey(date), tasks);
+    if (isSupabaseAvailable()) window.supabaseDB.setGoals(db.calKey(date), tasks);
   },
   getStats: () => db.get('stats', { pomos: 0, tasks: 0, streak: 0, lastActive: null }),
   setStats: (stats) => db.set('stats', stats),
@@ -393,24 +403,24 @@ const db = {
         console.log('  - Loaded ' + habits.length + ' habits');
       }
 
-      // Load all goals
+      // Load all goals (includes calendar tasks 'cal-*' and daily goals 'goals-*')
       const allGoals = await window.supabaseDB.getAllGoals();
 
-      // Clear all existing goal keys in localStorage first to handle deletions
+      // Clear existing goal and calendar keys in localStorage to handle deletions
       const keysToRemove = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith('goals-')) {
+        if (key && (key.startsWith('goals-') || key.startsWith('cal-'))) {
           keysToRemove.push(key);
         }
       }
       keysToRemove.forEach(key => localStorage.removeItem(key));
 
-      // Then set the goals from cloud
+      // Then set the goals/calendar from cloud
       Object.entries(allGoals).forEach(([dateKey, goals]) => {
         db.set(dateKey, goals);
       });
-      console.log('  - Loaded goals for ' + Object.keys(allGoals).length + ' days');
+      console.log('  - Loaded goals/calendar for ' + Object.keys(allGoals).length + ' days');
 
       // Load today's notes
       const todayNotesKey = db.notesKey(new Date());
@@ -418,6 +428,14 @@ const db = {
       if (notes) {
         db.set(todayNotesKey, notes);
         console.log('  - Loaded today\'s notes');
+      }
+
+      // Load current week's review
+      const reviewKey = db.reviewKey(new Date());
+      const review = await window.supabaseDB.getNotes(reviewKey);
+      if (review) {
+        db.set(reviewKey, review);
+        console.log('  - Loaded weekly review');
       }
 
       // Load current week kanban
@@ -1347,7 +1365,7 @@ function renderCalendar() {
       const text = await showInputModal('New Task', 'What needs to be done?');
       if (text && text.trim()) {
         tasks.push({ text: text.trim(), done: false, priority: null });
-        db.set(db.calKey(dateObj), tasks);
+        db.setCalendarTasks(dateObj, tasks);
         renderCalendar();
         renderKanban(); // Update weekly overview
       }
@@ -1446,28 +1464,28 @@ function handleCalendarDrop(e, targetDate, box) {
 
   if (fromKey === toKey) return;
 
-  const fromTasks = db.get(fromKey, []);
+  const fromTasks = db.getCalendarTasks(fromDate);
   fromTasks.splice(fromIndex, 1);
-  db.set(fromKey, fromTasks);
+  db.setCalendarTasks(fromDate, fromTasks);
 
-  const toTasks = db.get(toKey, []);
+  const toTasks = db.getCalendarTasks(targetDate);
   toTasks.push(task);
-  db.set(toKey, toTasks);
+  db.setCalendarTasks(targetDate, toTasks);
 
   renderCalendar();
   renderKanban(); // Update weekly overview
 }
 
 function updateTask(dateObj, index, newTask) {
-  const tasks = db.get(db.calKey(dateObj), []);
+  const tasks = db.getCalendarTasks(dateObj);
   tasks[index] = newTask;
-  db.set(db.calKey(dateObj), tasks);
+  db.setCalendarTasks(dateObj, tasks);
 }
 
 function deleteTask(dateObj, index) {
-  const tasks = db.get(db.calKey(dateObj), []);
+  const tasks = db.getCalendarTasks(dateObj);
   tasks.splice(index, 1);
-  db.set(db.calKey(dateObj), tasks);
+  db.setCalendarTasks(dateObj, tasks);
   renderCalendar();
   renderKanban(); // Update weekly overview
 }
@@ -2609,7 +2627,7 @@ function setKanbanBoard(board, isWeekBased) {
   if (isWeekBased) {
     db.setKanban(board);
   } else {
-    db.set('backlog', board);
+    db.setBacklog(board);
   }
 }
 

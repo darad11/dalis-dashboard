@@ -239,11 +239,16 @@
                 return {};
             }
 
-            // Group by column
+            // Group by column - parse JSON if stored as object
             var kanban = {};
             data.forEach(function (task) {
                 if (!kanban[task.column_name]) kanban[task.column_name] = [];
-                kanban[task.column_name].push(task.text);
+                // Try to parse as JSON if it looks like an object
+                var taskData = task.text;
+                if (typeof taskData === 'string' && taskData.startsWith('{')) {
+                    try { taskData = JSON.parse(taskData); } catch (e) { /* keep as string */ }
+                }
+                kanban[task.column_name].push(taskData);
             });
             return kanban;
         },
@@ -260,7 +265,9 @@
             Object.entries(kanbanData).forEach(function (entry) {
                 var colName = entry[0];
                 var tasks = entry[1];
-                tasks.forEach(function (text, idx) {
+                tasks.forEach(function (task, idx) {
+                    // If task is an object, stringify it; otherwise store as-is
+                    var text = typeof task === 'object' ? JSON.stringify(task) : task;
                     rows.push({ user_id: userId, week_key: weekKey, column_name: colName, text: text, sort_order: idx });
                 });
             });
@@ -290,7 +297,12 @@
             var backlog = {};
             data.forEach(function (task) {
                 if (!backlog[task.column_name]) backlog[task.column_name] = [];
-                backlog[task.column_name].push(task.text);
+                // Try to parse as JSON if it looks like an object
+                var taskData = task.text;
+                if (typeof taskData === 'string' && taskData.startsWith('{')) {
+                    try { taskData = JSON.parse(taskData); } catch (e) { /* keep as string */ }
+                }
+                backlog[task.column_name].push(taskData);
             });
             return backlog;
         },
@@ -307,7 +319,9 @@
             Object.entries(backlogData).forEach(function (entry) {
                 var colName = entry[0];
                 var tasks = entry[1];
-                tasks.forEach(function (text, idx) {
+                tasks.forEach(function (task, idx) {
+                    // If task is an object, stringify it; otherwise store as-is
+                    var text = typeof task === 'object' ? JSON.stringify(task) : task;
                     rows.push({ user_id: userId, column_name: colName, text: text, sort_order: idx });
                 });
             });
