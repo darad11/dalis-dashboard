@@ -398,40 +398,75 @@ const db = {
     try {
       // Load habits
       const habits = await window.supabaseDB.getHabits();
-      if (habits.length > 0) {
-        db.set('habits', habits);
-        console.log('  - Loaded ' + habits.length + ' habits');
+      db.setHabits(habits); // This sets local storage
+
+      // Load habit check data
+      const habitChecks = await window.supabaseDB.getSetting('habitChecks', {});
+      if (habitChecks && Object.keys(habitChecks).length > 0) {
+        db.loadHabitChecks(habitChecks);
+        console.log('  - Loaded habit check data');
       }
 
       // Load all goals (includes calendar tasks 'cal-*' and daily goals 'goals-*')
-      // Only clear localStorage if we actually got data from cloud
-      if (Object.keys(allGoals).length > 0) {
-        // Granular sync:
-        // 1. Update/Add keys from cloud
+      const allGoals = await window.supabaseDB.getAllGoals();
+      const cloudGoalKeys = new Set(Object.keys(allGoals));
+
+      if (cloudGoalKeys.size > 0) {
+        // 1. Download from Cloud
         Object.entries(allGoals).forEach(([dateKey, goals]) => {
           db.set(dateKey, goals);
         });
+        console.log('  - Synced goals/calendar for ' + cloudGoalKeys.size + ' days');
+      }
 
-        // DISABLE DELETION for now to prevent data loss
-        /*
-        const cloudKeys = new Set(Object.keys(allGoals));
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.startsWith('goals-') || key.startsWith('cal-'))) {
-            if (!cloudKeys.has(key)) {
-              localStorage.removeItem(key);
-            }
+      // 2. Auto-Upload: Check for local goals missing in cloud
+      const localKeysToPush = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('goals-') || key.startsWith('cal-'))) {
+          if (!cloudGoalKeys.has(key)) {
+            localKeysToPush.push(key);
           }
         }
-        */
+      }
 
-        console.log('  - Synced goals/calendar for ' + Object.keys(allGoals).length + ' days');
-      } // Load today's notes
+      if (localKeysToPush.length > 0) {
+        console.log(`[Sync] Found ${localKeysToPush.length} local goals missing from cloud. Uploading...`);
+        for (const key of localKeysToPush) {
+          try {
+            const val = JSON.parse(localStorage.getItem(key));
+            await window.supabaseDB.setGoals(key, val);
+          } catch (e) { console.error('Auto-upload failed for ' + key); }
+        }
+      }
+
+      // Load today's notes
       const todayNotesKey = db.notesKey(new Date());
       const notes = await window.supabaseDB.getNotes(todayNotesKey);
       if (notes) {
         db.set(todayNotesKey, notes);
         console.log('  - Loaded today\'s notes');
+      } else {
+        // If could not find note in cloud, check if we have it locally and push it
+        const localNote = db.get(todayNotesKey);
+        if (localNote) {
+          await window.supabaseDB.setNotes(todayNotesKey, localNote);
+          console.log('  - Uploaded local today\'s notes');
+        }
+      }
+
+      // Auto-upload other notes
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('notes-') || key.startsWith('review-'))) {
+          // Check if we should verify existence? 
+          // For simplicity, we can try to push if we suspect it's missing, 
+          // but getting all notes is expensive.
+          // Let's rely on the user navigating to the date (which triggers load/save) 
+          // OR iterate explicitly if urgent.
+          // For now, let's trust the Manual Push for older notes, 
+          // but ensure Today/Habits/Goals (critical) are synced.
+        }
       }
 
       // Load current week's review
@@ -440,6 +475,12 @@ const db = {
       if (review) {
         db.set(reviewKey, review);
         console.log('  - Loaded weekly review');
+      } else {
+        const localReview = db.get(reviewKey);
+        if (localReview) {
+          await window.supabaseDB.setNotes(reviewKey, localReview);
+          console.log('  - Uploaded local weekly review');
+        }
       }
 
       // Load current week kanban
@@ -448,6 +489,12 @@ const db = {
       if (Object.keys(kanban).length > 0) {
         db.set(weekKey, kanban);
         console.log('  - Loaded weekly kanban');
+      } else {
+        const localKanban = db.get(weekKey);
+        if (localKanban && Object.keys(localKanban).length > 0) {
+          await window.supabaseDB.setKanban(weekKey, localKanban);
+          console.log('  - Uploaded local weekly kanban');
+        }
       }
 
       // Load backlog
@@ -455,6 +502,12 @@ const db = {
       if (Object.keys(backlog).length > 0) {
         db.set('backlog', backlog);
         console.log('  - Loaded backlog');
+      } else {
+        const localBacklog = db.get('backlog');
+        if (localBacklog && Object.keys(localBacklog).length > 0) {
+          await window.supabaseDB.setBacklog(localBacklog);
+          console.log('  - Uploaded local backlog');
+        }
       }
 
       // Load all lists (shopping, chores, goals2026, custom lists)
@@ -467,7 +520,25 @@ const db = {
           db.set(`listIcon_${list.name}`, list.icon);
         });
         console.log('  - Loaded ' + lists.length + ' lists');
+      } else {
+        // Check local lists to push
+        const builtIn = ['Shopping', 'Chores', 'Goals 2026'];
+        const custom = db.get('customLists', []);
+        const all = [...new Set([...builtIn, ...custom])]; // Use Set to avoid duplicates
+        let pushed = false;
+        for (const l of all) {
+          const items = db.get(`list-${l}`);
+          if (items && items.length > 0) { // Only push if has items
+            const icon = db.get(`listIcon_${l}`, '📝');
+            await window.supabaseDB.setList(l, items, icon);
+            pushed = true;
+          }
+        }
+        if (pushed) console.log('[Sync] Uploaded local lists to cloud');
       }
+
+      // Load habit checks again to be sure
+      // (Redundant but safe)
 
       // Load pomodoro stats
       const pomoStats = await window.supabaseDB.getAllPomodoroStats();
@@ -481,30 +552,112 @@ const db = {
       console.error('[Error] Loading from Supabase:', err);
       console.log('[Storage] Falling back to localStorage');
     }
+  },
+
+  // === Manual Push to Cloud (Recovery) ===
+  async pushToCloud() {
+    if (!isSupabaseAvailable() || !window.currentUserId) throw new Error("Not logged in");
+
+    console.log('[Sync] Starting manual upload...');
+    let count = 0;
+
+    // 1. Goals & Calendar
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('goals-') || key.startsWith('cal-'))) {
+        try {
+          const val = JSON.parse(localStorage.getItem(key));
+          await window.supabaseDB.setGoals(key, val);
+          count++;
+        } catch (e) { console.error('Failed to sync goal ' + key); }
+      }
+    }
+
+    // 2. Notes & Reviews
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('notes-') || key.startsWith('review-'))) {
+        try {
+          const val = JSON.parse(localStorage.getItem(key));
+          // Notes are stored as simple value in JSON, but setNotes expects string
+          // But db.set saves JSON.stringify("text"). parse returns "text".
+          await window.supabaseDB.setNotes(key, val);
+          count++;
+        } catch (e) { console.error('Failed to sync note ' + key); }
+      }
+    }
+
+    // 3. Habits
+    await window.supabaseDB.setHabits(db.getAllHabits());
+
+    // 4. Habit Checks
+    await window.supabaseDB.setSetting('habitChecks', db.getHabitData());
+
+    // 5. Backlog
+    await window.supabaseDB.setBacklog(db.get('backlog', {}));
+
+    // 6. Current Week Kanban
+    // (Note: We only sync CURRENT week stored in weekKey-DATE. Other weeks in localStorage might need sync too?)
+    // Let's iterate keys for 'week-'
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('week-')) {
+        try {
+          const val = JSON.parse(localStorage.getItem(key));
+          await window.supabaseDB.setKanban(key, val);
+          count++;
+        } catch (e) { }
+      }
+    }
+
+    // 7. Lists
+    // Iterate 'list-' keys
+    const customLists = db.get('customLists', []); // ['Shopping', 'Chores', ...]
+    const builtInLists = ['Shopping', 'Chores', 'Goals 2026'];
+    const allLists = [...new Set([...builtInLists, ...customLists])];
+
+    for (const listName of allLists) {
+      const items = db.get(`list-${listName}`, []);
+      const icon = db.get(`listIcon_${listName}`, '📝');
+      await window.supabaseDB.setList(listName, items, icon);
+      count++;
+    }
+
+    return count;
   }
 };
 
 // Force Sync Button Handler
 window.forceSync = async () => {
-  if (!confirm('Force download data from cloud?')) return;
-  try {
-    alert('Syncing... please wait.');
-    await db.loadFromCloud();
+  const action = prompt("Type 'download' (or 'd') to get data from cloud.\nType 'upload' (or 'u') to save local data to cloud.\n\nChoose 'upload' on the device that has the data.");
 
-    // re-render everything
-    renderCalendar();
-    renderKanban();
-    renderHabits();
-    renderGoals();
-    loadNotes();
-    renderAllLists();
-    loadWeeklyReview();
-    updateStats();
+  if (!action) return;
+  const mode = action.toLowerCase().trim();
 
-    alert('✅ Sync complete! Data refreshed.');
-  } catch (e) {
-    alert('❌ Sync failed: ' + e.message);
-    console.error(e);
+  if (mode === 'download' || mode === 'd') {
+    try {
+      alert('Syncing (Download)... please wait.');
+      // Call init() which handles element binding and full rendering
+      await init();
+      alert('✅ Download complete! Data refreshed.');
+    } catch (e) {
+      alert('❌ Download failed: ' + e.message);
+      console.error(e);
+    }
+  }
+  else if (mode === 'upload' || mode === 'u') {
+    if (!confirm("⚠️ This will overwrite cloud data with your local data. Are you sure?")) return;
+    try {
+      alert('Uploading to cloud... please wait.');
+      const count = await db.pushToCloud();
+      alert(`✅ Upload complete! (${count} items synced).\n\nNow use 'download' on your other devices.`);
+    } catch (e) {
+      alert('❌ Upload failed: ' + e.message);
+      console.error(e);
+    }
+  }
+  else {
+    alert("Invalid option. Please type 'download' or 'upload'.");
   }
 };
 
@@ -568,8 +721,15 @@ const pomo = {
 const weekdays = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"];
 
 // ===== INITIALIZATION =====
+// ===== INITIALIZATION =====
 async function init() {
-  // Get DOM elements
+  // Ensure DOM is fully loaded before running
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', init);
+    return;
+  }
+
+  // Get DOM elements (redundant safety check)
   els.calList = document.getElementById('calendar');
   els.calTitle = document.getElementById('title');
   els.habitsList = document.getElementById('habits');
