@@ -1744,6 +1744,15 @@ body.dark .task-item:hover {
     color: var(--text-secondary);
 }
 
+/* Past calendar events in weekly overview - faded but no strikethrough */
+.kanban-card.past {
+    opacity: 0.5;
+}
+
+.kanban-card.past .kanban-card-text {
+    color: var(--text-secondary);
+}
+
 .kanban-card.completing {
     animation: taskComplete 0.4s ease;
 }

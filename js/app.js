@@ -3010,6 +3010,18 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
   div.className = `kanban-card ${task.done ? 'done' : ''}`;
   if (task.priority) div.classList.add(`priority-${task.priority}`);
   if (isFromCalendar) div.classList.add('from-calendar');
+
+  // Add 'past' class for calendar events from dates before today
+  if (isFromCalendar && sourceDate) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const eventDate = new Date(sourceDate);
+    eventDate.setHours(0, 0, 0, 0);
+    if (eventDate < today) {
+      div.classList.add('past');
+    }
+  }
+
   div.draggable = true; // All tasks can be dragged
 
   const textSpan = document.createElement("span");
