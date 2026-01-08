@@ -656,6 +656,15 @@ const db = {
     // Clear lastSyncError and update status on success
     lastSyncError = null;
     updateSyncStatus();
+
+    // Refresh UI to show newly synced data
+    try {
+      if (typeof renderUnifiedLists === 'function') renderUnifiedLists();
+      if (typeof renderHabits === 'function') renderHabits();
+      if (typeof loadGoals === 'function') loadGoals();
+    } catch (e) {
+      console.error('[Sync] UI refresh error:', e);
+    }
   },
 
   // === Manual Push to Cloud (Recovery) ===
