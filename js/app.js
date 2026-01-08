@@ -2698,12 +2698,13 @@ window.deleteList = async (id) => {
   const newMeta = meta.filter(m => m.id !== id);
   db.set('customListsMeta', newMeta);
   localStorage.removeItem('list-' + id);
+  localStorage.removeItem('dirty_list-' + id); // Also remove dirty flag
 
   // Sync deletion to Supabase
   if (isSupabaseAvailable()) {
     try {
-      // Delete the list from cloud using its title (which is the name in Supabase)
-      await window.supabaseDB.deleteList(listName);
+      // Delete the list from cloud using its ID (not title!)
+      await window.supabaseDB.deleteList(id);
       // Also update the customListsMeta setting
       await window.supabaseDB.setSetting('customListsMeta', newMeta);
       db.clearDirty('customListsMeta');
