@@ -52,8 +52,8 @@
     <div class="shortcuts-content glass-panel">
       <h3>⌨️ Keyboard Shortcuts</h3>
       <div class="shortcuts-list">
-        <div class="shortcut"><kbd>Space</kbd> Start/Pause Pomodoro</div>
-        <div class="shortcut"><kbd>R</kbd> Reset Pomodoro</div>
+        <div class="shortcut"><kbd>Space</kbd> Start/Pause Focus</div>
+        <div class="shortcut"><kbd>R</kbd> Reset Focus</div>
         <div class="shortcut"><kbd>Q</kbd> Quick Capture</div>
         <div class="shortcut"><kbd>F</kbd> Focus Mode</div>
         <div class="shortcut"><kbd>D</kbd> Toggle Dark Mode</div>
@@ -143,11 +143,11 @@
     <!-- 1. POMODORO + STATS + SIDEBAR -->
     <div class="dashboard-main-layout">
       <div class="combined-glass-panel glass-panel" id="pomoStatsWrapper">
-        <!-- Pomodoro Section -->
+        <!-- Focus Section -->
         <div class="pomodoro-section">
           <div class="pomo-header-row"
             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-            <h3 style="margin-bottom: 0;">🍅 Pomodoro</h3>
+            <h3 style="margin-bottom: 0;">🧠 Focus</h3>
             <button class="btn icon-btn" onclick="toggleStats()" id="btnToggleStats" title="Show Statistics"
               style="width: 32px; height: 32px; font-size: 1rem; margin-right: -8px;">📊</button>
           </div>
@@ -206,7 +206,7 @@
           <div class="stats-grid">
             <div class="stat-card">
               <div class="stat-value" id="statPomos">0</div>
-              <div class="stat-label">Pomodoros</div>
+              <div class="stat-label">Sessions</div>
             </div>
             <div class="stat-card">
               <div class="stat-value" id="statTasks">0</div>
