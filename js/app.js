@@ -414,7 +414,8 @@ const db = {
     db.set('habits', habits);
     if (isSupabaseAvailable()) {
       window.supabaseDB.setHabits(habits)
-        .then(err => { if (!err) db.clearDirty('habits'); });
+        .then(err => { if (!err) db.clearDirty('habits'); })
+        .catch(e => console.error('[Sync] setHabits failed:', e));
     }
   },
   getKanban: (weekDate) => db.get(db.weekKey(weekDate || currentWeekDate), {}),
@@ -423,7 +424,8 @@ const db = {
     db.set(key, data);
     if (isSupabaseAvailable()) {
       window.supabaseDB.setKanban(key, data)
-        .then(err => { if (!err) db.clearDirty(key); });
+        .then(err => { if (!err) db.clearDirty(key); })
+        .catch(e => console.error('[Sync] setKanban failed:', e));
     }
   },
   getGoals: (date) => db.get(db.goalKey(date || currentGoalDate), []),
