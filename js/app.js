@@ -559,25 +559,28 @@ const db = {
       db.loadHabitChecks(db.get('habitChecks', {}));
     }
 
-    // List Metadata: MERGE local and cloud (don't just overwrite!)
+    // List Metadata: ALWAYS merge cloud lists into local (even if dirty)
+    // This ensures we receive new lists from other devices while preserving our pending changes
     const cloudListMeta = await window.supabaseDB.getSetting('customListsMeta', []);
     const localListMeta = db.get('customListsMeta', []);
 
-    if (!db.isDirty('customListsMeta')) {
-      // Merge: add cloud lists that don't exist locally
-      const mergedMeta = [...localListMeta];
-      for (const cloudList of cloudListMeta) {
-        if (!mergedMeta.some(m => m.id === cloudList.id)) {
-          mergedMeta.push(cloudList);
-        }
+    // Merge: combine both local and cloud lists (no duplicates by ID)
+    const mergedMeta = [...localListMeta];
+    let addedFromCloud = 0;
+    for (const cloudList of (cloudListMeta || [])) {
+      if (!mergedMeta.some(m => m.id === cloudList.id)) {
+        mergedMeta.push(cloudList);
+        addedFromCloud++;
       }
-      // Only update if we actually added something
-      if (mergedMeta.length > localListMeta.length) {
-        db.set('customListsMeta', mergedMeta, true);
-        console.log('[Sync] Merged list metadata:', mergedMeta.length, 'lists');
-      } else if (cloudListMeta.length > 0) {
-        db.set('customListsMeta', cloudListMeta, true);
-      }
+    }
+
+    // Always save merged metadata (fromCloud=true to not mark as dirty again)
+    if (addedFromCloud > 0) {
+      console.log('[Sync] Added', addedFromCloud, 'lists from cloud. Total:', mergedMeta.length);
+      db.set('customListsMeta', mergedMeta, true);
+    } else if (!db.isDirty('customListsMeta') && cloudListMeta && cloudListMeta.length > 0) {
+      // If not dirty and cloud has data, use cloud data
+      db.set('customListsMeta', cloudListMeta, true);
     }
 
     // 1. Goals - Only overwrite non-dirty keys
