@@ -31,7 +31,7 @@
                 .select('*')
                 .eq('user_id', userId)
                 .eq('date', dateKey)
-                .order('created_at', { ascending: true });
+                .order('position', { ascending: true });
 
             if (error) {
                 console.error('Error fetching goals:', error);
@@ -63,9 +63,9 @@
                 return deleteError; // Return early - don't insert if delete failed
             }
 
-            // Insert new goals
+            // Insert new goals with position to preserve order
             if (goals.length > 0) {
-                const rows = goals.map(function (g) {
+                const rows = goals.map(function (g, index) {
                     return {
                         user_id: userId,
                         date: dateKey,
@@ -73,7 +73,8 @@
                         done: typeof g === 'string' ? false : (g.done || false),
                         rolled_from: g.rolledFrom || null,
                         priority: g.priority || null,
-                        urgency: g.urgency || null
+                        urgency: g.urgency || null,
+                        position: index
                     };
                 });
 
@@ -94,7 +95,8 @@
                 .from('goals')
                 .select('*')
                 .eq('user_id', userId)
-                .order('date', { ascending: false });
+                .order('date', { ascending: false })
+                .order('position', { ascending: true });
 
             if (error) {
                 console.error('Error fetching all goals:', error);
