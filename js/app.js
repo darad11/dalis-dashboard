@@ -2676,10 +2676,15 @@ window.renderUnifiedLists = () => {
   container.innerHTML = '';
 
   const meta = db.get('customListsMeta', []);
-  meta.forEach(list => {
+  meta.forEach((list, index) => {
     const div = document.createElement('div');
     div.className = 'glass-panel list-panel';
+    div.setAttribute('draggable', 'true');
+    div.setAttribute('data-list-id', list.id);
+    div.setAttribute('data-list-index', index);
+
     div.innerHTML = `
+            <div class="list-drag-handle" title="Drag to reorder">⋮⋮</div>
             <button class="delete-list-btn" onclick="deleteList('${list.id}')" title="Delete List">×</button>
             <h3 contenteditable="true" 
                 id="title-${list.id}"
@@ -2690,11 +2695,91 @@ window.renderUnifiedLists = () => {
             <div class="simple-list" id="${list.id}List"></div>
             <button class="btn" onclick="addListItem('${list.id}')" style="margin-top:auto;">+ Add Item</button>
         `;
-    container.appendChild(div);
 
+    // Drag event handlers
+    div.addEventListener('dragstart', handleListDragStart);
+    div.addEventListener('dragend', handleListDragEnd);
+    div.addEventListener('dragover', handleListDragOver);
+    div.addEventListener('drop', handleListDrop);
+    div.addEventListener('dragenter', handleListDragEnter);
+    div.addEventListener('dragleave', handleListDragLeave);
+
+    container.appendChild(div);
     renderSimpleList(list.id);
   });
 };
+
+// === List Drag and Drop ===
+let draggedListElement = null;
+let draggedListId = null;
+
+function handleListDragStart(e) {
+  draggedListElement = this;
+  draggedListId = this.getAttribute('data-list-id');
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', draggedListId);
+}
+
+function handleListDragEnd(e) {
+  this.classList.remove('dragging');
+  // Remove all drag-over states
+  document.querySelectorAll('.list-panel').forEach(panel => {
+    panel.classList.remove('drag-over');
+  });
+  draggedListElement = null;
+  draggedListId = null;
+}
+
+function handleListDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function handleListDragEnter(e) {
+  e.preventDefault();
+  if (this !== draggedListElement) {
+    this.classList.add('drag-over');
+  }
+}
+
+function handleListDragLeave(e) {
+  this.classList.remove('drag-over');
+}
+
+function handleListDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  this.classList.remove('drag-over');
+
+  const targetId = this.getAttribute('data-list-id');
+  if (!draggedListId || draggedListId === targetId) return;
+
+  // Reorder the metadata
+  const meta = db.get('customListsMeta', []);
+  const draggedIndex = meta.findIndex(m => m.id === draggedListId);
+  const targetIndex = meta.findIndex(m => m.id === targetId);
+
+  if (draggedIndex === -1 || targetIndex === -1) return;
+
+  // Remove dragged item and insert at target position
+  const [draggedItem] = meta.splice(draggedIndex, 1);
+  meta.splice(targetIndex, 0, draggedItem);
+
+  // Save reordered metadata
+  db.set('customListsMeta', meta);
+
+  // Sync to Supabase
+  if (isSupabaseAvailable()) {
+    window.supabaseDB.setSetting('customListsMeta', meta)
+      .then(err => { if (!err) db.clearDirty('customListsMeta'); })
+      .catch(e => console.error('[Sync] List reorder failed:', e));
+  }
+
+  // Re-render with new order
+  renderUnifiedLists();
+}
 
 window.updateListTitle = (id, el) => {
   const meta = db.get('customListsMeta', []);

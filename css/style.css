@@ -2332,6 +2332,56 @@ body.dark .task-item:hover {
     color: white;
 }
 
+/* List Drag Handle */
+.list-drag-handle {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    color: var(--text-secondary);
+    cursor: grab;
+    opacity: 0;
+    transition: opacity 0.2s;
+    font-size: 14px;
+    letter-spacing: -2px;
+    user-select: none;
+    padding: 4px;
+}
+
+.list-panel:hover .list-drag-handle {
+    opacity: 0.6;
+}
+
+.list-drag-handle:hover {
+    opacity: 1 !important;
+    color: var(--accent-color);
+}
+
+.list-drag-handle:active {
+    cursor: grabbing;
+}
+
+/* List Panel Drag States */
+.list-panel.dragging {
+    opacity: 0.5;
+    transform: scale(0.98);
+    border-color: var(--accent-color);
+    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
+}
+
+.list-panel.drag-over {
+    border: 2px dashed var(--accent-color);
+    background: rgba(99, 102, 241, 0.1);
+    transform: scale(1.02);
+}
+
+.list-panel[draggable="true"] {
+    cursor: default;
+}
+
+.list-panel[draggable="true"]:active {
+    cursor: grabbing;
+}
+
 .quick-notes:focus {
     outline: none;
     border-color: var(--accent-color);
