@@ -3585,11 +3585,288 @@ body {
     .brand-tagline {
         font-size: 0.6rem;
     }
+}
 
-    /* Center actions */
-    .center-actions .btn {
-        padding: 6px 8px;
-        font-size: 0.65rem;
-        min-width: 70px;
+/* ===== FLOATING ACTION MENU ===== */
+.fab-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.fab-trigger {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--surface-color);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+        0 4px 20px rgba(0, 0, 0, 0.15),
+        0 2px 8px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    z-index: 10;
+}
+
+.fab-trigger:hover {
+    transform: scale(1.1);
+    box-shadow:
+        0 8px 30px rgba(0, 0, 0, 0.2),
+        0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.fab-trigger svg {
+    color: var(--text-primary);
+    transition: all 0.3s ease;
+}
+
+.fab-icon,
+.fab-close {
+    position: absolute;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fab-close {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+}
+
+.fab-container.open .fab-icon {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.5);
+}
+
+.fab-container.open .fab-close {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+}
+
+.fab-container.open .fab-trigger {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.fab-container.open .fab-trigger svg {
+    color: white;
+}
+
+.fab-menu {
+    position: absolute;
+    top: 60px;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.fab-item {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--surface-color);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+        0 4px 15px rgba(0, 0, 0, 0.12),
+        0 2px 6px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: translateY(-20px) scale(0.3);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+}
+
+.fab-item-icon {
+    font-size: 1.2rem;
+    transition: transform 0.2s ease;
+}
+
+.fab-item:hover {
+    transform: scale(1.15) translateY(0);
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    box-shadow:
+        0 8px 25px rgba(99, 102, 241, 0.35),
+        0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.fab-item:hover .fab-item-icon {
+    transform: scale(1.1);
+}
+
+/* Tooltip on hover */
+.fab-item::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    right: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%) translateX(10px);
+    background: var(--text-primary);
+    color: var(--bg-color);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.fab-item::after {
+    content: '';
+    position: absolute;
+    right: calc(100% + 4px);
+    top: 50%;
+    transform: translateY(-50%) translateX(10px);
+    border: 6px solid transparent;
+    border-left-color: var(--text-primary);
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.fab-item:hover::before,
+.fab-item:hover::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+}
+
+/* Logout button special styling */
+.fab-item-logout:hover {
+    background: var(--danger-color);
+    border-color: var(--danger-color);
+    box-shadow:
+        0 8px 25px rgba(239, 68, 68, 0.35),
+        0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+/* Menu open state with staggered animation */
+.fab-container.open .fab-menu {
+    pointer-events: auto;
+}
+
+.fab-container.open .fab-item {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+.fab-container.open .fab-item:nth-child(1) {
+    transition-delay: 0.03s;
+}
+
+.fab-container.open .fab-item:nth-child(2) {
+    transition-delay: 0.06s;
+}
+
+.fab-container.open .fab-item:nth-child(3) {
+    transition-delay: 0.09s;
+}
+
+.fab-container.open .fab-item:nth-child(4) {
+    transition-delay: 0.12s;
+}
+
+.fab-container.open .fab-item:nth-child(5) {
+    transition-delay: 0.15s;
+}
+
+/* Backdrop */
+.fab-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: -1;
+}
+
+.fab-container.open .fab-backdrop {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Sync status indicator on fab item */
+.fab-item.sync-status.synced .fab-item-icon::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
+    background: var(--success-color);
+    border-radius: 50%;
+    border: 2px solid var(--surface-color);
+}
+
+.fab-item.sync-status.syncing .fab-item-icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Light mode enhancements */
+body:not(.dark) .fab-trigger {
+    box-shadow:
+        0 4px 20px rgba(0, 0, 0, 0.1),
+        0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+body:not(.dark) .fab-item {
+    box-shadow:
+        0 4px 15px rgba(0, 0, 0, 0.08),
+        0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+body:not(.dark) .fab-backdrop {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    .fab-container {
+        top: auto;
+        bottom: 20px;
+        right: 20px;
+    }
+
+    .fab-menu {
+        top: auto;
+        bottom: 60px;
+        flex-direction: column-reverse;
+    }
+
+    .fab-item::before,
+    .fab-item::after {
+        display: none;
     }
 }

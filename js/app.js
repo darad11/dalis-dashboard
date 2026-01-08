@@ -1194,6 +1194,22 @@ function updateThemeBtn() {
   if (els.btnDark) els.btnDark.textContent = isDark ? "☀️" : "🌙";
 }
 
+// ===== FLOATING ACTION MENU =====
+window.toggleFabMenu = () => {
+  const container = document.getElementById('fabContainer');
+  container.classList.toggle('open');
+};
+
+// Close FAB menu when clicking escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const container = document.getElementById('fabContainer');
+    if (container && container.classList.contains('open')) {
+      container.classList.remove('open');
+    }
+  }
+});
+
 // ===== STATISTICS =====
 function initStats() {
   updateStats();
