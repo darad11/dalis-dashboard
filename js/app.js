@@ -534,10 +534,10 @@ const db = {
           else if (key === 'backlog') err = await window.supabaseDB.setBacklog(val);
           else if (key.startsWith('week-')) err = await window.supabaseDB.setKanban(key, val);
           else if (key.startsWith('list-')) {
-            // Extract list name from key 'list-NAME'
-            const name = key.substring(5);
-            const icon = db.get(`listIcon_${name}`, '📝');
-            await window.supabaseDB.setList(name, val, icon); // Assuming no err return in setList yet
+            // Extract list ID from key 'list-ID' and use it as the name in Supabase
+            const listId = key.substring(5);
+            const icon = db.get(`listIcon_${listId}`, '📝');
+            await window.supabaseDB.setList(listId, val, icon);
           }
 
           if (!err) db.clearDirty(key);
@@ -550,21 +550,30 @@ const db = {
     if (!lastSyncError) updateSyncStatus();
 
     // --- Phase 2: Pull Cloud & Prune Clean (Server State) ---
+    // IMPORTANT: Skip overwriting any key marked as dirty (pending upload)
 
     // 0. Metadata (Lists, Checks)
     const habitChecks = await window.supabaseDB.getSetting('habitChecks', {});
-    if (habitChecks) db.set('habitChecks', habitChecks, true);
-    db.loadHabitChecks(db.get('habitChecks', {}));
+    if (habitChecks && !db.isDirty('habitChecks')) {
+      db.set('habitChecks', habitChecks, true);
+      db.loadHabitChecks(db.get('habitChecks', {}));
+    }
 
     const listMeta = await window.supabaseDB.getSetting('customListsMeta', []);
-    if (listMeta && listMeta.length > 0) db.set('customListsMeta', listMeta, true);
+    if (listMeta && listMeta.length > 0 && !db.isDirty('customListsMeta')) {
+      db.set('customListsMeta', listMeta, true);
+    }
 
-    // 1. Goals
+    // 1. Goals - Only overwrite non-dirty keys
     const allGoals = await window.supabaseDB.getAllGoals();
     const cloudGoalKeys = new Set(Object.keys(allGoals));
 
-    // Update Local from Cloud (Clean Write)
-    Object.entries(allGoals).forEach(([k, v]) => db.set(k, v, true));
+    // Update Local from Cloud (only if not dirty)
+    Object.entries(allGoals).forEach(([k, v]) => {
+      if (!db.isDirty(k)) {
+        db.set(k, v, true);
+      }
+    });
 
     // Handle Deletions (Prune Clean Local Keys missing from Cloud)
     for (let i = 0; i < localStorage.length; i++) {
@@ -576,48 +585,51 @@ const db = {
       }
     }
 
-    // 2. Notes & Reviews (Simplified: fetch today/week only + list logic?)
-    // Fetching ALL notes is expensive if many. 
-    // SupabaseDB methods currently get specific keys. 
-    // We should implement getAllNotes() if we want full sync!
-    // For now, let's sync Today and Current Week only + any Dirty pushes done above.
-    // If user deleted a note via another device, we might miss pruning it locally if we don't fetch all keys.
-    // But notes are date-bound.
-
+    // 2. Notes & Reviews (only today and current week)
     const todayNotesKey = db.notesKey(new Date());
-    const notes = await window.supabaseDB.getNotes(todayNotesKey);
-    if (notes) db.set(todayNotesKey, notes, true);
+    if (!db.isDirty(todayNotesKey)) {
+      const notes = await window.supabaseDB.getNotes(todayNotesKey);
+      if (notes) db.set(todayNotesKey, notes, true);
+    }
 
     const reviewKey = db.reviewKey(new Date());
-    const review = await window.supabaseDB.getNotes(reviewKey);
-    if (review) db.set(reviewKey, review, true);
+    if (!db.isDirty(reviewKey)) {
+      const review = await window.supabaseDB.getNotes(reviewKey);
+      if (review) db.set(reviewKey, review, true);
+    }
 
     // 3. Habits & Checks
-    const habits = await window.supabaseDB.getHabits();
-    if (habits && habits.length > 0) db.set('habits', habits, true);
-
-
+    if (!db.isDirty('habits')) {
+      const habits = await window.supabaseDB.getHabits();
+      if (habits && habits.length > 0) db.set('habits', habits, true);
+    }
 
     // 4. Kanban & Backlog
     const weekKey = db.weekKey(new Date());
-    const kanban = await window.supabaseDB.getKanban(weekKey);
-    if (kanban && Object.keys(kanban).length > 0) db.set(weekKey, kanban, true);
+    if (!db.isDirty(weekKey)) {
+      const kanban = await window.supabaseDB.getKanban(weekKey);
+      if (kanban && Object.keys(kanban).length > 0) db.set(weekKey, kanban, true);
+    }
 
-    const backlog = await window.supabaseDB.getBacklog();
-    if (backlog && Object.keys(backlog).length > 0) db.set('backlog', backlog, true);
+    if (!db.isDirty('backlog')) {
+      const backlog = await window.supabaseDB.getBacklog();
+      if (backlog && Object.keys(backlog).length > 0) db.set('backlog', backlog, true);
+    }
 
-    // 5. Lists - load items from cloud and match to metadata
+    // 5. Lists - load items from cloud and match by ID (not title!)
     const lists = await window.supabaseDB.getAllLists();
     if (lists.length > 0) {
-      // Update list items (match by title/name)
       const meta = db.get('customListsMeta', []);
 
       lists.forEach(cloudList => {
-        // Find matching local list by title
-        const localList = meta.find(m => m.title === cloudList.name);
+        // Match by ID: cloudList.name is stored as the list ID (e.g., 'goals2026')
+        const localList = meta.find(m => m.id === cloudList.name);
         if (localList) {
-          // Update items for this list
-          db.set(`list-${localList.id}`, cloudList.items || [], true);
+          const localKey = `list-${localList.id}`;
+          // Only update if not dirty
+          if (!db.isDirty(localKey)) {
+            db.set(localKey, cloudList.items || [], true);
+          }
         }
       });
     }
@@ -705,14 +717,14 @@ const db = {
       await window.supabaseDB.setSetting('customListsMeta', listMeta);
     } catch (e) { errors.push(`List Metadata: ${e.message}`); }
 
-    // Then sync each list's items
+    // Then sync each list's items (use ID, not title!)
     for (const list of listMeta) {
       try {
         const items = db.get(`list-${list.id}`, []);
-        const err = await window.supabaseDB.setList(list.title, items, '📝');
+        const err = await window.supabaseDB.setList(list.id, items, '📝');
         if (err) throw new Error(err.message || 'Unknown error');
         count++;
-      } catch (e) { errors.push(`List ${list.title}: ${e.message}`); }
+      } catch (e) { errors.push(`List ${list.id}: ${e.message}`); }
     }
 
     return { count, errors };
