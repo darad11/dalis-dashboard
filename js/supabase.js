@@ -44,7 +44,11 @@
 
         async setGoals(dateKey, goals) {
             const userId = getUserId();
-            if (!userId) return;
+            if (!userId) {
+                console.error('[Supabase] setGoals failed: Not logged in');
+                alert('Sync Error: You are not logged in. Please sign out and sign in again.');
+                return { error: 'Not logged in' };
+            }
 
             // Delete existing goals for this date and user
             await supabase.from('goals').delete().eq('user_id', userId).eq('date', dateKey);

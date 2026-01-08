@@ -430,9 +430,22 @@ const db = {
   setGoals: (goals, date) => {
     const key = db.goalKey(date || currentGoalDate);
     db.set(key, goals);
-    if (isSupabaseAvailable()) {
+
+    const available = isSupabaseAvailable();
+    console.log('[Sync Debug] setGoals:', { key, available, userId: window.currentUserId, goalsCount: goals.length });
+
+    if (available) {
       window.supabaseDB.setGoals(key, goals)
-        .then(err => { if (!err) db.clearDirty(key); });
+        .then(err => {
+          console.log('[Sync Debug] setGoals result:', err ? 'FAILED' : 'SUCCESS', err);
+          if (!err) db.clearDirty(key);
+        })
+        .catch(e => {
+          console.error('[Sync Debug] setGoals exception:', e);
+          alert('Sync failed: ' + e.message);
+        });
+    } else {
+      console.warn('[Sync Debug] Supabase not available. supabaseDB:', typeof window.supabaseDB, 'userId:', window.currentUserId);
     }
   },
   getNotes: (date) => db.get(db.notesKey(date || currentGoalDate), ''),
