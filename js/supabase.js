@@ -50,7 +50,11 @@
             }
 
             // Delete existing goals for this date and user
-            await supabase.from('goals').delete().eq('user_id', userId).eq('date', dateKey);
+            const { error: deleteError } = await supabase.from('goals').delete().eq('user_id', userId).eq('date', dateKey);
+            if (deleteError) {
+                console.error('[Supabase] setGoals delete failed:', deleteError);
+                return deleteError; // Return early - don't insert if delete failed
+            }
 
             // Insert new goals
             if (goals.length > 0) {
@@ -292,10 +296,14 @@
 
         async setKanban(weekKey, kanbanData) {
             const userId = getUserId();
-            if (!userId) return;
+            if (!userId) return { error: 'Not logged in' };
 
             // Delete existing for this week and user
-            await supabase.from('kanban_tasks').delete().eq('user_id', userId).eq('week_key', weekKey);
+            const { error: deleteError } = await supabase.from('kanban_tasks').delete().eq('user_id', userId).eq('week_key', weekKey);
+            if (deleteError) {
+                console.error('[Supabase] setKanban delete failed:', deleteError);
+                return deleteError;
+            }
 
             // Insert new
             var rows = [];
@@ -350,10 +358,14 @@
 
         async setBacklog(backlogData) {
             const userId = getUserId();
-            if (!userId) return;
+            if (!userId) return { error: 'Not logged in' };
 
             // Delete all existing for this user
-            await supabase.from('backlog_tasks').delete().eq('user_id', userId);
+            const { error: deleteError } = await supabase.from('backlog_tasks').delete().eq('user_id', userId);
+            if (deleteError) {
+                console.error('[Supabase] setBacklog delete failed:', deleteError);
+                return deleteError;
+            }
 
             // Insert new
             var rows = [];
