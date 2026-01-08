@@ -1981,12 +1981,18 @@ function getHabitKeyForWeek(weekDate, hIdx, dayIdx) {
 }
 
 function calculateHabitAnalytics() {
+  const analyticsEl = document.getElementById('habitAnalytics');
+  const overallRateEl = document.getElementById('habitOverallRate');
+
+  // Guard: If elements don't exist, silently return
+  if (!analyticsEl) return;
+
   const habits = db.getAllHabits();
   if (habits.length === 0) {
-    document.getElementById('habitAnalytics').style.display = 'none';
+    analyticsEl.style.display = 'none';
     return;
   }
-  document.getElementById('habitAnalytics').style.display = 'block';
+  analyticsEl.style.display = 'block';
 
   const today = new Date();
   const currentMonday = getMondayOfWeek(today);
@@ -2004,7 +2010,7 @@ function calculateHabitAnalytics() {
     }
   }
   const thisWeekRate = thisWeekTotal > 0 ? Math.round((thisWeekDone / thisWeekTotal) * 100) : 0;
-  document.getElementById('habitOverallRate').textContent = `${thisWeekRate}%`;
+  if (overallRateEl) overallRateEl.textContent = `${thisWeekRate}%`;
 
   // Calculate last 4 weeks completion rate
   let last4WeeksDone = 0;
@@ -2023,7 +2029,8 @@ function calculateHabitAnalytics() {
     }
   }
   const monthlyRate = last4WeeksTotal > 0 ? Math.round((last4WeeksDone / last4WeeksTotal) * 100) : 0;
-  document.getElementById('habitMonthlyRate').textContent = `${monthlyRate}%`;
+  const monthlyEl = document.getElementById('habitMonthlyRate');
+  if (monthlyEl) monthlyEl.textContent = `${monthlyRate}%`;
 
   // Calculate current streak (consecutive days with ALL habits done)
   let currentStreak = 0;
@@ -2053,7 +2060,8 @@ function calculateHabitAnalytics() {
     // Limit search to 365 days
     if (currentStreak > 365) break;
   }
-  document.getElementById('habitCurrentStreak').textContent = currentStreak;
+  const streakEl = document.getElementById('habitCurrentStreak');
+  if (streakEl) streakEl.textContent = currentStreak;
 
   // Calculate best streak (search last 52 weeks)
   let bestStreak = currentStreak;
@@ -2083,10 +2091,12 @@ function calculateHabitAnalytics() {
 
     checkDate.setDate(checkDate.getDate() + 1);
   }
-  document.getElementById('habitBestStreak').textContent = bestStreak;
+  const bestStreakEl = document.getElementById('habitBestStreak');
+  if (bestStreakEl) bestStreakEl.textContent = bestStreak;
 
   // Per-habit breakdown (last 4 weeks)
   const breakdownContainer = document.getElementById('habitBreakdown');
+  if (!breakdownContainer) return;
   breakdownContainer.innerHTML = '<h5>Per-Habit Performance (Last 4 Weeks)</h5>';
 
   habits.forEach((habit, hIdx) => {
