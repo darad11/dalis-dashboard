@@ -1019,8 +1019,9 @@ function setupEventListeners() {
 // ===== KEYBOARD SHORTCUTS =====
 function setupKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
-    // Don't trigger if typing in input/textarea
+    // Don't trigger if typing in input/textarea/contenteditable
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.target.isContentEditable || e.target.contentEditable === 'true') return;
 
     switch (e.key.toLowerCase()) {
       case ' ':
