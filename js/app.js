@@ -323,8 +323,49 @@ function showConfirmModal(title, message = 'Are you sure?') {
 // ===== STATE MANAGEMENT =====
 // Check if Supabase is available at runtime (function instead of constant to avoid race condition)
 function isSupabaseAvailable() {
-  return typeof window.supabaseDB !== 'undefined';
+  return typeof window.supabaseDB !== 'undefined' && !!window.currentUserId;
 }
+
+// Sync Status Tracking
+let lastSyncError = null;
+function updateSyncStatus() {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  let dirtyCount = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('dirty_')) dirtyCount++;
+  }
+
+  if (lastSyncError) {
+    el.textContent = '☁️❌';
+    el.title = 'Sync Error: ' + lastSyncError;
+    el.style.cssText = 'color: #ff4444 !important; filter: drop-shadow(0 0 2px rgba(255,0,0,0.5));';
+  } else if (dirtyCount > 0) {
+    el.textContent = '☁️⏳';
+    el.title = 'Pending Uploads: ' + dirtyCount;
+    el.style.cssText = 'color: #ffcc00 !important; filter: drop-shadow(0 0 2px rgba(255,200,0,0.5));';
+  } else {
+    el.textContent = '☁️✅';
+    el.title = 'Synced';
+    el.style.cssText = 'color: #44ff44 !important;';
+  }
+}
+
+window.showSyncDetails = () => {
+  let dirtyCount = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    if ((localStorage.key(i) || '').startsWith('dirty_')) dirtyCount++;
+  }
+
+  let msg = `Sync Status:\n`;
+  msg += `State: ${lastSyncError ? 'Error ❌' : (dirtyCount > 0 ? 'Pending Uploads ⏳' : 'Synced ✅')}\n`;
+  msg += `Pending Items: ${dirtyCount}\n`;
+  if (lastSyncError) msg += `Last Error: ${lastSyncError}\n`;
+  msg += `\nClick OK to Force Sync (Upload & Download).`;
+
+  if (confirm(msg)) forceSync();
+};
 
 const db = {
   // === Local storage (cache/fallback) ===
@@ -339,6 +380,7 @@ const db = {
     if (!fromCloud) {
       localStorage.setItem('dirty_' + key, '1');
     }
+    updateSyncStatus();
   },
 
   del: (key, fromCloud = false) => {
@@ -346,19 +388,16 @@ const db = {
     if (fromCloud) {
       localStorage.removeItem('dirty_' + key);
     } else {
-      // If deleting locally, how do we track it needs deletion remotely?
-      // We usually assume missing key = delete.
-      // But tracking 'tombstones' is better.
-      // For simplicity: We delete from cloud via setters immediately.
-      // If that fails, we are in trouble.
-      // But db.setGoals handles the explicit delete call.
-      // So simple del() is mostly for internal cleanup.
       localStorage.removeItem('dirty_' + key);
     }
+    updateSyncStatus();
   },
 
   // Dirty Flag Helpers
-  clearDirty: (key) => localStorage.removeItem('dirty_' + key),
+  clearDirty: (key) => {
+    localStorage.removeItem('dirty_' + key);
+    updateSyncStatus();
+  },
   isDirty: (key) => localStorage.getItem('dirty_' + key) === '1',
 
   // === Key generators ===
@@ -481,9 +520,13 @@ const db = {
           }
 
           if (!err) db.clearDirty(key);
-        } catch (e) { console.error('Failed to auto-push dirty key: ' + key, e); }
+        } catch (e) {
+          console.error('Failed to auto-push dirty key: ' + key, e);
+          lastSyncError = e.message;
+        }
       }
     }
+    if (!lastSyncError) updateSyncStatus();
 
     // --- Phase 2: Pull Cloud & Prune Clean (Server State) ---
 

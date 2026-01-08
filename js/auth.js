@@ -320,6 +320,17 @@
     }
   }
 
+  // Flag to prevent double initialization
+  let dashboardInitialized = false;
+
+  function initDashboardOnce() {
+    if (dashboardInitialized) return;
+    if (window.initDashboard && typeof window.initDashboard === 'function') {
+      dashboardInitialized = true;
+      setTimeout(() => window.initDashboard(), 50);
+    }
+  }
+
   // Listen for auth state changes
   supabase.auth.onAuthStateChange(function (event, session) {
     console.log('[Auth] State change:', event);
@@ -330,10 +341,8 @@
       console.log('[Auth] User logged in:', session.user.email);
       hideLoginUI();
 
-      // Trigger app initialization (with slight delay to ensure state settles)
-      if (window.initDashboard && typeof window.initDashboard === 'function') {
-        setTimeout(() => window.initDashboard(), 50);
-      }
+      // Trigger app initialization
+      initDashboardOnce();
     } else {
       currentUser = null;
       window.currentUserId = null;
@@ -350,6 +359,9 @@
       window.currentUserId = data.session.user.id;
       console.log('[Auth] Existing session found:', data.session.user.email);
       hideLoginUI();
+
+      // Initialize dashboard if not already done
+      initDashboardOnce();
       return true;
     }
     return false;
