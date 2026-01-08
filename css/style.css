@@ -3009,6 +3009,33 @@ body {
     -webkit-overflow-scrolling: touch;
 }
 
+/* ===== TABLET RESPONSIVE (iPad) ===== */
+@media (min-width: 769px) and (max-width: 1200px) {
+
+    /* Prevent wrapping and allow horizontal scroll instead */
+    .dashboard-main-layout {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Keep all panels at their original widths */
+    .pomodoro-section {
+        flex-shrink: 0;
+    }
+
+    .combined-glass-panel.stats-open .stats-section {
+        flex-shrink: 0;
+    }
+
+    /* Keep sidebar at fixed width and position */
+    .dashboard-sidebar {
+        flex-shrink: 0;
+        min-width: 350px;
+    }
+}
+
 /* ===== MOBILE RESPONSIVE ===== */
 @media (max-width: 768px) {
     body {
