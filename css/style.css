@@ -2340,42 +2340,80 @@ body.dark .task-item:hover {
     color: var(--text-secondary);
     cursor: grab;
     opacity: 0;
-    transition: opacity 0.2s;
-    font-size: 14px;
-    letter-spacing: -2px;
+    transition: all 0.2s ease;
+    font-size: 16px;
+    letter-spacing: -3px;
     user-select: none;
-    padding: 4px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: transparent;
 }
 
 .list-panel:hover .list-drag-handle {
-    opacity: 0.6;
+    opacity: 0.7;
 }
 
 .list-drag-handle:hover {
     opacity: 1 !important;
-    color: var(--accent-color);
+    color: white;
+    background: var(--accent-color);
+    transform: scale(1.1);
 }
 
 .list-drag-handle:active {
     cursor: grabbing;
+    transform: scale(0.95);
 }
 
 /* List Panel Drag States */
 .list-panel.dragging {
-    opacity: 0.5;
-    transform: scale(0.98);
+    opacity: 0.4;
+    transform: scale(0.95) rotate(-2deg);
     border-color: var(--accent-color);
-    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.4);
+    z-index: 100;
+    transition: all 0.15s ease;
 }
 
 .list-panel.drag-over {
-    border: 2px dashed var(--accent-color);
-    background: rgba(99, 102, 241, 0.1);
-    transform: scale(1.02);
+    border: 3px dashed var(--accent-color) !important;
+    background: rgba(99, 102, 241, 0.15) !important;
+    transform: scale(1.03);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.4), inset 0 0 30px rgba(99, 102, 241, 0.1);
+    transition: all 0.15s ease;
+}
+
+.list-panel.drag-over::before {
+    content: '↓ Drop here ↓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--accent-color);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    z-index: 10;
+    animation: pulse-glow 0.8s ease infinite;
+}
+
+@keyframes pulse-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+    }
+
+    50% {
+        box-shadow: 0 0 25px rgba(99, 102, 241, 0.8);
+    }
 }
 
 .list-panel[draggable="true"] {
-    cursor: default;
+    cursor: grab;
+    transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
 }
 
 .list-panel[draggable="true"]:active {
