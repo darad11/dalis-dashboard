@@ -559,9 +559,25 @@ const db = {
       db.loadHabitChecks(db.get('habitChecks', {}));
     }
 
-    const listMeta = await window.supabaseDB.getSetting('customListsMeta', []);
-    if (listMeta && listMeta.length > 0 && !db.isDirty('customListsMeta')) {
-      db.set('customListsMeta', listMeta, true);
+    // List Metadata: MERGE local and cloud (don't just overwrite!)
+    const cloudListMeta = await window.supabaseDB.getSetting('customListsMeta', []);
+    const localListMeta = db.get('customListsMeta', []);
+
+    if (!db.isDirty('customListsMeta')) {
+      // Merge: add cloud lists that don't exist locally
+      const mergedMeta = [...localListMeta];
+      for (const cloudList of cloudListMeta) {
+        if (!mergedMeta.some(m => m.id === cloudList.id)) {
+          mergedMeta.push(cloudList);
+        }
+      }
+      // Only update if we actually added something
+      if (mergedMeta.length > localListMeta.length) {
+        db.set('customListsMeta', mergedMeta, true);
+        console.log('[Sync] Merged list metadata:', mergedMeta.length, 'lists');
+      } else if (cloudListMeta.length > 0) {
+        db.set('customListsMeta', cloudListMeta, true);
+      }
     }
 
     // 1. Goals - Only overwrite non-dirty keys
