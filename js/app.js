@@ -1762,27 +1762,10 @@ function createTaskEl(task, dateObj, index) {
   span.className = "task-text";
   span.textContent = task.text;
 
-  // Click anywhere on task to toggle completion (like list items)
-  el.onclick = (e) => {
-    // Don't toggle if clicking delete button or starting a drag
-    if (e.target.classList.contains('task-delete') || e.target === del) return;
-
-    task.done = !task.done;
-    updateTask(dateObj, index, task);
-
-    if (task.done) {
-      sounds.success();
-      el.classList.add('completing');
-      setTimeout(() => el.classList.remove('completing'), 400);
-      updateStats();
-    }
-    el.classList.toggle('done', task.done);
-  };
-
   // Double-click to edit task
   span.ondblclick = async (e) => {
     e.stopPropagation();
-    const newText = await showInputModal('Edit Task', 'Update your task...', task.text);
+    const newText = await showInputModal('Edit Event', 'Update your event...', task.text);
     if (newText && newText.trim() && newText.trim() !== task.text) {
       task.text = newText.trim();
       updateTask(dateObj, index, task);
