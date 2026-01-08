@@ -38,7 +38,14 @@
                 return [];
             }
             return data.map(function (g) {
-                return { text: g.text, done: g.done, rolledFrom: g.rolled_from, id: g.id };
+                return {
+                    text: g.text,
+                    done: g.done,
+                    rolledFrom: g.rolled_from,
+                    id: g.id,
+                    priority: g.priority,
+                    urgency: g.urgency
+                };
             });
         },
 
@@ -64,7 +71,9 @@
                         date: dateKey,
                         text: typeof g === 'string' ? g : g.text,
                         done: typeof g === 'string' ? false : (g.done || false),
-                        rolled_from: g.rolledFrom || null
+                        rolled_from: g.rolledFrom || null,
+                        priority: g.priority || null,
+                        urgency: g.urgency || null
                     };
                 });
 
