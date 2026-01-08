@@ -137,6 +137,14 @@
             if (!userId) return { error: 'Not logged in' };
 
             try {
+                // Normalize habits: convert strings to objects
+                const normalizedHabits = habits.map(h => {
+                    if (typeof h === 'string') {
+                        return { name: h, color: '#6366f1', history: {} };
+                    }
+                    return h;
+                });
+
                 // 1. Get current cloud IDs to detect deletions
                 const { data: existing } = await supabase
                     .from('habits')
@@ -144,7 +152,7 @@
                     .eq('user_id', userId);
 
                 const currentIds = existing ? existing.map(h => h.id) : [];
-                const newIds = habits.map(h => h.id).filter(id => id); // Valid IDs only
+                const newIds = normalizedHabits.map(h => h.id).filter(id => id); // Valid IDs only
 
                 // 2. Delete habits that are missing from the new list
                 const idsToDelete = currentIds.filter(id => !newIds.includes(id));
@@ -153,12 +161,12 @@
                 }
 
                 // 3. Upsert (Insert/Update)
-                for (var i = 0; i < habits.length; i++) {
-                    var habit = habits[i];
+                for (var i = 0; i < normalizedHabits.length; i++) {
+                    var habit = normalizedHabits[i];
                     var payload = {
                         user_id: userId,
                         name: habit.name,
-                        color: habit.color,
+                        color: habit.color || '#6366f1',
                         history: habit.history || {}
                     };
 

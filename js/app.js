@@ -1970,7 +1970,14 @@ window.addHabit = async () => {
   const habits = db.getAllHabits();
   const name = await showInputModal('New Habit', 'What habit do you want to track?');
   if (name && name.trim()) {
-    habits.push(name.trim());
+    // Create habit as an object (not a string) for proper Supabase sync
+    const newHabit = {
+      name: name.trim(),
+      color: '#6366f1', // Default color
+      history: {}
+      // Note: id will be assigned by Supabase on first sync
+    };
+    habits.push(newHabit);
     db.setHabits(habits);
     renderHabits();
   }
