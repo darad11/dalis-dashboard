@@ -2190,10 +2190,11 @@ function calculateHabitAnalytics() {
 
     const percent = habitTotal > 0 ? Math.round((habitDone / habitTotal) * 100) : 0;
 
+    const habitName = typeof habit === 'string' ? habit : habit.name;
     const item = document.createElement('div');
     item.className = 'habit-breakdown-item';
     item.innerHTML = `
-      <div class="habit-breakdown-name" title="${habit}">${habit}</div>
+      <div class="habit-breakdown-name" title="${habitName}">${habitName}</div>
       <div class="habit-breakdown-bar">
         <div class="habit-breakdown-fill" style="width: ${percent}%"></div>
       </div>
