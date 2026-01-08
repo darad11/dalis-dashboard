@@ -430,22 +430,10 @@ const db = {
   setGoals: (goals, date) => {
     const key = db.goalKey(date || currentGoalDate);
     db.set(key, goals);
-
-    const available = isSupabaseAvailable();
-    console.log('[Sync Debug] setGoals:', { key, available, userId: window.currentUserId, goalsCount: goals.length });
-
-    if (available) {
+    if (isSupabaseAvailable()) {
       window.supabaseDB.setGoals(key, goals)
-        .then(err => {
-          console.log('[Sync Debug] setGoals result:', err ? 'FAILED' : 'SUCCESS', err);
-          if (!err) db.clearDirty(key);
-        })
-        .catch(e => {
-          console.error('[Sync Debug] setGoals exception:', e);
-          alert('Sync failed: ' + e.message);
-        });
-    } else {
-      console.warn('[Sync Debug] Supabase not available. supabaseDB:', typeof window.supabaseDB, 'userId:', window.currentUserId);
+        .then(err => { if (!err) db.clearDirty(key); })
+        .catch(e => console.error('[Sync] setGoals failed:', e));
     }
   },
   getNotes: (date) => db.get(db.notesKey(date || currentGoalDate), ''),
@@ -454,7 +442,8 @@ const db = {
     db.set(key, text);
     if (isSupabaseAvailable()) {
       window.supabaseDB.setNotes(key, text)
-        .then(err => { if (!err) db.clearDirty(key); });
+        .then(err => { if (!err) db.clearDirty(key); })
+        .catch(e => console.error('[Sync] setNotes failed:', e));
     }
   },
   getWeeklyReview: (date) => db.get(db.reviewKey(date || currentNoteDate), ''),
@@ -463,7 +452,8 @@ const db = {
     db.set(key, text);
     if (isSupabaseAvailable()) {
       window.supabaseDB.setNotes(key, text)
-        .then(err => { if (!err) db.clearDirty(key); });
+        .then(err => { if (!err) db.clearDirty(key); })
+        .catch(e => console.error('[Sync] setWeeklyReview failed:', e));
     }
   },
   getBacklog: () => db.get('backlog', {}),
@@ -471,7 +461,8 @@ const db = {
     db.set('backlog', backlog);
     if (isSupabaseAvailable()) {
       window.supabaseDB.setBacklog(backlog)
-        .then(err => { if (!err) db.clearDirty('backlog'); });
+        .then(err => { if (!err) db.clearDirty('backlog'); })
+        .catch(e => console.error('[Sync] setBacklog failed:', e));
     }
   },
 
@@ -488,13 +479,17 @@ const db = {
     // 3. Sync to Cloud
     if (isSupabaseAvailable()) {
       window.supabaseDB.setSetting('habitChecks', checks)
-        .then(err => { if (!err) db.clearDirty('habitChecks'); });
+        .then(err => { if (!err) db.clearDirty('habitChecks'); })
+        .catch(e => console.error('[Sync] setHabitCheck failed:', e));
     }
   },
   getCalendarTasks: (date) => db.get(db.calKey(date), []),
   setCalendarTasks: (date, tasks) => {
     db.set(db.calKey(date), tasks);
-    if (isSupabaseAvailable()) window.supabaseDB.setGoals(db.calKey(date), tasks);
+    if (isSupabaseAvailable()) {
+      window.supabaseDB.setGoals(db.calKey(date), tasks)
+        .catch(e => console.error('[Sync] setCalendarTasks failed:', e));
+    }
   },
   getStats: () => db.get('stats', { pomos: 0, tasks: 0, streak: 0, lastActive: null }),
   setStats: (stats) => db.set('stats', stats),

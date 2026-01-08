@@ -46,7 +46,6 @@
             const userId = getUserId();
             if (!userId) {
                 console.error('[Supabase] setGoals failed: Not logged in');
-                alert('Sync Error: You are not logged in. Please sign out and sign in again.');
                 return { error: 'Not logged in' };
             }
 
