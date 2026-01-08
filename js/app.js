@@ -2735,16 +2735,32 @@ function handleListDragEnd(e) {
 function handleListDragOver(e) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
-}
 
-function handleListDragEnter(e) {
-  e.preventDefault();
-  if (this !== draggedListElement) {
+  // Continuously apply drag-over class while dragging over this element
+  // This prevents flickering when moving over child elements
+  if (this !== draggedListElement && !this.classList.contains('drag-over')) {
+    // Remove from all other panels first
+    document.querySelectorAll('.list-panel.drag-over').forEach(panel => {
+      if (panel !== this) panel.classList.remove('drag-over');
+    });
     this.classList.add('drag-over');
   }
 }
 
+function handleListDragEnter(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  // Drag-over class is now handled by dragover for stability
+}
+
 function handleListDragLeave(e) {
+  // Only remove drag-over if we're actually leaving the panel
+  // Check if the related target (where we're going) is still inside this panel
+  const relatedTarget = e.relatedTarget;
+  if (relatedTarget && this.contains(relatedTarget)) {
+    // Still inside this panel (entered a child element), keep the class
+    return;
+  }
   this.classList.remove('drag-over');
 }
 
