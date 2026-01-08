@@ -130,38 +130,44 @@
 
         async setHabits(habits) {
             const userId = getUserId();
-            if (!userId) return;
+            if (!userId) return { error: 'Not logged in' };
 
-            // 1. Get current cloud IDs to detect deletions
-            const { data: existing } = await supabase
-                .from('habits')
-                .select('id')
-                .eq('user_id', userId);
+            try {
+                // 1. Get current cloud IDs to detect deletions
+                const { data: existing } = await supabase
+                    .from('habits')
+                    .select('id')
+                    .eq('user_id', userId);
 
-            const currentIds = existing ? existing.map(h => h.id) : [];
-            const newIds = habits.map(h => h.id).filter(id => id); // Valid IDs only
+                const currentIds = existing ? existing.map(h => h.id) : [];
+                const newIds = habits.map(h => h.id).filter(id => id); // Valid IDs only
 
-            // 2. Delete habits that are missing from the new list
-            const idsToDelete = currentIds.filter(id => !newIds.includes(id));
-            if (idsToDelete.length > 0) {
-                await supabase.from('habits').delete().in('id', idsToDelete).eq('user_id', userId);
-            }
-
-            // 3. Upsert (Insert/Update)
-            for (var i = 0; i < habits.length; i++) {
-                var habit = habits[i];
-                var payload = {
-                    user_id: userId,
-                    name: habit.name,
-                    color: habit.color,
-                    history: habit.history || {}
-                };
-
-                if (habit.id) {
-                    await supabase.from('habits').update(payload).eq('id', habit.id).eq('user_id', userId);
-                } else {
-                    await supabase.from('habits').insert(payload);
+                // 2. Delete habits that are missing from the new list
+                const idsToDelete = currentIds.filter(id => !newIds.includes(id));
+                if (idsToDelete.length > 0) {
+                    await supabase.from('habits').delete().in('id', idsToDelete).eq('user_id', userId);
                 }
+
+                // 3. Upsert (Insert/Update)
+                for (var i = 0; i < habits.length; i++) {
+                    var habit = habits[i];
+                    var payload = {
+                        user_id: userId,
+                        name: habit.name,
+                        color: habit.color,
+                        history: habit.history || {}
+                    };
+
+                    if (habit.id) {
+                        await supabase.from('habits').update(payload).eq('id', habit.id).eq('user_id', userId);
+                    } else {
+                        await supabase.from('habits').insert(payload);
+                    }
+                }
+                return null; // Success
+            } catch (e) {
+                console.error('Error in setHabits:', e);
+                return { error: e.message };
             }
         },
 
@@ -388,29 +394,41 @@
 
         async setList(listName, items, icon) {
             const userId = getUserId();
-            if (!userId) return;
+            if (!userId) return { error: 'Not logged in' };
 
             icon = icon || 'list';
 
-            // Check if list exists
-            const { data: existing } = await supabase
-                .from('lists')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('name', listName)
-                .single();
+            try {
+                // Check if list exists
+                const { data: existing } = await supabase
+                    .from('lists')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .eq('name', listName)
+                    .single();
 
-            if (existing) {
-                const { error } = await supabase
-                    .from('lists')
-                    .update({ items: items, icon: icon })
-                    .eq('id', existing.id);
-                if (error) console.error('Error saving list:', error);
-            } else {
-                const { error } = await supabase
-                    .from('lists')
-                    .insert({ user_id: userId, name: listName, items: items, icon: icon });
-                if (error) console.error('Error saving list:', error);
+                if (existing) {
+                    const { error } = await supabase
+                        .from('lists')
+                        .update({ items: items, icon: icon })
+                        .eq('id', existing.id);
+                    if (error) {
+                        console.error('Error saving list:', error);
+                        return error;
+                    }
+                } else {
+                    const { error } = await supabase
+                        .from('lists')
+                        .insert({ user_id: userId, name: listName, items: items, icon: icon });
+                    if (error) {
+                        console.error('Error saving list:', error);
+                        return error;
+                    }
+                }
+                return null; // Success
+            } catch (e) {
+                console.error('Error in setList:', e);
+                return { error: e.message };
             }
         },
 
@@ -531,27 +549,39 @@
 
         async setSetting(key, value) {
             const userId = getUserId();
-            if (!userId) return;
+            if (!userId) return { error: 'Not logged in' };
 
-            // Check if exists
-            const { data: existing } = await supabase
-                .from('settings')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('key', key)
-                .single();
+            try {
+                // Check if exists
+                const { data: existing } = await supabase
+                    .from('settings')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .eq('key', key)
+                    .single();
 
-            if (existing) {
-                const { error } = await supabase
-                    .from('settings')
-                    .update({ value: value })
-                    .eq('id', existing.id);
-                if (error) console.error('Error saving setting:', error);
-            } else {
-                const { error } = await supabase
-                    .from('settings')
-                    .insert({ user_id: userId, key: key, value: value });
-                if (error) console.error('Error saving setting:', error);
+                if (existing) {
+                    const { error } = await supabase
+                        .from('settings')
+                        .update({ value: value })
+                        .eq('id', existing.id);
+                    if (error) {
+                        console.error('Error saving setting:', error);
+                        return error;
+                    }
+                } else {
+                    const { error } = await supabase
+                        .from('settings')
+                        .insert({ user_id: userId, key: key, value: value });
+                    if (error) {
+                        console.error('Error saving setting:', error);
+                        return error;
+                    }
+                }
+                return null; // Success
+            } catch (e) {
+                console.error('Error in setSetting:', e);
+                return { error: e.message };
             }
         }
     };

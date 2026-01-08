@@ -485,11 +485,22 @@ const db = {
   },
   getCalendarTasks: (date) => db.get(db.calKey(date), []),
   setCalendarTasks: (date, tasks) => {
-    db.set(db.calKey(date), tasks);
+    const key = db.calKey(date);
+    db.set(key, tasks);
     if (isSupabaseAvailable()) {
-      window.supabaseDB.setGoals(db.calKey(date), tasks)
+      window.supabaseDB.setGoals(key, tasks)
+        .then(err => { if (!err) db.clearDirty(key); })
         .catch(e => console.error('[Sync] setCalendarTasks failed:', e));
     }
+  },
+
+  // Load habit checks from cloud data into localStorage
+  loadHabitChecks: (checksObj) => {
+    if (!checksObj || typeof checksObj !== 'object') return;
+    Object.entries(checksObj).forEach(([key, val]) => {
+      if (val) localStorage.setItem(key, '1');
+      else localStorage.removeItem(key);
+    });
   },
   getStats: () => db.get('stats', { pomos: 0, tasks: 0, streak: 0, lastActive: null }),
   setStats: (stats) => db.set('stats', stats),
@@ -593,23 +604,25 @@ const db = {
     const backlog = await window.supabaseDB.getBacklog();
     if (backlog && Object.keys(backlog).length > 0) db.set('backlog', backlog, true);
 
-    // 5. Lists
+    // 5. Lists - load items from cloud and match to metadata
     const lists = await window.supabaseDB.getAllLists();
     if (lists.length > 0) {
-      // Update Lists
-      const cloudListNames = new Set(lists.map(l => l.name));
-      const builtIn = ['Shopping', 'Chores', 'Goals 2026'];
+      // Update list items (match by title/name)
+      const meta = db.get('customListsMeta', []);
 
-      db.set('customLists', lists.map(l => l.name), true); // Sync list registry
-
-      lists.forEach(l => {
-        db.set(`list-${l.name}`, l.items, true);
-        db.set(`listIcon_${l.name}`, l.icon, true);
+      lists.forEach(cloudList => {
+        // Find matching local list by title
+        const localList = meta.find(m => m.title === cloudList.name);
+        if (localList) {
+          // Update items for this list
+          db.set(`list-${localList.id}`, cloudList.items || [], true);
+        }
       });
-
-      // Prune deleted lists
-      // (Iterate local 'list-' keys. If not in cloudListNames and not dirty...)
     }
+
+    // Clear lastSyncError and update status on success
+    lastSyncError = null;
+    updateSyncStatus();
   },
 
   // === Manual Push to Cloud (Recovery) ===
@@ -682,20 +695,22 @@ const db = {
       }
     }
 
-    // 7. Lists
-    const customLists = db.get('customLists', []);
-    const builtInLists = ['Shopping', 'Chores', 'Goals 2026'];
-    const allLists = [...new Set([...builtInLists, ...customLists])];
+    // 7. Lists (using new customListsMeta format)
+    const listMeta = db.get('customListsMeta', []);
 
-    for (const listName of allLists) {
-      const items = db.get(`list-${listName}`, []);
-      const icon = db.get(`listIcon_${listName}`, '📝');
-      // setList likely doesn't return error in current impl? 
-      // Check supabase.js line 350? It should be updated similarly.
-      // Assuming it swallows or I missed updating it.
-      // For now, assume it works or modify supabase.js for lists too.
-      await window.supabaseDB.setList(listName, items, icon);
-      count++;
+    // Sync the list metadata first
+    try {
+      await window.supabaseDB.setSetting('customListsMeta', listMeta);
+    } catch (e) { errors.push(`List Metadata: ${e.message}`); }
+
+    // Then sync each list's items
+    for (const list of listMeta) {
+      try {
+        const items = db.get(`list-${list.id}`, []);
+        const err = await window.supabaseDB.setList(list.title, items, '📝');
+        if (err) throw new Error(err.message || 'Unknown error');
+        count++;
+      } catch (e) { errors.push(`List ${list.title}: ${e.message}`); }
     }
 
     return { count, errors };
@@ -2423,7 +2438,9 @@ function setListItems(listName, items) {
   db.set(config.key, items);
   // Sync to Supabase
   if (isSupabaseAvailable()) {
-    window.supabaseDB.setList(listName, items);
+    window.supabaseDB.setList(listName, items)
+      .then(() => db.clearDirty(config.key))
+      .catch(e => console.error('[Sync] setListItems failed:', e));
   }
 }
 
@@ -2593,6 +2610,14 @@ window.createNewCustomList = async () => {
   const id = 'custom-' + Date.now();
   meta.push({ id, title: name.trim() });
   db.set('customListsMeta', meta);
+
+  // Sync to Supabase
+  if (isSupabaseAvailable()) {
+    window.supabaseDB.setSetting('customListsMeta', meta)
+      .then(err => { if (!err) db.clearDirty('customListsMeta'); })
+      .catch(e => console.error('[Sync] createNewCustomList failed:', e));
+  }
+
   renderUnifiedLists();
 };
 
@@ -2630,6 +2655,13 @@ window.updateListTitle = (id, el) => {
     db.set('customListsMeta', meta);
     // Toggle border
     el.style.borderBottom = list.title === 'Custom List' ? '1px dashed rgba(255,255,255,0.2)' : 'none';
+
+    // Sync to Supabase
+    if (isSupabaseAvailable()) {
+      window.supabaseDB.setSetting('customListsMeta', meta)
+        .then(err => { if (!err) db.clearDirty('customListsMeta'); })
+        .catch(e => console.error('[Sync] updateListTitle failed:', e));
+    }
   }
 };
 
@@ -2645,6 +2677,20 @@ window.deleteList = async (id) => {
   const newMeta = meta.filter(m => m.id !== id);
   db.set('customListsMeta', newMeta);
   localStorage.removeItem('list-' + id);
+
+  // Sync deletion to Supabase
+  if (isSupabaseAvailable()) {
+    try {
+      // Delete the list from cloud using its title (which is the name in Supabase)
+      await window.supabaseDB.deleteList(listName);
+      // Also update the customListsMeta setting
+      await window.supabaseDB.setSetting('customListsMeta', newMeta);
+      db.clearDirty('customListsMeta');
+    } catch (e) {
+      console.error('[Sync] deleteList failed:', e);
+    }
+  }
+
   renderUnifiedLists();
 };
 
