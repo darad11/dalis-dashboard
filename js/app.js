@@ -2144,6 +2144,7 @@ function calculateHabitAnalytics() {
 
   // Weekly trend chart (last 8 weeks)
   const chartContainer = document.getElementById('habitChart');
+  if (!chartContainer) return;
   chartContainer.innerHTML = '';
 
   const weeklyRates = [];
