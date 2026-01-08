@@ -1734,6 +1734,16 @@ function createTaskEl(task, dateObj, index) {
   const el = document.createElement("div");
   el.className = `task-item ${task.done ? 'done' : ''}`;
   if (task.priority) el.classList.add(`priority-${task.priority}`);
+
+  // Add 'past' class for dates before today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const taskDate = new Date(dateObj);
+  taskDate.setHours(0, 0, 0, 0);
+  if (taskDate < today) {
+    el.classList.add('past');
+  }
+
   el.draggable = true;
 
   el.ondragstart = (e) => {
@@ -1748,16 +1758,19 @@ function createTaskEl(task, dateObj, index) {
     document.querySelectorAll('.day-cell.drag-over').forEach(c => c.classList.remove('drag-over'));
   };
 
-  const cb = document.createElement("input");
-  cb.type = "checkbox";
-  cb.className = "task-checkbox";
-  cb.checked = task.done;
-  cb.onclick = (e) => {
-    e.stopPropagation();
-    task.done = cb.checked;
+  const span = document.createElement("span");
+  span.className = "task-text";
+  span.textContent = task.text;
+
+  // Click anywhere on task to toggle completion (like list items)
+  el.onclick = (e) => {
+    // Don't toggle if clicking delete button or starting a drag
+    if (e.target.classList.contains('task-delete') || e.target === del) return;
+
+    task.done = !task.done;
     updateTask(dateObj, index, task);
 
-    if (cb.checked) {
+    if (task.done) {
       sounds.success();
       el.classList.add('completing');
       setTimeout(() => el.classList.remove('completing'), 400);
@@ -1765,10 +1778,6 @@ function createTaskEl(task, dateObj, index) {
     }
     el.classList.toggle('done', task.done);
   };
-
-  const span = document.createElement("span");
-  span.className = "task-text";
-  span.textContent = task.text;
 
   // Double-click to edit task
   span.ondblclick = async (e) => {
@@ -1783,7 +1792,7 @@ function createTaskEl(task, dateObj, index) {
   };
 
   // Right-click to set priority
-  span.oncontextmenu = (e) => {
+  el.oncontextmenu = (e) => {
     e.preventDefault();
     e.stopPropagation();
     const priorities = [null, 'high', 'medium', 'low'];
@@ -1802,7 +1811,7 @@ function createTaskEl(task, dateObj, index) {
     deleteTask(dateObj, index);
   };
 
-  el.append(cb, span, del);
+  el.append(span, del);
   return el;
 }
 
@@ -3020,39 +3029,32 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
   if (isFromCalendar) div.classList.add('from-calendar');
   div.draggable = true; // All tasks can be dragged
 
-  // Checkbox
-  const cb = document.createElement("input");
-  cb.type = "checkbox";
-  cb.className = "task-checkbox";
-  cb.checked = task.done;
-  cb.onclick = (e) => {
-    e.stopPropagation();
-    task.done = cb.checked;
-
-    if (isFromCalendar && sourceDate) {
-      // Update the calendar task
-      const key = db.calKey(sourceDate);
-      const tasks = db.get(key, []);
-      if (tasks[index]) {
-        tasks[index] = task;
-        db.set(key, tasks);
-        renderCalendar(); // Refresh calendar to reflect change
-      }
-    } else {
-      updateKanbanItem(colName, index, task, isWeekBased);
-    }
-
-    if (cb.checked) {
-      sounds.success();
-      div.classList.add('completing');
-      setTimeout(() => div.classList.remove('completing'), 400);
-    }
-    div.classList.toggle('done', task.done);
-  };
-
   const textSpan = document.createElement("span");
   textSpan.className = "kanban-card-text";
   textSpan.textContent = task.text;
+
+  // Only show checkbox for tasks added in weekly overview, not calendar events
+  if (!isFromCalendar) {
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.className = "task-checkbox";
+    cb.checked = task.done;
+    cb.onclick = (e) => {
+      e.stopPropagation();
+      task.done = cb.checked;
+      updateKanbanItem(colName, index, task, isWeekBased);
+
+      if (cb.checked) {
+        sounds.success();
+        div.classList.add('completing');
+        setTimeout(() => div.classList.remove('completing'), 400);
+      }
+      div.classList.toggle('done', task.done);
+    };
+    div.appendChild(cb);
+  }
+
+  div.appendChild(textSpan);
 
   // Right-click to set priority
   textSpan.oncontextmenu = (e) => {
@@ -3094,7 +3096,7 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
     }
   };
 
-  div.append(cb, textSpan, deleteBtn);
+  div.appendChild(deleteBtn);
 
   // Enable dragging for all tasks
   div.ondragstart = (e) => {
