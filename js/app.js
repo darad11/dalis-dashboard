@@ -2503,13 +2503,7 @@ function renderSimpleList(listName) {
   container.innerHTML = '';
 
   if (items.length === 0) {
-    const emptyMessages = {
-      goals2026: 'No goals yet',
-      shopping: 'No groceries yet',
-      chores: 'No chores yet'
-    };
-    const message = emptyMessages[listName] || 'No items yet';
-    container.innerHTML = `<div style="color: var(--text-secondary); text-align: center; padding: 20px; font-size: 0.85rem;">${message}</div>`;
+    container.innerHTML = `<div style="color: var(--text-secondary); text-align: center; padding: 20px; font-size: 0.85rem;">No items yet</div>`;
     return;
   }
 
@@ -2602,20 +2596,7 @@ function renderSimpleList(listName) {
 }
 
 window.addListItem = async (listName) => {
-  const defaults = {
-    goals2026: "What's your goal for 2026?",
-    shopping: "What do you need to buy?",
-    chores: "What chore needs doing?"
-  };
-
-  let modalTitle = 'New List Item';
-  if (listName === 'goals2026') modalTitle = 'New 2026 Goal';
-  else if (listName === 'shopping') modalTitle = 'Add to Shopping List';
-  else if (listName === 'chores') modalTitle = 'New Chore';
-
-  const promptText = defaults[listName] || "Add item to list";
-
-  const text = await showInputModal(modalTitle, promptText);
+  const text = await showInputModal('New Item', 'Add item to list');
 
   if (!text || !text.trim()) return;
 
@@ -2636,19 +2617,12 @@ function renderAllLists() {
 window.initUnifiedLists = () => {
   if (localStorage.getItem('unifiedListsInited')) return;
 
-  // Seed defaults
-  const defaults = [
-    { id: 'goals2026', title: '🚀 Goals 2026' },
-    { id: 'shopping', title: '🛒 Shopping List' },
-    { id: 'chores', title: '🧹 Weekly Chores' }
-  ];
-
-  // Merge with any existing custom lists (from previous step testing)
+  // No default lists - user creates their own
   const existing = db.get('customListsMeta', []);
-  // Filter out duplicates if somehow present
-  const final = [...defaults, ...existing.filter(e => !defaults.find(d => d.id === e.id))];
+  if (existing.length === 0) {
+    db.set('customListsMeta', [], true); // Start with empty list
+  }
 
-  db.set('customListsMeta', final);
   localStorage.setItem('unifiedListsInited', 'true');
 };
 
