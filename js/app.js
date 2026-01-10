@@ -2736,7 +2736,7 @@ window.renderUnifiedLists = () => {
                        border-bottom: ${list.title === 'Custom List' ? '1px dashed rgba(255,255,255,0.2)' : 'none'};"
                 title="Click to edit">${list.title}</h3>
             <div class="simple-list" id="${list.id}List"></div>
-            <button class="btn" onclick="addListItem('${list.id}')" style="margin-top:auto;">+ Add Item</button>
+            <button class="btn" onclick="addListItem('${list.id}')" style="margin-top:auto;">+</button>
         `;
 
     // Drag event handlers
