@@ -614,10 +614,110 @@
                 console.error('Error in setSetting:', e);
                 return { error: e.message };
             }
+        },
+
+        // ===== REALTIME SUBSCRIPTIONS =====
+        subscribeToChanges(onGoalsChange, onHabitsChange, onKanbanChange, onSettingsChange) {
+            const userId = getUserId();
+            if (!userId) {
+                console.warn('[Realtime] Cannot subscribe - not logged in');
+                return null;
+            }
+
+            console.log('[Realtime] Setting up subscriptions for user:', userId);
+
+            // Create a channel for all tables
+            const channel = supabase
+                .channel('dashboard-sync')
+                // Goals changes (calendar events + today's goals)
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'goals', filter: `user_id=eq.${userId}` },
+                    (payload) => {
+                        console.log('[Realtime] Goals change detected:', payload.eventType);
+                        if (onGoalsChange) onGoalsChange(payload);
+                    }
+                )
+                // Habits changes
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'habits', filter: `user_id=eq.${userId}` },
+                    (payload) => {
+                        console.log('[Realtime] Habits change detected:', payload.eventType);
+                        if (onHabitsChange) onHabitsChange(payload);
+                    }
+                )
+                // Notes changes
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'notes', filter: `user_id=eq.${userId}` },
+                    (payload) => {
+                        console.log('[Realtime] Notes change detected:', payload.eventType);
+                        if (onSettingsChange) onSettingsChange(payload);
+                    }
+                )
+                // Kanban tasks changes
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'kanban_tasks', filter: `user_id=eq.${userId}` },
+                    (payload) => {
+                        console.log('[Realtime] Kanban change detected:', payload.eventType);
+                        if (onKanbanChange) onKanbanChange(payload);
+                    }
+                )
+                // Backlog tasks changes
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'backlog_tasks', filter: `user_id=eq.${userId}` },
+                    (payload) => {
+                        console.log('[Realtime] Backlog change detected:', payload.eventType);
+                        if (onKanbanChange) onKanbanChange(payload);
+                    }
+                )
+                // Lists changes
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'lists', filter: `user_id=eq.${userId}` },
+                    (payload) => {
+                        console.log('[Realtime] Lists change detected:', payload.eventType);
+                        if (onSettingsChange) onSettingsChange(payload);
+                    }
+                )
+                // Pomodoro stats changes
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'pomodoro_stats', filter: `user_id=eq.${userId}` },
+                    (payload) => {
+                        console.log('[Realtime] Pomodoro stats change detected:', payload.eventType);
+                        if (onSettingsChange) onSettingsChange(payload);
+                    }
+                )
+                // Settings changes
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'settings', filter: `user_id=eq.${userId}` },
+                    (payload) => {
+                        console.log('[Realtime] Settings change detected:', payload.eventType);
+                        if (onSettingsChange) onSettingsChange(payload);
+                    }
+                )
+                .subscribe((status) => {
+                    console.log('[Realtime] Subscription status:', status);
+                });
+
+            return channel;
+        },
+
+        unsubscribeFromChanges(channel) {
+            if (channel) {
+                supabase.removeChannel(channel);
+                console.log('[Realtime] Unsubscribed from changes');
+            }
         }
     };
 
     // Export for use
     window.supabaseDB = supabaseDB;
+    window.supabaseClient = supabase; // Export for realtime access
     console.log('[Supabase] Connected to:', SUPABASE_URL);
 })();

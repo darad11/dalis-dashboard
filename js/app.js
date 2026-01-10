@@ -918,6 +918,65 @@ async function init() {
   setupEventListeners();
   setupKeyboardShortcuts();
   setupConfetti();
+
+  // Initialize Realtime sync for cross-device updates
+  initRealtimeSync();
+}
+
+// ===== REALTIME SYNC =====
+let realtimeChannel = null;
+
+function initRealtimeSync() {
+  if (!window.supabaseDB || !window.supabaseDB.subscribeToChanges) {
+    console.log('[Realtime] Supabase not available, skipping realtime sync');
+    return;
+  }
+
+  // Debounce to prevent rapid-fire refreshes
+  let refreshTimeout = null;
+  const debounceRefresh = (callback, delay = 500) => {
+    if (refreshTimeout) clearTimeout(refreshTimeout);
+    refreshTimeout = setTimeout(callback, delay);
+  };
+
+  realtimeChannel = window.supabaseDB.subscribeToChanges(
+    // On goals change (calendar + today's goals)
+    (payload) => {
+      debounceRefresh(async () => {
+        console.log('[Realtime] Refreshing goals and calendar...');
+        await db.loadFromCloud();
+        renderCalendar();
+        renderGoals();
+        renderKanban();
+      });
+    },
+    // On habits change
+    (payload) => {
+      debounceRefresh(async () => {
+        console.log('[Realtime] Refreshing habits...');
+        await db.loadFromCloud();
+        renderHabits();
+      });
+    },
+    // On kanban/backlog change
+    (payload) => {
+      debounceRefresh(async () => {
+        console.log('[Realtime] Refreshing kanban...');
+        await db.loadFromCloud();
+        renderKanban();
+      });
+    },
+    // On settings/lists change
+    (payload) => {
+      debounceRefresh(async () => {
+        console.log('[Realtime] Refreshing lists and settings...');
+        await db.loadFromCloud();
+        renderAllLists();
+      });
+    }
+  );
+
+  console.log('[Realtime] Sync initialized');
 }
 
 // ===== DATE/WEEK NAVIGATION =====
