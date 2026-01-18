@@ -3864,9 +3864,9 @@ function renderSupplementsForWeek(weekOffset) {
 
   supplements.forEach((name, idx) => {
     html += `<div class="supp-row">
-      <div style="display:flex; align-items:center; overflow:hidden;">
-        <span class="supp-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px;">${name}</span>
-        <button class="delete-btn" style="margin-left:6px; opacity:0; transition:opacity 0.2s;" onclick="event.stopPropagation(); deleteSupplement(${idx})">×</button>
+      <div style="display:flex; align-items:center; flex:1; min-width:0;">
+        <span class="supp-name">${name}</span>
+        <button class="delete-btn" style="margin-left:6px; opacity:0; transition:opacity 0.2s; flex-shrink:0;" onclick="event.stopPropagation(); deleteSupplement(${idx})">×</button>
       </div>
       <div class="supp-days-grid">`;
 

@@ -5803,7 +5803,6 @@ body.dark .split-day input {
 
 .supp-header-spacer {
     flex: 1;
-    max-width: 90px;
 }
 
 .supp-header-days {
@@ -5835,9 +5834,9 @@ body.dark .split-day input {
 
 .supp-name {
     flex: 1;
-    max-width: 90px;
     font-size: 0.85rem;
     color: var(--text-primary);
+    word-break: break-word;
 }
 
 .supp-days-grid {
