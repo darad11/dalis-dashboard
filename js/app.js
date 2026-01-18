@@ -10,6 +10,17 @@ function signOut() {
   }
 }
 
+// ===== UTILITY: Handle Enter key on inputs =====
+function handleEnter(event, callback) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    if (typeof callback === 'function') {
+      callback();
+    }
+  }
+}
+window.handleEnter = handleEnter;
+
 // ===== SOUND EFFECTS =====
 const sounds = {
   click: () => playSound(800, 0.05, 'sine'),
@@ -995,16 +1006,18 @@ function updateTitles() {
     goalTitle.textContent = `🎯 Goals - ${currentGoalDate.toLocaleDateString('en-US', options)}`;
   }
 
-  // Notes title (date-based)
+  // Notes title (date-based) - element may not exist if Quick Notes is removed
   const notesTitle = document.getElementById('notesTitle');
-  const notesDate = new Date(currentNotesDate);
-  notesDate.setHours(0, 0, 0, 0);
+  if (notesTitle) {
+    const notesDate = new Date(currentNotesDate);
+    notesDate.setHours(0, 0, 0, 0);
 
-  if (notesDate.getTime() === today.getTime()) {
-    notesTitle.textContent = "📝 Quick Notes";
-  } else {
-    const options = { weekday: 'short', day: 'numeric', month: 'short' };
-    notesTitle.textContent = `📝 Notes - ${currentNotesDate.toLocaleDateString('en-US', options)}`;
+    if (notesDate.getTime() === today.getTime()) {
+      notesTitle.textContent = "📝 Quick Notes";
+    } else {
+      const options = { weekday: 'short', day: 'numeric', month: 'short' };
+      notesTitle.textContent = `📝 Notes - ${currentNotesDate.toLocaleDateString('en-US', options)}`;
+    }
   }
 
   // Week title - show date range format DD.MM.YY - DD.MM.YY
@@ -1793,6 +1806,7 @@ function createTaskEl(task, dateObj, index) {
   const el = document.createElement("div");
   el.className = `task-item ${task.done ? 'done' : ''}`;
   if (task.priority) el.classList.add(`priority-${task.priority}`);
+  el.dataset.index = index;
 
   // Add 'past' class for dates before today
   const today = new Date();
@@ -1867,8 +1881,38 @@ function handleCalendarDrop(e, targetDate, box) {
   const fromKey = db.calKey(fromDate);
   const toKey = db.calKey(targetDate);
 
-  if (fromKey === toKey) return;
+  // Same day - reorder within the day
+  if (fromKey === toKey) {
+    const tasks = db.getCalendarTasks(targetDate);
 
+    // Find drop position based on mouse position
+    const tasksContainer = box.querySelector('.tasks-list');
+    const taskElements = [...tasksContainer.querySelectorAll('.task-item:not(.dragging)')];
+    let insertIndex = tasks.length;
+
+    for (let i = 0; i < taskElements.length; i++) {
+      const rect = taskElements[i].getBoundingClientRect();
+      if (e.clientY < rect.top + rect.height / 2) {
+        insertIndex = parseInt(taskElements[i].dataset.index) || i;
+        break;
+      }
+    }
+
+    // Adjust insert index if moving down
+    if (insertIndex > fromIndex) insertIndex--;
+    if (insertIndex === fromIndex) return; // No change
+
+    // Reorder
+    const [movedTask] = tasks.splice(fromIndex, 1);
+    tasks.splice(insertIndex, 0, movedTask);
+    db.setCalendarTasks(targetDate, tasks);
+
+    renderCalendar();
+    renderKanban();
+    return;
+  }
+
+  // Different day - move between days
   const fromTasks = db.getCalendarTasks(fromDate);
   fromTasks.splice(fromIndex, 1);
   db.setCalendarTasks(fromDate, fromTasks);
@@ -2522,10 +2566,11 @@ window.deleteGoal = (idx) => {
   renderGoals();
 };
 
-// ===== QUICK NOTES =====
+// ===== QUICK NOTES (deprecated - HTML removed, keeping for data compatibility) =====
 let notesDebounceTimer = null;
 
 function loadNotes() {
+  if (!els.quickNotes) return; // Element removed from HTML
   els.quickNotes.value = db.getNotes(currentNotesDate);
 
   // Set up auto-save on input
@@ -2538,6 +2583,7 @@ function loadNotes() {
 }
 
 window.saveNotes = () => {
+  if (!els.quickNotes) return;
   db.setNotes(els.quickNotes.value, currentNotesDate);
 };
 
@@ -2569,48 +2615,103 @@ function renderSimpleList(listName) {
 
   const items = getListItems(listName);
   container.innerHTML = '';
+  container.dataset.listName = listName; // Store list name for drop handling
 
-  if (items.length === 0) {
-    container.innerHTML = `<div style="color: var(--text-secondary); text-align: center; padding: 20px; font-size: 0.85rem;">No items yet</div>`;
-    return;
-  }
-
-  // Setup drop zone for drag reordering
+  // Setup drop zone for drag reordering AND cross-list drops
   container.ondragover = (e) => {
     e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    container.classList.add('drag-over');
+
+    // Handle visual reordering within same list
     const dragging = container.querySelector('.dragging');
-    const siblings = [...container.querySelectorAll('.simple-list-item:not(.dragging)')];
-    const afterElement = siblings.find(sibling => {
-      const box = sibling.getBoundingClientRect();
-      return e.clientY < box.top + box.height / 2;
-    });
-    if (afterElement) {
-      container.insertBefore(dragging, afterElement);
-    } else if (dragging) {
-      container.appendChild(dragging);
+    if (dragging) {
+      const siblings = [...container.querySelectorAll('.simple-list-item:not(.dragging)')];
+      const afterElement = siblings.find(sibling => {
+        const box = sibling.getBoundingClientRect();
+        return e.clientY < box.top + box.height / 2;
+      });
+      if (afterElement) {
+        container.insertBefore(dragging, afterElement);
+      } else {
+        container.appendChild(dragging);
+      }
     }
   };
+
+  container.ondragleave = (e) => {
+    // Only remove if actually leaving the container
+    if (!container.contains(e.relatedTarget)) {
+      container.classList.remove('drag-over');
+    }
+  };
+
+  container.ondrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    container.classList.remove('drag-over');
+
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      if (data.type === 'listItem' && data.sourceList !== listName) {
+        // Cross-list move: remove from source, add to target
+        const sourceItems = getListItems(data.sourceList);
+        const [movedItem] = sourceItems.splice(data.idx, 1);
+        setListItems(data.sourceList, sourceItems);
+
+        const targetItems = getListItems(listName);
+        targetItems.push(movedItem);
+        setListItems(listName, targetItems);
+
+        // Re-render both lists
+        renderSimpleList(data.sourceList);
+        renderSimpleList(listName);
+        sounds.click();
+      }
+    } catch (err) {
+      // Not a cross-list drop, ignore (same-list reorder handled in ondragend)
+    }
+  };
+
+  if (items.length === 0) {
+    container.innerHTML = `<div class="empty-list-placeholder" style="color: var(--text-secondary); text-align: center; padding: 20px; font-size: 0.85rem;">No items yet</div>`;
+    return;
+  }
 
   items.forEach((item, idx) => {
     const div = document.createElement('div');
     div.className = `simple-list-item ${item.done ? 'done' : ''}`;
     div.draggable = true;
     div.dataset.idx = idx;
+    div.dataset.listName = listName;
 
-    // Drag events for reordering
+    // Drag events for reordering AND cross-list movement
     div.ondragstart = (e) => {
       div.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', idx);
+      // Store item data for cross-list drops
+      e.dataTransfer.setData('text/plain', JSON.stringify({
+        type: 'listItem',
+        sourceList: listName,
+        idx: idx,
+        item: item
+      }));
     };
     div.ondragend = () => {
       div.classList.remove('dragging');
-      // Save new order
-      const newOrder = [...container.querySelectorAll('.simple-list-item')].map(el => {
-        const i = parseInt(el.dataset.idx);
-        return items[i];
-      });
-      setListItems(listName, newOrder);
+      document.querySelectorAll('.simple-list.drag-over').forEach(el => el.classList.remove('drag-over'));
+
+      // Only save reorder if still in same list
+      if (container.contains(div)) {
+        const currentItems = getListItems(listName);
+        const newOrder = [...container.querySelectorAll('.simple-list-item')].map(el => {
+          const i = parseInt(el.dataset.idx);
+          return currentItems[i];
+        }).filter(Boolean);
+        if (newOrder.length > 0) {
+          setListItems(listName, newOrder);
+        }
+      }
     };
 
     const span = document.createElement('span');
@@ -2927,8 +3028,11 @@ window.goToReviewToday = () => {
 function renderKanban() {
   // Week kanban is week-based
   renderKanbanBoard(els.weekKanban, weekdays, true);
-  // Backlog is permanent (not week-based)
-  renderKanbanBoard(els.longKanban, ["To Do", "Waiting", "Ideas"], false);
+
+  // Backlog (longKanban) is disabled/missing from HTML
+  if (els.longKanban) {
+    renderKanbanBoard(els.longKanban, ["To Do", "Waiting", "Ideas"], false);
+  }
 }
 
 // Helper: Get the date for a weekday column (MO, DI, MI, etc.) in the current viewed week
@@ -2951,6 +3055,7 @@ function getCalendarTasksForDate(date) {
 }
 
 function renderKanbanBoard(container, columns, isWeekBased) {
+  if (!container) return; // Guard against null container
   container.innerHTML = "";
   const boardData = isWeekBased ? db.getKanban() : db.get('backlog', {});
 
@@ -3069,6 +3174,9 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
   div.className = `kanban-card ${task.done ? 'done' : ''}`;
   if (task.priority) div.classList.add(`priority-${task.priority}`);
   if (isFromCalendar) div.classList.add('from-calendar');
+  div.dataset.index = index;
+  div.dataset.isFromCalendar = isFromCalendar;
+  div.dataset.colName = colName;
 
   // Add 'past' class for calendar events from dates before today
   if (isFromCalendar && sourceDate) {
@@ -3227,6 +3335,7 @@ function editKanbanItem(col, index, newText, isWeekBased) {
 
 function handleKanbanDrop(e, targetCol, isWeekBased) {
   e.preventDefault();
+  const itemsContainer = e.currentTarget;
   document.querySelectorAll(".kanban-items.drag-over").forEach(el => el.classList.remove('drag-over'));
 
   try {
@@ -3236,29 +3345,56 @@ function handleKanbanDrop(e, targetCol, isWeekBased) {
     // Only allow drop within same board type
     if (data.isWeekBased !== isWeekBased) return;
 
+    // Calculate drop position based on mouse position
+    const cardElements = [...itemsContainer.querySelectorAll('.kanban-card:not(.dragging)')];
+    let insertIndex = cardElements.length;
+
+    for (let i = 0; i < cardElements.length; i++) {
+      const rect = cardElements[i].getBoundingClientRect();
+      if (e.clientY < rect.top + rect.height / 2) {
+        insertIndex = i;
+        break;
+      }
+    }
+
     // Handle calendar-sourced task move
     if (data.isFromCalendar && data.sourceDate) {
       const sourceDate = new Date(data.sourceDate);
       const sourceCol = data.col;
-
-      // If dropping to same column, do nothing
-      if (sourceCol === targetCol) return;
 
       // Get the target date based on the column
       const targetColIndex = weekdays.indexOf(targetCol);
       if (targetColIndex === -1) return;
       const targetDate = getDateForWeekday(targetColIndex);
 
-      // Remove from source date in calendar
       const sourceKey = db.calKey(sourceDate);
+      const targetKey = db.calKey(targetDate);
+
+      // Same column - reorder within the day
+      if (sourceCol === targetCol && sourceKey === targetKey) {
+        const tasks = db.get(targetKey, []);
+        let adjustedInsertIndex = insertIndex;
+
+        // Adjust for moved item
+        if (adjustedInsertIndex > data.idx) adjustedInsertIndex--;
+        if (adjustedInsertIndex === data.idx) return; // No change
+
+        const [movedTask] = tasks.splice(data.idx, 1);
+        tasks.splice(adjustedInsertIndex, 0, movedTask);
+        db.set(targetKey, tasks);
+
+        renderCalendar();
+        renderKanban();
+        return;
+      }
+
+      // Different column - move between days
       const sourceTasks = db.get(sourceKey, []);
       sourceTasks.splice(data.idx, 1);
       db.set(sourceKey, sourceTasks);
 
-      // Add to target date in calendar
-      const targetKey = db.calKey(targetDate);
       const targetTasks = db.get(targetKey, []);
-      targetTasks.push(data.task);
+      targetTasks.splice(insertIndex, 0, data.task);
       db.set(targetKey, targetTasks);
 
       renderCalendar();
@@ -3266,11 +3402,30 @@ function handleKanbanDrop(e, targetCol, isWeekBased) {
       return;
     }
 
-    // Handle normal kanban task move
+    // Handle normal kanban task move/reorder
     const board = getKanbanBoard(isWeekBased);
-    if (board[data.col]) board[data.col].splice(data.idx, 1);
-    if (!board[targetCol]) board[targetCol] = [];
-    board[targetCol].push(data.task || data.text);
+
+    // Same column - reorder
+    if (data.col === targetCol) {
+      const items = board[targetCol] || [];
+      let adjustedInsertIndex = insertIndex;
+
+      // Count how many calendar items are before the insert position
+      // (we need to adjust because calendar items are shown first)
+
+      // Adjust for moved item
+      if (adjustedInsertIndex > data.idx) adjustedInsertIndex--;
+      if (adjustedInsertIndex === data.idx) return; // No change
+
+      const [movedTask] = items.splice(data.idx, 1);
+      items.splice(adjustedInsertIndex, 0, movedTask);
+      board[targetCol] = items;
+    } else {
+      // Different column - move
+      if (board[data.col]) board[data.col].splice(data.idx, 1);
+      if (!board[targetCol]) board[targetCol] = [];
+      board[targetCol].splice(insertIndex, 0, data.task || data.text);
+    }
 
     setKanbanBoard(board, isWeekBased);
     renderKanban();
@@ -3408,3 +3563,1373 @@ function updateSidebarDateTime() {
 // Start the clock
 updateSidebarDateTime();
 setInterval(updateSidebarDateTime, 1000);
+
+// ===== GYM HUB =====
+const gymQuotes = [
+  "The only bad workout is the one that didn't happen.",
+  "Your body can stand almost anything. It's your mind you have to convince.",
+  "Discipline is choosing between what you want now and what you want most.",
+  "The pain you feel today will be the strength you feel tomorrow.",
+  "Success isn't always about greatness. It's about consistency.",
+  "Don't wish for it. Work for it.",
+  "The body achieves what the mind believes.",
+  "Sweat is just fat crying.",
+  "Push yourself because no one else is going to do it for you.",
+  "The only way to define your limits is by going beyond them."
+];
+
+function toggleGymHub() {
+  const content = document.getElementById('gymHubContent');
+  const toggle = document.getElementById('gymHubToggle');
+
+  if (content.classList.contains('collapsed')) {
+    content.classList.remove('collapsed');
+    toggle.textContent = '▲';
+    window.loadGymData();
+    updateGymQuote();
+  } else {
+    content.classList.add('collapsed');
+    toggle.textContent = '▼';
+  }
+
+  // Save state
+  db.set('gymHubOpen', !content.classList.contains('collapsed'));
+}
+
+function updateGymQuote() {
+  const quoteEl = document.getElementById('gymQuote');
+  if (quoteEl) {
+    const randomQuote = gymQuotes[Math.floor(Math.random() * gymQuotes.length)];
+    quoteEl.textContent = `"${randomQuote}"`;
+  }
+}
+
+// ===== DATE NAVIGATION STATE =====
+let trainingDateOffset = 0;  // 0 = today, -1 = yesterday, etc.
+let nutritionDateOffset = 0;
+let supplementsWeekOffset = 0;  // 0 = this week, -1 = last week, etc.
+
+function getDateKeyWithOffset(offset) {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function formatDateDisplay(offset) {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  const options = { weekday: 'short', month: 'short', day: 'numeric' };
+  const dateStr = date.toLocaleDateString('en-US', options);
+
+  if (offset === 0) return 'Today';
+  return dateStr;
+}
+
+function formatWeekDisplay(weekOffset) {
+  // Calculate the Monday of the target week
+  const today = new Date();
+  const currentDay = today.getDay();
+  const diff = today.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
+  const monday = new Date(today);
+  monday.setDate(diff + (weekOffset * 7));
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const options = { month: 'short', day: 'numeric' };
+  const weekRange = `${monday.toLocaleDateString('en-US', options)} - ${sunday.toLocaleDateString('en-US', options)}`;
+
+  if (weekOffset === 0) return 'This Week';
+  return weekRange;
+}
+
+// ===== TRAINING DATE NAVIGATION =====
+function navigateTrainingDate(direction) {
+  trainingDateOffset += direction;
+
+  // Don't allow going into the future
+  if (trainingDateOffset > 0) {
+    trainingDateOffset = 0;
+  }
+
+  updateTrainingDateDisplay();
+  loadTrainingDataForDate(getDateKeyWithOffset(trainingDateOffset));
+}
+
+function goToTrainingToday() {
+  trainingDateOffset = 0;
+  updateTrainingDateDisplay();
+  loadTrainingDataForDate(getDateKeyWithOffset(0));
+}
+
+function updateTrainingDateDisplay() {
+  const display = document.getElementById('trainingDateDisplay');
+  if (display) {
+    display.textContent = formatDateDisplay(trainingDateOffset);
+  }
+
+  // Disable "next" button if at today
+  const nextBtn = document.getElementById('trainingNextBtn');
+  if (nextBtn) {
+    nextBtn.disabled = trainingDateOffset >= 0;
+  }
+
+  // Toggle Today button
+  const todayBtn = document.getElementById('trainingTodayBtn');
+  if (todayBtn) {
+    todayBtn.style.display = trainingDateOffset === 0 ? 'none' : 'flex';
+  }
+}
+
+function loadTrainingDataForDate(dateKey) {
+  const gymData = db.get('gymHubData', {});
+  const dayData = gymData[dateKey] || {};
+
+  console.log('Loading training data for:', dateKey, dayData);
+
+  // Load workout log
+  const workoutLogEl = document.getElementById('workoutLog');
+  if (workoutLogEl) {
+    workoutLogEl.value = dayData.workoutLog || '';
+  }
+
+  // Load progress
+  const progressWeightEl = document.getElementById('progressWeight');
+  const progressBodyFatEl = document.getElementById('progressBodyFat');
+  const progressNotesEl = document.getElementById('progressNotes');
+
+  if (progressWeightEl) progressWeightEl.value = dayData.progress?.weight || '';
+  if (progressBodyFatEl) progressBodyFatEl.value = dayData.progress?.bodyFat || '';
+  if (progressNotesEl) progressNotesEl.value = dayData.progress?.notes || '';
+
+  // Make inputs readonly if viewing historical data
+  const isHistorical = trainingDateOffset < 0;
+  const inputs = [workoutLogEl, progressWeightEl, progressBodyFatEl, progressNotesEl];
+
+  inputs.forEach(input => {
+    if (input) {
+      input.readOnly = isHistorical;
+      input.style.opacity = isHistorical ? '0.7' : '1';
+    }
+  });
+}
+
+// ===== NUTRITION DATE NAVIGATION =====
+function navigateNutritionDate(direction) {
+  nutritionDateOffset += direction;
+
+  // Don't allow going into the future
+  if (nutritionDateOffset > 0) {
+    nutritionDateOffset = 0;
+  }
+
+  updateNutritionDateDisplay();
+  loadNutritionDataForDate(getDateKeyWithOffset(nutritionDateOffset));
+}
+
+function goToNutritionToday() {
+  nutritionDateOffset = 0;
+  updateNutritionDateDisplay();
+  loadNutritionDataForDate(getDateKeyWithOffset(0));
+}
+
+function updateNutritionDateDisplay() {
+  const display = document.getElementById('nutritionDateDisplay');
+  if (display) {
+    display.textContent = formatDateDisplay(nutritionDateOffset);
+  }
+
+  // Disable "next" button if at today
+  const nextBtn = document.getElementById('nutritionNextBtn');
+  if (nextBtn) {
+    nextBtn.disabled = nutritionDateOffset >= 0;
+  }
+
+  // Toggle Today button
+  const todayBtn = document.getElementById('nutritionTodayBtn');
+  if (todayBtn) {
+    todayBtn.style.display = nutritionDateOffset === 0 ? 'none' : 'flex';
+  }
+}
+
+function loadNutritionDataForDate(dateKey) {
+  const gymData = db.get('gymHubData', {});
+  const dayData = gymData[dateKey] || {};
+
+  // Load macros for the specific date
+  if (dayData.macros) {
+    document.getElementById('macroCalories').value = dayData.macros.calories || '';
+    document.getElementById('macroProtein').value = dayData.macros.protein || '';
+    document.getElementById('macroCarbs').value = dayData.macros.carbs || '';
+    document.getElementById('macroFat').value = dayData.macros.fat || '';
+  } else {
+    document.getElementById('macroCalories').value = '';
+    document.getElementById('macroProtein').value = '';
+    document.getElementById('macroCarbs').value = '';
+    document.getElementById('macroFat').value = '';
+  }
+
+  // Update charts
+  updateMacroChart();
+
+  // Make inputs readonly if viewing historical data
+  const isHistorical = nutritionDateOffset < 0;
+  ['macroCalories', 'macroProtein', 'macroCarbs', 'macroFat'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.readOnly = isHistorical;
+      input.style.opacity = isHistorical ? '0.7' : '1';
+    }
+  });
+}
+
+// ===== SUPPLEMENTS WEEK NAVIGATION =====
+function navigateSupplementsDate(direction) {
+  supplementsWeekOffset += direction;
+
+  // Don't allow going into the future
+  if (supplementsWeekOffset > 0) {
+    supplementsWeekOffset = 0;
+  }
+
+  updateSupplementsDateDisplay();
+  renderSupplementsForWeek(supplementsWeekOffset);
+}
+
+function goToSupplementsToday() {
+  supplementsWeekOffset = 0;
+  updateSupplementsDateDisplay();
+  renderSupplementsForWeek(0);
+}
+
+function updateSupplementsDateDisplay() {
+  const display = document.getElementById('supplementsDateDisplay');
+  if (display) {
+    display.textContent = formatWeekDisplay(supplementsWeekOffset);
+  }
+
+  // Disable "next" button if at current week
+  const nextBtn = document.getElementById('supplementsNextBtn');
+  if (nextBtn) {
+    nextBtn.disabled = supplementsWeekOffset >= 0;
+  }
+
+  // Toggle Today button
+  const todayBtn = document.getElementById('supplementsTodayBtn');
+  if (todayBtn) {
+    todayBtn.style.display = supplementsWeekOffset === 0 ? 'none' : 'flex';
+  }
+}
+
+function renderSupplementsForWeek(weekOffset) {
+  const container = document.getElementById('supplementList');
+  if (!container) return;
+
+  const gymData = db.get('gymHubData', {});
+  const supplements = gymData.supplements || [];
+  const history = gymData.supplementsTaken || {};
+
+  // Calculate week keys for the specified week offset
+  const today = new Date();
+  const currentDay = today.getDay(); // 0=Sun, 1=Mon
+  const diff = today.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
+  const monday = new Date(today);
+  monday.setDate(diff + (weekOffset * 7));
+
+  const weekKeys = [];
+  const weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    weekKeys.push(d.toISOString().split('T')[0]);
+  }
+
+  // Header
+  let html = `
+    <div class="supp-tracker-header">
+      <span class="supp-header-spacer"></span>
+      <div class="supp-header-days">
+        ${weekDays.map(d => `<div class="supp-header-day">${d}</div>`).join('')}
+      </div>
+    </div>
+  `;
+
+  if (supplements.length === 0) {
+    container.innerHTML = '<div class="empty-state">No supplements added</div>';
+    return;
+  }
+
+  const isHistorical = weekOffset < 0;
+
+  supplements.forEach((name, idx) => {
+    html += `<div class="supp-row">
+      <div style="display:flex; align-items:center; overflow:hidden;">
+        <span class="supp-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80px;">${name}</span>
+        <button class="delete-btn" style="margin-left:6px; opacity:0; transition:opacity 0.2s;" onclick="event.stopPropagation(); deleteSupplement(${idx})">×</button>
+      </div>
+      <div class="supp-days-grid">`;
+
+    weekKeys.forEach(key => {
+      const takenList = history[key] || [];
+      const isActive = takenList.includes(name);
+      const activeClass = isActive ? 'active' : '';
+      const cleanName = name.replace(/'/g, "\\'");
+      // Only allow clicking if not viewing historical data (or always allow to correct mistakes)
+      html += `<div class="day-circle ${activeClass}" onclick="toggleSupplementDay('${cleanName}', '${key}')" title="${key}"></div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  container.innerHTML = html;
+
+  // Quick fix for delete visibility
+  const rows = container.querySelectorAll('.supp-row');
+  rows.forEach(row => {
+    row.onmouseenter = () => row.querySelector('.delete-btn').style.opacity = '1';
+    row.onmouseleave = () => row.querySelector('.delete-btn').style.opacity = '0';
+  });
+}
+
+// Make navigation functions global
+window.navigateTrainingDate = navigateTrainingDate;
+window.navigateNutritionDate = navigateNutritionDate;
+window.navigateSupplementsDate = navigateSupplementsDate;
+window.goToTrainingToday = goToTrainingToday;
+window.goToNutritionToday = goToNutritionToday;
+window.goToSupplementsToday = goToSupplementsToday;
+
+function getTodayKey() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+}
+
+function saveGymData(type) {
+  const todayKey = getTodayKey();
+  let gymData = db.get('gymHubData', {});
+
+  if (!gymData[todayKey]) {
+    gymData[todayKey] = {};
+  }
+
+  switch (type) {
+    case 'nutritionNotes':
+      gymData[todayKey].nutritionNotes = document.getElementById('nutritionNotes').value;
+      break;
+    case 'macros':
+      gymData[todayKey].macros = {
+        calories: document.getElementById('macroCalories').value,
+        protein: document.getElementById('macroProtein').value,
+        carbs: document.getElementById('macroCarbs').value,
+        fat: document.getElementById('macroFat').value
+      };
+      break;
+    case 'workoutLog':
+      gymData[todayKey].workoutLog = document.getElementById('workoutLog').value;
+      break;
+    case 'progress':
+      gymData[todayKey].progress = {
+        weight: document.getElementById('progressWeight').value,
+        bodyFat: document.getElementById('progressBodyFat').value,
+        notes: document.getElementById('progressNotes').value
+      };
+      break;
+    case 'inspirationNotes':
+      // Inspiration is global, not per-day
+      gymData.inspiration = document.getElementById('inspirationNotes').value;
+      break;
+  }
+
+  db.set('gymHubData', gymData);
+
+  // Sync to Supabase
+  if (isSupabaseAvailable()) {
+    window.supabaseDB.setSetting('gymHubData', gymData)
+      .then(err => { if (!err) db.clearDirty('gymHubData'); })
+      .catch(e => console.error('[Sync] Gym Hub save failed:', e));
+  }
+
+  // Visual feedback
+  showNotification('Saved! 💪', 'success');
+}
+
+function loadGymData() {
+  const todayKey = getTodayKey();
+  const gymData = db.get('gymHubData', {});
+  const todayData = gymData[todayKey] || {};
+
+  // Load nutrition notes
+  if (todayData.nutritionNotes) {
+    document.getElementById('nutritionNotes').value = todayData.nutritionNotes;
+  } else {
+    document.getElementById('nutritionNotes').value = '';
+  }
+
+  // Load macros
+  if (todayData.macros) {
+    document.getElementById('macroCalories').value = todayData.macros.calories || '';
+    document.getElementById('macroProtein').value = todayData.macros.protein || '';
+    document.getElementById('macroCarbs').value = todayData.macros.carbs || '';
+    document.getElementById('macroFat').value = todayData.macros.fat || '';
+  } else {
+    document.getElementById('macroCalories').value = '';
+    document.getElementById('macroProtein').value = '';
+    document.getElementById('macroCarbs').value = '';
+    document.getElementById('macroFat').value = '';
+  }
+
+  // Load workout log
+  if (todayData.workoutLog) {
+    document.getElementById('workoutLog').value = todayData.workoutLog;
+  } else {
+    document.getElementById('workoutLog').value = '';
+  }
+
+  // Load progress
+  if (todayData.progress) {
+    document.getElementById('progressWeight').value = todayData.progress.weight || '';
+    document.getElementById('progressBodyFat').value = todayData.progress.bodyFat || '';
+    document.getElementById('progressNotes').value = todayData.progress.notes || '';
+  } else {
+    document.getElementById('progressWeight').value = '';
+    document.getElementById('progressBodyFat').value = '';
+    document.getElementById('progressNotes').value = '';
+  }
+
+  // Load inspiration (global)
+  if (gymData.inspiration) {
+    document.getElementById('inspirationNotes').value = gymData.inspiration;
+  } else {
+    document.getElementById('inspirationNotes').value = '';
+  }
+}
+
+// Restore Gym Hub state on load
+document.addEventListener('DOMContentLoaded', () => {
+  const isOpen = db.get('gymHubOpen', false);
+  if (isOpen) {
+    const content = document.getElementById('gymHubContent');
+    const toggle = document.getElementById('gymHubToggle');
+    if (content && toggle) {
+      content.classList.remove('collapsed');
+      toggle.textContent = '▲';
+      window.loadGymData();
+      updateGymQuote();
+    }
+  }
+
+  // Always render supplements regardless of gym hub state
+  renderSupplements();
+});
+
+// Make functions global
+window.toggleGymHub = toggleGymHub;
+window.saveGymData = saveGymData;
+window.loadGymData = loadGymData;
+
+// ===== WATER TRACKER =====
+let currentWater = 0;
+const waterGoal = 3000;
+
+function addWater(amount) {
+  currentWater += amount;
+  updateWaterDisplay();
+  saveGymData('water');
+}
+
+function resetWater() {
+  currentWater = 0;
+  updateWaterDisplay();
+  saveGymData('water');
+}
+
+function updateWaterDisplay() {
+  const amountEl = document.getElementById('waterAmount');
+  const fillEl = document.getElementById('waterProgressFill');
+  if (amountEl) amountEl.textContent = currentWater;
+  if (fillEl) fillEl.style.width = `${Math.min((currentWater / waterGoal) * 100, 100)}%`;
+}
+
+window.addWater = addWater;
+window.resetWater = resetWater;
+
+// ===== SLEEP TRACKER =====
+let currentSleepQuality = 0;
+
+function setSleepQuality(quality) {
+  currentSleepQuality = quality;
+  document.querySelectorAll('.quality-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.quality) === quality);
+  });
+}
+
+window.setSleepQuality = setSleepQuality;
+
+// ===== PR TRACKER =====
+function renderPRList() {
+  const gymData = db.get('gymHubData', {});
+  const prs = gymData.personalRecords || [];
+  const container = document.getElementById('prList');
+  if (!container) return;
+
+  container.innerHTML = prs.map((pr, i) => `
+    <div class="pr-item">
+      <span class="pr-exercise">${pr.exercise}</span>
+      <span class="pr-weight">${pr.weight}</span>
+      <button class="pr-delete" onclick="deletePR(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function addPR() {
+  const exercise = document.getElementById('prExercise').value.trim();
+  const weight = document.getElementById('prWeight').value.trim();
+  if (!exercise || !weight) return;
+
+  const gymData = db.get('gymHubData', {});
+  if (!gymData.personalRecords) gymData.personalRecords = [];
+  gymData.personalRecords.push({ exercise, weight, date: getTodayKey() });
+  db.set('gymHubData', gymData);
+
+  document.getElementById('prExercise').value = '';
+  document.getElementById('prWeight').value = '';
+  renderPRList();
+  syncGymData();
+}
+
+function deletePR(index) {
+  const gymData = db.get('gymHubData', {});
+  gymData.personalRecords.splice(index, 1);
+  db.set('gymHubData', gymData);
+  renderPRList();
+  syncGymData();
+}
+
+window.addPR = addPR;
+window.deletePR = deletePR;
+
+// ===== SUPPLEMENT TRACKER =====
+// ===== SUPPLEMENT TRACKER =====
+function renderSupplements() {
+  renderSupplementsForWeek(supplementsWeekOffset);
+}
+
+window.toggleSupplementDay = function (name, dateKey) {
+  console.log('toggleSupplementDay called:', name, dateKey);
+  const gymData = db.get('gymHubData', {});
+  if (!gymData.supplementsTaken) gymData.supplementsTaken = {};
+  if (!gymData.supplementsTaken[dateKey]) gymData.supplementsTaken[dateKey] = [];
+
+  const list = gymData.supplementsTaken[dateKey];
+  const idx = list.indexOf(name);
+
+  if (idx > -1) {
+    list.splice(idx, 1);
+    console.log('Removed', name, 'from', dateKey);
+  } else {
+    list.push(name);
+    console.log('Added', name, 'to', dateKey);
+  }
+
+  db.set('gymHubData', gymData);
+  db.set('gymHubData', gymData);
+  renderSupplementsForWeek(supplementsWeekOffset);
+  syncGymData();
+};
+
+async function addSupplement() {
+  const name = await showInputModal("Add Supplement", "Creatine, Vitamin D...");
+  if (!name || !name.trim()) return;
+
+  const gymData = db.get('gymHubData', {});
+  if (!gymData.supplements) gymData.supplements = [];
+  gymData.supplements.push(name.trim());
+  db.set('gymHubData', gymData);
+
+  renderSupplements();
+  syncGymData();
+}
+
+function deleteSupplement(index) {
+  const gymData = db.get('gymHubData', {});
+  gymData.supplements.splice(index, 1);
+  db.set('gymHubData', gymData);
+  renderSupplements();
+  syncGymData();
+}
+
+function toggleSupplement(name) {
+  const gymData = db.get('gymHubData', {});
+  const todayKey = getTodayKey();
+  if (!gymData.supplementsTaken) gymData.supplementsTaken = {};
+  if (!gymData.supplementsTaken[todayKey]) gymData.supplementsTaken[todayKey] = [];
+
+  const idx = gymData.supplementsTaken[todayKey].indexOf(name);
+  if (idx > -1) {
+    gymData.supplementsTaken[todayKey].splice(idx, 1);
+  } else {
+    gymData.supplementsTaken[todayKey].push(name);
+  }
+
+  db.set('gymHubData', gymData);
+  renderSupplements();
+  syncGymData();
+}
+
+window.addSupplement = addSupplement;
+window.deleteSupplement = deleteSupplement;
+window.toggleSupplement = toggleSupplement;
+
+// ===== WORKOUT STREAK =====
+function calculateStreak() {
+  const gymData = db.get('gymHubData', {});
+  const workoutDays = gymData.workoutDays || [];
+
+  let streak = 0;
+  const today = new Date();
+
+  for (let i = 0; i < 365; i++) {
+    const checkDate = new Date(today);
+    checkDate.setDate(checkDate.getDate() - i);
+    const dateKey = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+
+    if (workoutDays.includes(dateKey)) {
+      streak++;
+    } else if (i > 0) {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+function updateStreakDisplay() {
+  const streak = calculateStreak();
+  const streakEl = document.getElementById('streakNumber');
+  if (streakEl) streakEl.textContent = streak;
+
+  // Render last 14 days
+  const gymData = db.get('gymHubData', {});
+  const workoutDays = gymData.workoutDays || [];
+  const historyEl = document.getElementById('streakHistory');
+  if (!historyEl) return;
+
+  let dots = '';
+  for (let i = 13; i >= 0; i--) {
+    const checkDate = new Date();
+    checkDate.setDate(checkDate.getDate() - i);
+    const dateKey = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+    dots += `<div class="streak-dot ${workoutDays.includes(dateKey) ? 'active' : ''}"></div>`;
+  }
+  historyEl.innerHTML = dots;
+}
+
+function logWorkoutDay() {
+  const gymData = db.get('gymHubData', {});
+  if (!gymData.workoutDays) gymData.workoutDays = [];
+
+  const todayKey = getTodayKey();
+  if (!gymData.workoutDays.includes(todayKey)) {
+    gymData.workoutDays.push(todayKey);
+    db.set('gymHubData', gymData);
+    showNotification('Workout logged! 🔥', 'success');
+  } else {
+    showNotification('Already logged today!', 'info');
+  }
+
+  updateStreakDisplay();
+  syncGymData();
+}
+
+window.logWorkoutDay = logWorkoutDay;
+
+// ===== REST TIMER =====
+let timerSeconds = 90;
+let timerInterval = null;
+let timerRunning = false;
+
+function setTimer(seconds) {
+  timerSeconds = seconds;
+  timerRunning = false;
+  if (timerInterval) clearInterval(timerInterval);
+  updateTimerDisplay();
+
+  document.querySelectorAll('.timer-preset').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+
+  const startBtn = document.getElementById('timerStartBtn');
+  if (startBtn) {
+    startBtn.textContent = 'Start';
+    startBtn.classList.remove('running');
+  }
+}
+
+function toggleTimer() {
+  if (timerRunning) {
+    // Pause
+    clearInterval(timerInterval);
+    timerRunning = false;
+    document.getElementById('timerStartBtn').textContent = 'Start';
+    document.getElementById('timerStartBtn').classList.remove('running');
+  } else {
+    // Start
+    timerRunning = true;
+    document.getElementById('timerStartBtn').textContent = 'Pause';
+    document.getElementById('timerStartBtn').classList.add('running');
+    document.getElementById('timerDisplay').classList.add('running');
+    document.getElementById('timerDisplay').classList.remove('finished');
+
+    timerInterval = setInterval(() => {
+      timerSeconds--;
+      updateTimerDisplay();
+
+      if (timerSeconds <= 0) {
+        clearInterval(timerInterval);
+        timerRunning = false;
+        document.getElementById('timerStartBtn').textContent = 'Start';
+        document.getElementById('timerStartBtn').classList.remove('running');
+        document.getElementById('timerDisplay').classList.remove('running');
+        document.getElementById('timerDisplay').classList.add('finished');
+
+        // Play sound or vibrate
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        showNotification('Rest complete! 💪', 'success');
+      }
+    }, 1000);
+  }
+}
+
+function resetTimer() {
+  clearInterval(timerInterval);
+  timerRunning = false;
+  timerSeconds = 90;
+  updateTimerDisplay();
+
+  const startBtn = document.getElementById('timerStartBtn');
+  const displayEl = document.getElementById('timerDisplay');
+  if (startBtn) {
+    startBtn.textContent = 'Start';
+    startBtn.classList.remove('running');
+  }
+  if (displayEl) {
+    displayEl.classList.remove('running', 'finished');
+  }
+}
+
+function updateTimerDisplay() {
+  const mins = Math.floor(timerSeconds / 60);
+  const secs = timerSeconds % 60;
+  const displayEl = document.getElementById('timerDisplay');
+  if (displayEl) displayEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+window.setTimer = setTimer;
+window.toggleTimer = toggleTimer;
+window.resetTimer = resetTimer;
+
+// ===== WEEKLY GOALS =====
+function getWeekKey() {
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const weekNum = Math.ceil((((now - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+  return `${now.getFullYear()}-W${weekNum}`;
+}
+
+function renderWeeklyGoals() {
+  const gymData = db.get('gymHubData', {});
+  const weekKey = getWeekKey();
+  const goals = gymData.weeklyGoals?.[weekKey] || [];
+  const container = document.getElementById('weeklyGoalsList');
+  if (!container) return;
+
+  container.innerHTML = goals.map((goal, i) => `
+    <div class="weekly-goal-item ${goal.done ? 'done' : ''}" onclick="toggleWeeklyGoal(${i})">
+      <div class="goal-check">${goal.done ? '✓' : ''}</div>
+      <span class="goal-text">${goal.text}</span>
+      <button class="goal-delete" onclick="event.stopPropagation(); deleteWeeklyGoal(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function addWeeklyGoal() {
+  const text = document.getElementById('newWeeklyGoal').value.trim();
+  if (!text) return;
+
+  const gymData = db.get('gymHubData', {});
+  const weekKey = getWeekKey();
+  if (!gymData.weeklyGoals) gymData.weeklyGoals = {};
+  if (!gymData.weeklyGoals[weekKey]) gymData.weeklyGoals[weekKey] = [];
+  gymData.weeklyGoals[weekKey].push({ text, done: false });
+  db.set('gymHubData', gymData);
+
+  document.getElementById('newWeeklyGoal').value = '';
+  renderWeeklyGoals();
+  syncGymData();
+}
+
+function toggleWeeklyGoal(index) {
+  const gymData = db.get('gymHubData', {});
+  const weekKey = getWeekKey();
+  gymData.weeklyGoals[weekKey][index].done = !gymData.weeklyGoals[weekKey][index].done;
+  db.set('gymHubData', gymData);
+  renderWeeklyGoals();
+  syncGymData();
+}
+
+function deleteWeeklyGoal(index) {
+  const gymData = db.get('gymHubData', {});
+  const weekKey = getWeekKey();
+  gymData.weeklyGoals[weekKey].splice(index, 1);
+  db.set('gymHubData', gymData);
+  renderWeeklyGoals();
+  syncGymData();
+}
+
+window.addWeeklyGoal = addWeeklyGoal;
+window.toggleWeeklyGoal = toggleWeeklyGoal;
+window.deleteWeeklyGoal = deleteWeeklyGoal;
+
+// ===== TRAINING GOALS (Checklist) =====
+function renderTrainingGoals() {
+  const gymData = db.get('gymHubData', {});
+  const goals = gymData.trainingGoals || [];
+  const container = document.getElementById('trainingGoalsList');
+  if (!container) return;
+
+  container.innerHTML = goals.map((goal, i) => `
+    <div class="weekly-goal-item ${goal.done ? 'done' : ''}" onclick="toggleTrainingGoal(${i})">
+      <div class="goal-check">${goal.done ? '✓' : ''}</div>
+      <span class="goal-text">${goal.text}</span>
+      <button class="delete-goal-btn" onclick="event.stopPropagation(); deleteTrainingGoal(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function addTrainingGoal() {
+  const text = document.getElementById('newTrainingGoal').value.trim();
+  if (!text) return;
+
+  const gymData = db.get('gymHubData', {});
+  if (!gymData.trainingGoals) gymData.trainingGoals = [];
+  gymData.trainingGoals.push({ text, done: false });
+  db.set('gymHubData', gymData);
+
+  document.getElementById('newTrainingGoal').value = '';
+  renderTrainingGoals();
+  syncGymData();
+}
+
+function toggleTrainingGoal(index) {
+  const gymData = db.get('gymHubData', {});
+  if (gymData.trainingGoals && gymData.trainingGoals[index]) {
+    gymData.trainingGoals[index].done = !gymData.trainingGoals[index].done;
+    db.set('gymHubData', gymData);
+    renderTrainingGoals();
+    syncGymData();
+  }
+}
+
+function deleteTrainingGoal(index) {
+  const gymData = db.get('gymHubData', {});
+  if (gymData.trainingGoals) {
+    gymData.trainingGoals.splice(index, 1);
+    db.set('gymHubData', gymData);
+    renderTrainingGoals();
+    syncGymData();
+  }
+}
+
+window.addTrainingGoal = addTrainingGoal;
+window.toggleTrainingGoal = toggleTrainingGoal;
+window.deleteTrainingGoal = deleteTrainingGoal;
+
+// ===== SYNC HELPER =====
+function syncGymData() {
+  const gymData = db.get('gymHubData', {});
+  if (isSupabaseAvailable()) {
+    window.supabaseDB.setSetting('gymHubData', gymData)
+      .then(err => { if (!err) db.clearDirty('gymHubData'); })
+      .catch(e => console.error('[Sync] Gym Hub sync failed:', e));
+  }
+}
+
+// ===== ENHANCED LOAD GYM DATA =====
+const originalLoadGymData = loadGymData;
+window.loadGymData = function () {
+  originalLoadGymData();
+  renderWeeklyGoals();
+  renderTrainingGoals();
+  renderSupplements();
+
+  const todayKey = getTodayKey();
+  const gymData = db.get('gymHubData', {});
+  const todayData = gymData[todayKey] || {};
+
+  // Load water
+  currentWater = todayData.water || 0;
+  updateWaterDisplay();
+
+  // Load sleep
+  if (todayData.sleep) {
+    document.getElementById('sleepHours').value = todayData.sleep.hours || '';
+    if (todayData.sleep.quality) setSleepQuality(todayData.sleep.quality);
+  }
+
+  // Load measurements
+  if (todayData.measurements) {
+    document.getElementById('measureChest').value = todayData.measurements.chest || '';
+    document.getElementById('measureWaist').value = todayData.measurements.waist || '';
+    document.getElementById('measureArms').value = todayData.measurements.arms || '';
+    document.getElementById('measureLegs').value = todayData.measurements.legs || '';
+  }
+
+  // Load weekly split
+  if (gymData.weeklySplit) {
+    ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(day => {
+      const input = document.getElementById(`split${day}`);
+      if (input) input.value = gymData.weeklySplit[day.toLowerCase()] || '';
+    });
+  }
+
+  // Render dynamic lists
+  renderPRList();
+  renderSupplements();
+  updateStreakDisplay();
+  renderWeeklyGoals();
+};
+
+// ===== ENHANCED SAVE GYM DATA =====
+const originalSaveGymData = saveGymData;
+window.saveGymData = function (type) {
+  const todayKey = getTodayKey();
+  let gymData = db.get('gymHubData', {});
+  if (!gymData[todayKey]) gymData[todayKey] = {};
+
+  switch (type) {
+    case 'water':
+      gymData[todayKey].water = currentWater;
+      break;
+    case 'sleep':
+      gymData[todayKey].sleep = {
+        hours: document.getElementById('sleepHours').value,
+        quality: currentSleepQuality
+      };
+      break;
+    case 'measurements':
+      gymData[todayKey].measurements = {
+        chest: document.getElementById('measureChest').value,
+        waist: document.getElementById('measureWaist').value,
+        arms: document.getElementById('measureArms').value,
+        legs: document.getElementById('measureLegs').value
+      };
+      break;
+    case 'weeklySplit':
+      if (!gymData.weeklySplit) gymData.weeklySplit = {};
+      ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(day => {
+        const input = document.getElementById(`split${day}`);
+        if (input) gymData.weeklySplit[day.toLowerCase()] = input.value;
+      });
+      break;
+    default:
+      originalSaveGymData(type);
+      return;
+  }
+
+  db.set('gymHubData', gymData);
+  syncGymData();
+  showNotification('Saved! 💪', 'success');
+};
+
+// ===== MACRO CHART =====
+function updateMacroChart() {
+  // Get current values
+  const calories = parseFloat(document.getElementById('macroCalories')?.value) || 0;
+  const protein = parseFloat(document.getElementById('macroProtein')?.value) || 0;
+  const carbs = parseFloat(document.getElementById('macroCarbs')?.value) || 0;
+  const fat = parseFloat(document.getElementById('macroFat')?.value) || 0;
+
+  // Get goals (use placeholder values if empty)
+  const goalCalories = parseFloat(document.getElementById('goalCalories')?.value) || 2000;
+  const goalProtein = parseFloat(document.getElementById('goalProtein')?.value) || 150;
+  const goalCarbs = parseFloat(document.getElementById('goalCarbs')?.value) || 200;
+  const goalFat = parseFloat(document.getElementById('goalFat')?.value) || 70;
+
+  // Update goal displays
+  const goalCalDisplay = document.getElementById('goalCalDisplay');
+  const goalProtDisplay = document.getElementById('goalProtDisplay');
+  const goalCarbDisplay = document.getElementById('goalCarbDisplay');
+  const goalFatDisplay = document.getElementById('goalFatDisplay');
+
+  if (goalCalDisplay) goalCalDisplay.textContent = goalCalories;
+  if (goalProtDisplay) goalProtDisplay.textContent = goalProtein;
+  if (goalCarbDisplay) goalCarbDisplay.textContent = goalCarbs;
+  if (goalFatDisplay) goalFatDisplay.textContent = goalFat;
+
+  // Calculate percentages
+  const calPercent = Math.min((calories / goalCalories) * 100, 100);
+  const proPercent = Math.min((protein / goalProtein) * 100, 100);
+  const carbPercent = Math.min((carbs / goalCarbs) * 100, 100);
+  const fatPercent = Math.min((fat / goalFat) * 100, 100);
+
+  // Ring circumference = 2 * PI * radius = 2 * 3.14159 * 42 = 264
+  const circumference = 264;
+
+  // Update ring charts (stroke-dashoffset = circumference - (percent * circumference / 100))
+  const ringCalories = document.getElementById('ringCalories');
+  const ringProtein = document.getElementById('ringProtein');
+  const ringCarbs = document.getElementById('ringCarbs');
+  const ringFat = document.getElementById('ringFat');
+
+  if (ringCalories) ringCalories.style.strokeDashoffset = circumference - (calPercent * circumference / 100);
+  if (ringProtein) ringProtein.style.strokeDashoffset = circumference - (proPercent * circumference / 100);
+  if (ringCarbs) ringCarbs.style.strokeDashoffset = circumference - (carbPercent * circumference / 100);
+  if (ringFat) ringFat.style.strokeDashoffset = circumference - (fatPercent * circumference / 100);
+
+  // Update ring center values
+  const ringCalValue = document.getElementById('ringCalValue');
+  const ringProValue = document.getElementById('ringProValue');
+  const ringCarbValue = document.getElementById('ringCarbValue');
+  const ringFatValue = document.getElementById('ringFatValue');
+
+  if (ringCalValue) ringCalValue.textContent = calories;
+  if (ringProValue) ringProValue.textContent = protein;
+  if (ringCarbValue) ringCarbValue.textContent = carbs;
+  if (ringFatValue) ringFatValue.textContent = fat;
+
+  // ===== UPDATE DONUT SUMMARY CHART =====
+  // Calculate calories from macros: protein=4cal/g, carbs=4cal/g, fat=9cal/g
+  const proteinCals = protein * 4;
+  const carbCals = carbs * 4;
+  const fatCals = fat * 9;
+  const totalCals = proteinCals + carbCals + fatCals;
+
+  // Update total calories display
+  const totalCalEl = document.getElementById('totalCalories');
+  if (totalCalEl) totalCalEl.textContent = Math.round(totalCals);
+
+  // Calculate donut percentages
+  const totalMacroCals = proteinCals + carbCals + fatCals || 1; // avoid division by zero
+  const donutProPercent = Math.round((proteinCals / totalMacroCals) * 100);
+  const donutCarbPercent = Math.round((carbCals / totalMacroCals) * 100);
+  const donutFatPercent = Math.round((fatCals / totalMacroCals) * 100);
+
+  // Update legend
+  const legendPro = document.getElementById('legendProtein');
+  const legendCarb = document.getElementById('legendCarbs');
+  const legendFat = document.getElementById('legendFat');
+  const legendRemaining = document.getElementById('legendRemaining');
+
+  if (legendPro) legendPro.textContent = `${protein}g (${donutProPercent}%)`;
+  if (legendCarb) legendCarb.textContent = `${carbs}g (${donutCarbPercent}%)`;
+  if (legendFat) legendFat.textContent = `${fat}g (${donutFatPercent}%)`;
+
+  const remaining = Math.max(0, goalCalories - totalCals);
+  if (legendRemaining) legendRemaining.textContent = `${Math.round(remaining)} kcal`;
+
+  // Update donut segments
+  // Circumference = 2 * PI * 40 = 251.3
+  const donutCircumference = 251.3;
+
+  // Calculate segment lengths based on percentages (outside if-block for reuse)
+  const proteinLen = (donutProPercent / 100) * donutCircumference;
+  const carbLen = (donutCarbPercent / 100) * donutCircumference;
+  const fatLen = (donutFatPercent / 100) * donutCircumference;
+
+  const donutProtein = document.getElementById('donutProtein');
+  const donutCarbs = document.getElementById('donutCarbs');
+  const donutFat = document.getElementById('donutFat');
+
+  if (donutProtein && donutCarbs && donutFat) {
+    // Set dasharray for each segment (length, remaining)
+    donutProtein.style.strokeDasharray = `${proteinLen} ${donutCircumference}`;
+    donutProtein.style.strokeDashoffset = '0';
+
+    donutCarbs.style.strokeDasharray = `${carbLen} ${donutCircumference}`;
+    donutCarbs.style.strokeDashoffset = `-${proteinLen}`;
+
+    donutFat.style.strokeDasharray = `${fatLen} ${donutCircumference}`;
+    donutFat.style.strokeDashoffset = `-${proteinLen + carbLen}`;
+  }
+
+  // ===== UPDATE HERO MINI DONUT =====
+  const heroTotalCal = document.getElementById('heroTotalCal');
+  const heroLegendPro = document.getElementById('heroLegendPro');
+  const heroLegendCarb = document.getElementById('heroLegendCarb');
+  const heroLegendFat = document.getElementById('heroLegendFat');
+
+  if (heroTotalCal) heroTotalCal.textContent = Math.round(totalCals);
+  if (heroLegendPro) heroLegendPro.textContent = `${protein}g`;
+  if (heroLegendCarb) heroLegendCarb.textContent = `${carbs}g`;
+  if (heroLegendFat) heroLegendFat.textContent = `${fat}g`;
+
+  const heroDonutPro = document.getElementById('heroDonutPro');
+  const heroDonutCarb = document.getElementById('heroDonutCarb');
+  const heroDonutFat = document.getElementById('heroDonutFat');
+
+  if (heroDonutPro && heroDonutCarb && heroDonutFat) {
+    heroDonutPro.style.strokeDasharray = `${proteinLen} ${donutCircumference}`;
+    heroDonutPro.style.strokeDashoffset = '0';
+
+    heroDonutCarb.style.strokeDasharray = `${carbLen} ${donutCircumference}`;
+    heroDonutCarb.style.strokeDashoffset = `-${proteinLen}`;
+
+    heroDonutFat.style.strokeDasharray = `${fatLen} ${donutCircumference}`;
+    heroDonutFat.style.strokeDashoffset = `-${proteinLen + carbLen}`;
+  }
+
+  // Update calorie status indicator
+  updateCalorieStatusNow(goalCalories, Math.max(calories, totalCals));
+}
+
+// ===== CALORIE STATUS UPDATE =====
+function updateCalorieStatusNow(goalCalories, totalCals) {
+  const remaining = goalCalories - totalCals;
+  const percentUsed = (totalCals / goalCalories) * 100;
+
+  const statusBadge = document.getElementById('statusBadge');
+  const statusDetail = document.querySelector('.status-detail');
+
+  if (statusBadge && statusDetail) {
+    statusBadge.classList.remove('on-track', 'deficit', 'surplus', 'over');
+
+    if (percentUsed >= 100) {
+      statusBadge.classList.add('over');
+      statusBadge.innerHTML = '<span class="status-icon">⚠️</span><span class="status-text">Over Goal</span>';
+      statusDetail.innerHTML = `<span id="statusRemaining">${Math.round(-remaining)}</span> kcal over`;
+    } else if (percentUsed >= 80) {
+      statusBadge.classList.add('on-track');
+      statusBadge.innerHTML = '<span class="status-icon">✓</span><span class="status-text">On Track</span>';
+      statusDetail.innerHTML = `<span id="statusRemaining">${Math.round(remaining)}</span> kcal left`;
+    } else if (percentUsed >= 50) {
+      statusBadge.classList.add('deficit');
+      statusBadge.innerHTML = '<span class="status-icon">📉</span><span class="status-text">Deficit</span>';
+      statusDetail.innerHTML = `<span id="statusRemaining">${Math.round(remaining)}</span> kcal left`;
+    } else {
+      statusBadge.classList.add('surplus');
+      statusBadge.innerHTML = '<span class="status-icon">🍽️</span><span class="status-text">Eat More</span>';
+      statusDetail.innerHTML = `<span id="statusRemaining">${Math.round(remaining)}</span> kcal left`;
+    }
+  }
+}
+
+function updateCalorieStatus() {
+  const calories = parseFloat(document.getElementById('macroCalories')?.value) || 0;
+  const protein = parseFloat(document.getElementById('macroProtein')?.value) || 0;
+  const carbs = parseFloat(document.getElementById('macroCarbs')?.value) || 0;
+  const fat = parseFloat(document.getElementById('macroFat')?.value) || 0;
+  const goalCalories = parseFloat(document.getElementById('goalCalories')?.value) || 2000;
+
+  // Calculate total from macros
+  const totalCals = Math.max(calories, (protein * 4) + (carbs * 4) + (fat * 9));
+  const remaining = goalCalories - totalCals;
+  const percentUsed = (totalCals / goalCalories) * 100;
+
+  const statusBadge = document.getElementById('statusBadge');
+  const statusRemaining = document.getElementById('statusRemaining');
+
+  if (statusRemaining) statusRemaining.textContent = Math.abs(Math.round(remaining));
+
+  if (statusBadge) {
+    statusBadge.classList.remove('on-track', 'deficit', 'surplus', 'over');
+
+    if (percentUsed >= 100) {
+      statusBadge.classList.add('over');
+      statusBadge.innerHTML = '<span class="status-icon">⚠️</span><span class="status-text">Over Goal</span>';
+      document.querySelector('.status-detail').innerHTML = `<span id="statusRemaining">${Math.round(-remaining)}</span> kcal over`;
+    } else if (percentUsed >= 80) {
+      statusBadge.classList.add('on-track');
+      statusBadge.innerHTML = '<span class="status-icon">✓</span><span class="status-text">On Track</span>';
+      document.querySelector('.status-detail').innerHTML = `<span id="statusRemaining">${Math.round(remaining)}</span> kcal left`;
+    } else if (percentUsed >= 50) {
+      statusBadge.classList.add('deficit');
+      statusBadge.innerHTML = '<span class="status-icon">📉</span><span class="status-text">Deficit</span>';
+      document.querySelector('.status-detail').innerHTML = `<span id="statusRemaining">${Math.round(remaining)}</span> kcal left`;
+    } else {
+      statusBadge.classList.add('surplus');
+      statusBadge.innerHTML = '<span class="status-icon">🍽️</span><span class="status-text">Eat More</span>';
+      document.querySelector('.status-detail').innerHTML = `<span id="statusRemaining">${Math.round(remaining)}</span> kcal left`;
+    }
+  }
+}
+
+// ===== QUICK ADD FOOD =====
+function quickAddFood(name, cals, protein, carbs, fat) {
+  // Get current values
+  const currentCals = parseFloat(document.getElementById('macroCalories')?.value) || 0;
+  const currentProtein = parseFloat(document.getElementById('macroProtein')?.value) || 0;
+  const currentCarbs = parseFloat(document.getElementById('macroCarbs')?.value) || 0;
+  const currentFat = parseFloat(document.getElementById('macroFat')?.value) || 0;
+
+  // Add new values
+  document.getElementById('macroCalories').value = Math.round(currentCals + cals);
+  document.getElementById('macroProtein').value = Math.round((currentProtein + protein) * 10) / 10;
+  document.getElementById('macroCarbs').value = Math.round((currentCarbs + carbs) * 10) / 10;
+  document.getElementById('macroFat').value = Math.round((currentFat + fat) * 10) / 10;
+
+  // Update charts
+  updateMacroChart();
+
+  // Show notification
+  showNotification(`Added ${name}! 🍽️`, 'success');
+}
+
+window.quickAddFood = quickAddFood;
+
+
+// Add event listeners to goal inputs
+document.addEventListener('DOMContentLoaded', () => {
+  ['goalCalories', 'goalProtein', 'goalCarbs', 'goalFat'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.addEventListener('input', () => window.updateMacroChart());
+    }
+  });
+
+  // Highlight today in split
+  highlightTodaySplit();
+});
+
+window.updateMacroChart = updateMacroChart;
+
+// ===== HABITS TOGGLE =====
+function toggleHabitsSection() {
+  const habitsSection = document.querySelector('.habits-section');
+  if (habitsSection) {
+    habitsSection.classList.toggle('collapsed');
+
+    // Save state (optional)
+    const isCollapsed = habitsSection.classList.contains('collapsed');
+    localStorage.setItem('habitsCollapsed', isCollapsed);
+  }
+}
+
+// Restore habits state on load
+document.addEventListener('DOMContentLoaded', () => {
+  const isCollapsed = localStorage.getItem('habitsCollapsed') === 'true';
+  const habitsSection = document.querySelector('.habits-section');
+  if (habitsSection && isCollapsed) {
+    habitsSection.classList.add('collapsed');
+  }
+});
+
+// ===== WEEKLY REVIEW TOGGLE =====
+function toggleWeeklyReviewSection() {
+  const reviewSection = document.querySelector('.weekly-review-section');
+  if (reviewSection) {
+    reviewSection.classList.toggle('collapsed');
+
+    // Save state
+    const isCollapsed = reviewSection.classList.contains('collapsed');
+    localStorage.setItem('weeklyReviewCollapsed', isCollapsed);
+  }
+}
+
+window.toggleWeeklyReviewSection = toggleWeeklyReviewSection;
+
+// Restore weekly review state on load
+document.addEventListener('DOMContentLoaded', () => {
+  const isCollapsed = localStorage.getItem('weeklyReviewCollapsed') === 'true';
+  const reviewSection = document.querySelector('.weekly-review-section');
+  if (reviewSection && isCollapsed) {
+    reviewSection.classList.add('collapsed');
+  }
+});
+
+// ===== CALENDAR TOGGLE =====
+function toggleCalendarSection() {
+  const calendarSection = document.querySelector('.calendar-section');
+  if (calendarSection) {
+    calendarSection.classList.toggle('collapsed');
+
+    // Save state
+    const isCollapsed = calendarSection.classList.contains('collapsed');
+    localStorage.setItem('calendarCollapsed', isCollapsed);
+  }
+}
+
+window.toggleCalendarSection = toggleCalendarSection;
+
+// Restore calendar state on load
+document.addEventListener('DOMContentLoaded', () => {
+  const isCollapsed = localStorage.getItem('calendarCollapsed') === 'true';
+  const calendarSection = document.querySelector('.calendar-section');
+  if (calendarSection && isCollapsed) {
+    calendarSection.classList.add('collapsed');
+  }
+});
+
+// ===== HERO DASHBOARD UPDATES =====
+function highlightTodaySplit() {
+  const today = new Date().getDay(); // 0 = Sunday
+  document.querySelectorAll('.split-day-compact').forEach(el => {
+    el.classList.toggle('today', parseInt(el.dataset.day) === today);
+  });
+}
+
+function updateTodaySplit() {
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const today = new Date().getDay();
+  const todayName = days[today];
+
+  const gymData = db.get('gymHubData', {});
+  const split = gymData.weeklySplit || {};
+  const todaySplitEl = document.getElementById('todaySplit');
+
+  if (todaySplitEl) {
+    todaySplitEl.textContent = split[todayName.toLowerCase()] || days[today];
+  }
+}
+
+function updateHeroMacros() {
+  const calories = parseFloat(document.getElementById('macroCalories')?.value) || 0;
+  const protein = parseFloat(document.getElementById('macroProtein')?.value) || 0;
+  const carbs = parseFloat(document.getElementById('macroCarbs')?.value) || 0;
+  const fat = parseFloat(document.getElementById('macroFat')?.value) || 0;
+
+  const heroCal = document.getElementById('heroCalories');
+  const heroPro = document.getElementById('heroProtein');
+  const heroCarb = document.getElementById('heroCarbs');
+  const heroFat = document.getElementById('heroFat');
+
+  if (heroCal) heroCal.textContent = calories;
+  if (heroPro) heroPro.textContent = protein;
+  if (heroCarb) heroCarb.textContent = carbs;
+  if (heroFat) heroFat.textContent = fat;
+}
+
+// Update hero when macros change
+const originalUpdateMacroChart = updateMacroChart;
+window.updateMacroChart = function () {
+  originalUpdateMacroChart();
+  updateHeroMacros();
+  updateCalorieStatus();
+};
+
+// Update hero when gym hub loads
+const originalLoadGymDataHero = window.loadGymData;
+window.loadGymData = function () {
+  originalLoadGymDataHero();
+  highlightTodaySplit();
+  updateTodaySplit();
+  renderSupplements();
+  setTimeout(() => {
+    updateHeroMacros();
+    window.updateMacroChart();
+  }, 100);
+};
+
+window.highlightTodaySplit = highlightTodaySplit;
+window.updateTodaySplit = updateTodaySplit;
+window.updateHeroMacros = updateHeroMacros;
+
+/* Nutrition Settings Modal */
+window.openNutritionSettings = function () {
+  const modal = document.getElementById('nutritionSettingsModal');
+  if (modal) modal.classList.add('active');
+};
+
+window.closeNutritionSettings = function () {
+  const modal = document.getElementById('nutritionSettingsModal');
+  if (modal) modal.classList.remove('active');
+};
