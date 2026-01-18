@@ -388,17 +388,15 @@
 
     <div class="divider"></div>
 
-    <!-- 7. GYM HUB (Collapsible) -->
+    <!-- 7. HEALTH HUB (Collapsible) -->
     <div class="gym-hub-section">
       <div class="gym-hub-header" onclick="toggleGymHub()">
-        <h2>💪 Gym Hub</h2>
+        <h2>🔋 Health Hub</h2>
         <span class="gym-hub-toggle" id="gymHubToggle">▼</span>
       </div>
 
-      <div class="gym-hub-content" id="gymHubContent">
-        <!-- Motivational Quote -->
-        <h3 class="inspirational-quote" id="gymQuote">The only bad workout is the one that didn't happen.</h3>
-
+      <!-- Hero section always visible -->
+      <div class="gym-hub-hero-always">
         <!-- ===== TODAY'S DASHBOARD (Hero Card) ===== -->
         <div class="gym-hero glass-panel">
           <div class="hero-grid">
@@ -421,9 +419,35 @@
                   <div class="water-mini-fill" id="waterProgressFill"></div>
                 </div>
               </div>
-              <div class="hero-water-btns">
+              <div class="hero-water-btns-vertical">
                 <button class="btn hero-btn small" onclick="addWater(250)">+250</button>
                 <button class="btn hero-btn small" onclick="addWater(500)">+500</button>
+              </div>
+            </div>
+
+            <!-- Supplements Quick Add -->
+            <div class="hero-stat hero-supps-quick">
+              <div class="hero-stat-label" style="text-align: center; margin-bottom: 6px;">Supplements</div>
+              <div class="hero-supps-btns" id="heroSuppsQuick">
+                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="öl ziehen"
+                  onclick="quickToggleSupplement('öl ziehen')" title="Öl Ziehen (Oil Pulling)">🥥</button>
+                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="salzwasser"
+                  onclick="quickToggleSupplement('salzwasser')" title="Salzwasser (Salt Water)">🧂</button>
+                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="apfelessig"
+                  onclick="quickToggleSupplement('apfelessig')" title="Apfelessig (Apple Cider Vinegar)">🍎</button>
+                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="vitamin d"
+                  onclick="quickToggleSupplement('vitamin d')" title="Vitamin D">☀️</button>
+                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="multivitamin"
+                  onclick="quickToggleSupplement('multivitamin')" title="Multivitamin">💊</button>
+                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="schwarzkümmelöl"
+                  onclick="quickToggleSupplement('schwarzkümmelöl')"
+                  title="Schwarzkümmelöl (Black Cumin Oil)">🖤</button>
+                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="eisen"
+                  onclick="quickToggleSupplement('eisen')" title="Eisen (Iron)">🔩</button>
+                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="zink"
+                  onclick="quickToggleSupplement('zink')" title="Zink (Zinc)">⚡</button>
+                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="magnesium"
+                  onclick="quickToggleSupplement('magnesium')" title="Magnesium">🧲</button>
               </div>
             </div>
 
@@ -478,7 +502,13 @@
             </div>
           </div>
         </div>
-        <div class="streak-history" id="streakHistory"></div>
+      </div>
+      <div class="streak-history" id="streakHistory"></div>
+
+      <!-- Collapsible content -->
+      <div class="gym-hub-content collapsed" id="gymHubContent">
+        <!-- Motivational Quote -->
+        <h3 class="inspirational-quote" id="gymQuote">The only bad workout is the one that didn't happen.</h3>
 
         <div class="gym-hub-grid pro">
           <!-- ===== TRAINING CARD ===== -->
@@ -718,6 +748,31 @@
               <button class="btn" onclick="addSupplement()">+</button>
             </div>
 
+          </div>
+
+          <!-- ===== WATER TRACKER CARD ===== -->
+          <div class="gym-card glass-panel card-compact" style="height: fit-content;">
+            <div class="gym-card-header">
+              <span class="gym-card-icon">💧</span>
+              <h3>Water</h3>
+            </div>
+            <div class="water-tracker-compact">
+              <div class="water-display-compact">
+                <span class="water-amount-big" id="waterAmountCard">0</span>
+                <span class="water-unit-big">ml</span>
+              </div>
+              <div class="water-progress-compact">
+                <div class="water-bar-bg">
+                  <div class="water-bar-fill" id="waterProgressFillCard"></div>
+                </div>
+                <span class="water-goal-text">/ 3000ml</span>
+              </div>
+              <div class="water-btns-row">
+                <button class="btn" onclick="addWater(250)">+250</button>
+                <button class="btn" onclick="addWater(500)">+500</button>
+                <button class="btn water-reset" onclick="resetWater()">↺</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

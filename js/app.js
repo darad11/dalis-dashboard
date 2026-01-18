@@ -4021,6 +4021,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Always render supplements regardless of gym hub state
   renderSupplements();
+  updateHeroSupplementButtons();
 });
 
 // Make functions global
@@ -4047,8 +4048,14 @@ function resetWater() {
 function updateWaterDisplay() {
   const amountEl = document.getElementById('waterAmount');
   const fillEl = document.getElementById('waterProgressFill');
+  const amountCardEl = document.getElementById('waterAmountCard');
+  const fillCardEl = document.getElementById('waterProgressFillCard');
+  const percentage = Math.min((currentWater / waterGoal) * 100, 100);
+
   if (amountEl) amountEl.textContent = currentWater;
-  if (fillEl) fillEl.style.width = `${Math.min((currentWater / waterGoal) * 100, 100)}%`;
+  if (fillEl) fillEl.style.width = `${percentage}%`;
+  if (amountCardEl) amountCardEl.textContent = currentWater;
+  if (fillCardEl) fillCardEl.style.width = `${percentage}%`;
 }
 
 window.addWater = addWater;
@@ -4174,12 +4181,53 @@ function toggleSupplement(name) {
 
   db.set('gymHubData', gymData);
   renderSupplements();
+  updateHeroSupplementButtons();
   syncGymData();
+}
+
+// Quick toggle supplement from hero section
+function quickToggleSupplement(name) {
+  const gymData = db.get('gymHubData', {});
+  const todayKey = getTodayKey();
+  if (!gymData.supplementsTaken) gymData.supplementsTaken = {};
+  if (!gymData.supplementsTaken[todayKey]) gymData.supplementsTaken[todayKey] = [];
+
+  const idx = gymData.supplementsTaken[todayKey].indexOf(name);
+  if (idx > -1) {
+    gymData.supplementsTaken[todayKey].splice(idx, 1);
+    showNotification(`${name} unmarked`, 'info');
+  } else {
+    gymData.supplementsTaken[todayKey].push(name);
+    showNotification(`${name} ✓`, 'success');
+  }
+
+  db.set('gymHubData', gymData);
+  renderSupplements();
+  updateHeroSupplementButtons();
+  syncGymData();
+}
+
+// Update hero supplement buttons to reflect taken state
+function updateHeroSupplementButtons() {
+  const gymData = db.get('gymHubData', {});
+  const todayKey = getTodayKey();
+  const takenToday = gymData.supplementsTaken?.[todayKey] || [];
+
+  document.querySelectorAll('.supp-quick-btn').forEach(btn => {
+    const suppName = btn.dataset.supp;
+    if (takenToday.includes(suppName)) {
+      btn.classList.add('taken');
+    } else {
+      btn.classList.remove('taken');
+    }
+  });
 }
 
 window.addSupplement = addSupplement;
 window.deleteSupplement = deleteSupplement;
 window.toggleSupplement = toggleSupplement;
+window.quickToggleSupplement = quickToggleSupplement;
+window.updateHeroSupplementButtons = updateHeroSupplementButtons;
 
 // ===== WORKOUT STREAK =====
 function calculateStreak() {
