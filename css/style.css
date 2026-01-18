@@ -5980,6 +5980,12 @@ body.dark .split-day input {
     display: none;
 }
 
+/* Supplements list - no height restriction */
+#supplementList {
+    max-height: none;
+    overflow-y: visible;
+}
+
 .weekly-goal-item {
     display: flex;
     align-items: center;
