@@ -3842,7 +3842,9 @@ function renderSupplementsForWeek(weekOffset) {
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    weekKeys.push(d.toISOString().split('T')[0]);
+    // Use local date format to match getTodayKey()
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    weekKeys.push(key);
   }
 
   // Header
