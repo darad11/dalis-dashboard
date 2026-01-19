@@ -442,13 +442,17 @@ const db = {
   getGoals: (date) => db.get(db.goalKey(date || currentGoalDate), []),
   setGoals: (goals, date) => {
     const key = db.goalKey(date || currentGoalDate);
+    const timestamp = Date.now();
     db.set(key, goals);
+    // Store timestamp for conflict resolution
+    localStorage.setItem(`ts_${key}`, timestamp.toString());
     if (isSupabaseAvailable()) {
       window.supabaseDB.setGoals(key, goals)
         .then(err => { if (!err) db.clearDirty(key); })
         .catch(e => console.error('[Sync] setGoals failed:', e));
     }
   },
+  getGoalsTimestamp: (key) => parseInt(localStorage.getItem(`ts_${key}`) || '0'),
   getNotes: (date) => db.get(db.notesKey(date || currentGoalDate), ''),
   setNotes: (text, date) => {
     const key = db.notesKey(date || currentGoalDate);
@@ -518,47 +522,28 @@ const db = {
   getStats: () => db.get('stats', { pomos: 0, tasks: 0, streak: 0, lastActive: null }),
   setStats: (stats) => db.set('stats', stats),
 
+  // Track when this session started (for conflict resolution)
+  sessionStartTime: Date.now(),
+
   // === Cloud sync functions ===
   async loadFromCloud() {
     if (!isSupabaseAvailable() || !window.currentUserId) return;
     console.log('[Sync] Starting Sync...');
 
-    // --- Phase 1: Push Dirty Items (Client Changes) ---
-    // Iterate 'dirty_' keys and push them.
-    const dirtyKeys = [];
+    // --- Phase 1: PULL from Cloud FIRST (Get latest state) ---
+    // This ensures we have the newest data before deciding what to push
+    console.log('[Sync] Phase 1: Pulling from cloud...');
+
+    // Store current dirty keys BEFORE pulling (we'll check timestamps after)
+    const dirtyKeysBeforePull = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('dirty_')) dirtyKeys.push(k.substring(6)); // remove 'dirty_'
-    }
-
-    if (dirtyKeys.length > 0) {
-      console.log(`[Sync] Pushing ${dirtyKeys.length} dirty items...`);
-      for (const key of dirtyKeys) {
-        try {
-          const val = JSON.parse(localStorage.getItem(key));
-          let err = null;
-
-          if (key.startsWith('goals-') || key.startsWith('cal-')) err = await window.supabaseDB.setGoals(key, val);
-          else if (key.startsWith('notes-') || key.startsWith('review-')) err = await window.supabaseDB.setNotes(key, val);
-          else if (key === 'habits') err = await window.supabaseDB.setHabits(val);
-          else if (key === 'habitChecks' || key === 'customListsMeta') err = await window.supabaseDB.setSetting(key, val);
-          else if (key === 'backlog') err = await window.supabaseDB.setBacklog(val);
-          else if (key.startsWith('week-')) err = await window.supabaseDB.setKanban(key, val);
-          else if (key.startsWith('list-')) {
-            // Extract list ID from key 'list-ID' and use it as the name in Supabase
-            const listId = key.substring(5);
-            const icon = db.get(`listIcon_${listId}`, '📝');
-            await window.supabaseDB.setList(listId, val, icon);
-          }
-
-          if (!err) db.clearDirty(key);
-        } catch (e) {
-          console.error('Failed to auto-push dirty key: ' + key, e);
-          lastSyncError = e.message;
-        }
+      if (k && k.startsWith('dirty_')) {
+        const dataKey = k.substring(6);
+        const timestamp = db.getGoalsTimestamp(dataKey);
+        dirtyKeysBeforePull.push({ key: dataKey, timestamp });
       }
     }
-    if (!lastSyncError) updateSyncStatus();
 
     // --- Phase 2: Pull Cloud & Prune Clean (Server State) ---
     // IMPORTANT: Skip overwriting any key marked as dirty (pending upload)
@@ -594,23 +579,31 @@ const db = {
       db.set('customListsMeta', cloudListMeta, true);
     }
 
-    // 1. Goals - Only overwrite non-dirty keys
+    // 1. Goals - Only skip keys with SESSION changes (not stale dirty flags)
     const allGoals = await window.supabaseDB.getAllGoals();
     const cloudGoalKeys = new Set(Object.keys(allGoals));
 
-    // Update Local from Cloud (only if not dirty)
+    // Update Local from Cloud (skip only if modified THIS session)
     Object.entries(allGoals).forEach(([k, v]) => {
-      if (!db.isDirty(k)) {
+      const localTimestamp = db.getGoalsTimestamp(k);
+      const isSessionModified = localTimestamp >= db.sessionStartTime;
+
+      if (!isSessionModified) {
+        // Cloud data is newer or local is stale - use cloud
         db.set(k, v, true);
+        db.clearDirty(k);  // Clear any stale dirty flag
       }
     });
 
-    // Handle Deletions (Prune Clean Local Keys missing from Cloud)
+    // Handle Deletions (Prune Local Keys missing from Cloud, unless session-modified)
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && (key.startsWith('goals-') || key.startsWith('cal-'))) {
-        if (!cloudGoalKeys.has(key) && !db.isDirty(key)) {
+        const localTimestamp = db.getGoalsTimestamp(key);
+        const isSessionModified = localTimestamp >= db.sessionStartTime;
+        if (!cloudGoalKeys.has(key) && !isSessionModified) {
           db.del(key, true); // Delete locally (Remote deletion)
+          localStorage.removeItem(`ts_${key}`); // Clean up timestamp
         }
       }
     }
@@ -668,11 +661,50 @@ const db = {
     lastSyncError = null;
     updateSyncStatus();
 
+    // --- Phase 3: Push ONLY items modified DURING this session ---
+    // This prevents stale dirty flags from overwriting newer cloud data
+    console.log('[Sync] Phase 3: Pushing session changes...');
+
+    for (const { key, timestamp } of dirtyKeysBeforePull) {
+      // Only push if modified AFTER session started (user made changes this session)
+      if (timestamp >= db.sessionStartTime) {
+        try {
+          const val = JSON.parse(localStorage.getItem(key));
+          if (!val) continue;
+
+          let err = null;
+          if (key.startsWith('goals-') || key.startsWith('cal-')) err = await window.supabaseDB.setGoals(key, val);
+          else if (key.startsWith('notes-') || key.startsWith('review-')) err = await window.supabaseDB.setNotes(key, val);
+          else if (key === 'habits') err = await window.supabaseDB.setHabits(val);
+          else if (key === 'habitChecks' || key === 'customListsMeta') err = await window.supabaseDB.setSetting(key, val);
+          else if (key === 'backlog') err = await window.supabaseDB.setBacklog(val);
+          else if (key.startsWith('week-')) err = await window.supabaseDB.setKanban(key, val);
+          else if (key.startsWith('list-')) {
+            const listId = key.substring(5);
+            const icon = db.get(`listIcon_${listId}`, '📝');
+            await window.supabaseDB.setList(listId, val, icon);
+          }
+
+          if (!err) {
+            db.clearDirty(key);
+            console.log(`[Sync] Pushed session change: ${key}`);
+          }
+        } catch (e) {
+          console.error('[Sync] Failed to push:', key, e);
+          lastSyncError = e.message;
+        }
+      } else {
+        // Clear stale dirty flags (from before this session)
+        db.clearDirty(key);
+        console.log(`[Sync] Cleared stale dirty flag: ${key} (ts: ${timestamp} < session: ${db.sessionStartTime})`);
+      }
+    }
+
     // Refresh UI to show newly synced data
     try {
       if (typeof renderUnifiedLists === 'function') renderUnifiedLists();
       if (typeof renderHabits === 'function') renderHabits();
-      if (typeof loadGoals === 'function') loadGoals();
+      if (typeof renderGoals === 'function') renderGoals();
     } catch (e) {
       console.error('[Sync] UI refresh error:', e);
     }
