@@ -3561,31 +3561,42 @@ function handleKanbanDrop(e, targetCol, isWeekBased) {
     // Handle normal kanban task move/reorder
     const board = getKanbanBoard(isWeekBased);
 
+    // Count calendar items in the target column (they appear first visually)
+    let calendarCardCount = 0;
+    if (isWeekBased) {
+      calendarCardCount = itemsContainer.querySelectorAll('.kanban-card.from-calendar').length;
+    }
+
+    // Adjust insertIndex for kanban items (subtract calendar items)
+    let kanbanInsertIndex = Math.max(0, insertIndex - calendarCardCount);
+
     // Same column - reorder
     if (data.col === targetCol) {
       const items = board[targetCol] || [];
-      let adjustedInsertIndex = insertIndex;
 
-      // Count how many calendar items are before the insert position
-      // (we need to adjust because calendar items are shown first)
+      // Clamp to valid range
+      kanbanInsertIndex = Math.min(kanbanInsertIndex, items.length);
 
-      // Adjust for moved item
-      if (adjustedInsertIndex > data.idx) adjustedInsertIndex--;
-      if (adjustedInsertIndex === data.idx) return; // No change
+      // Adjust for moved item position
+      if (kanbanInsertIndex > data.idx) kanbanInsertIndex--;
+      if (kanbanInsertIndex === data.idx) return; // No change
 
       const [movedTask] = items.splice(data.idx, 1);
-      items.splice(adjustedInsertIndex, 0, movedTask);
+      items.splice(kanbanInsertIndex, 0, movedTask);
       board[targetCol] = items;
     } else {
       // Different column - move
       if (board[data.col]) board[data.col].splice(data.idx, 1);
       if (!board[targetCol]) board[targetCol] = [];
-      board[targetCol].splice(insertIndex, 0, data.task || data.text);
+
+      // Clamp to valid range
+      kanbanInsertIndex = Math.min(kanbanInsertIndex, board[targetCol].length);
+      board[targetCol].splice(kanbanInsertIndex, 0, data.task || data.text);
     }
 
     setKanbanBoard(board, isWeekBased);
     renderKanban();
-  } catch (err) { }
+  } catch (err) { console.error('[Kanban] Drop error:', err); }
 }
 
 function addKanbanItem(col, text, isWeekBased) {
