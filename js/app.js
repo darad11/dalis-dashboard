@@ -671,10 +671,45 @@ const db = {
       if (review) db.set(reviewKey, review, true);
     }
 
-    // 3. Habits & Checks
-    if (!db.isDirty('habits')) {
-      const habits = await window.supabaseDB.getHabits();
-      if (habits && habits.length > 0) db.set('habits', habits, true);
+    // 3. Habits & Checks - MERGE local and cloud habits
+    const cloudHabits = await window.supabaseDB.getHabits();
+    if (db.isDirty('habits')) {
+      // Merge local and cloud habits
+      const localHabits = db.getAllHabits();
+      const mergedHabits = [...cloudHabits];
+      const cloudNames = new Set(cloudHabits.map(h => h.name));
+
+      localHabits.forEach(localHabit => {
+        if (!cloudNames.has(localHabit.name)) {
+          // Add local habit not in cloud
+          mergedHabits.push(localHabit);
+        } else {
+          // Merge history for existing habits
+          const idx = mergedHabits.findIndex(h => h.name === localHabit.name);
+          if (idx >= 0) {
+            // Merge history objects
+            mergedHabits[idx].history = {
+              ...mergedHabits[idx].history,
+              ...localHabit.history
+            };
+            mergedHabits[idx].color = localHabit.color || mergedHabits[idx].color;
+          }
+        }
+      });
+
+      // Handle deletions (if local has fewer habits)
+      let finalHabits = mergedHabits;
+      if (localHabits.length < cloudHabits.length) {
+        const localNames = new Set(localHabits.map(h => h.name));
+        finalHabits = mergedHabits.filter(h => localNames.has(h.name));
+      }
+
+      console.log(`[Sync] Merging habits: local=${localHabits.length}, cloud=${cloudHabits.length}, merged=${finalHabits.length}`);
+      db.set('habits', finalHabits, true);
+      db.clearDirty('habits');
+      await window.supabaseDB.setHabits(finalHabits);
+    } else if (cloudHabits && cloudHabits.length > 0) {
+      db.set('habits', cloudHabits, true);
     }
 
     // 4. Kanban & Backlog
@@ -689,19 +724,53 @@ const db = {
       if (backlog && Object.keys(backlog).length > 0) db.set('backlog', backlog, true);
     }
 
-    // 5. Lists - load items from cloud and match by ID (not title!)
+    // 5. Lists - MERGE local and cloud list items
     const lists = await window.supabaseDB.getAllLists();
     if (lists.length > 0) {
       const meta = db.get('customListsMeta', []);
 
       lists.forEach(cloudList => {
-        // Match by ID: cloudList.name is stored as the list ID (e.g., 'goals2026')
+        // Match by ID: cloudList.name is stored as the list ID
         const localList = meta.find(m => m.id === cloudList.name);
         if (localList) {
           const localKey = `list-${localList.id}`;
-          // Only update if not dirty
-          if (!db.isDirty(localKey)) {
-            db.set(localKey, cloudList.items || [], true);
+          const cloudItems = cloudList.items || [];
+
+          if (db.isDirty(localKey)) {
+            // Merge local and cloud items
+            const localItems = db.get(localKey, []);
+            const mergedItems = [...cloudItems];
+
+            // Get text for comparison (items can be strings or objects)
+            const getItemText = (item) => typeof item === 'string' ? item : (item.text || item.name || JSON.stringify(item));
+            const cloudTexts = new Set(cloudItems.map(getItemText));
+
+            localItems.forEach(localItem => {
+              const text = getItemText(localItem);
+              if (!cloudTexts.has(text)) {
+                mergedItems.push(localItem);
+              } else {
+                // Update with local state
+                const idx = mergedItems.findIndex(i => getItemText(i) === text);
+                if (idx >= 0) mergedItems[idx] = localItem;
+              }
+            });
+
+            // Handle deletions
+            let finalItems = mergedItems;
+            if (localItems.length < cloudItems.length) {
+              const localTexts = new Set(localItems.map(getItemText));
+              finalItems = mergedItems.filter(i => localTexts.has(getItemText(i)));
+            }
+
+            console.log(`[Sync] Merging list ${localList.id}: local=${localItems.length}, cloud=${cloudItems.length}, merged=${finalItems.length}`);
+            db.set(localKey, finalItems, true);
+            db.clearDirty(localKey);
+
+            const icon = db.get(`listIcon_${localList.id}`, '📝');
+            window.supabaseDB.setList(localList.id, finalItems, icon);
+          } else {
+            db.set(localKey, cloudItems, true);
           }
         }
       });
