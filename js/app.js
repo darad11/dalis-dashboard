@@ -440,12 +440,16 @@ const db = {
     }
   },
   getGoals: (date) => db.get(db.goalKey(date || currentGoalDate), []),
+  // Track when last local change was made (to skip realtime sync during cooldown)
+  lastLocalChange: 0,
   setGoals: (goals, date) => {
     const key = db.goalKey(date || currentGoalDate);
     const timestamp = Date.now();
     db.set(key, goals);
     // Store timestamp for conflict resolution
     localStorage.setItem(`ts_${key}`, timestamp.toString());
+    // Mark that we just made a local change (cooldown for realtime sync)
+    db.lastLocalChange = timestamp;
     if (isSupabaseAvailable()) {
       window.supabaseDB.setGoals(key, goals)
         .then(err => { if (!err) db.clearDirty(key); })
@@ -982,10 +986,18 @@ function initRealtimeSync() {
     refreshTimeout = setTimeout(callback, delay);
   };
 
+  // Cooldown period (ms) - skip realtime sync if we just made a local change
+  const SYNC_COOLDOWN = 3000;
+
   realtimeChannel = window.supabaseDB.subscribeToChanges(
     // On goals change (calendar + today's goals)
     (payload) => {
       debounceRefresh(async () => {
+        // Skip if we just made a local change (avoid overwriting our own changes)
+        if (Date.now() - db.lastLocalChange < SYNC_COOLDOWN) {
+          console.log('[Realtime] Skipping sync - local change cooldown active');
+          return;
+        }
         console.log('[Realtime] Refreshing goals and calendar...');
         await db.loadFromCloud();
         renderCalendar();
