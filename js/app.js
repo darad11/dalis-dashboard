@@ -445,6 +445,15 @@ const db = {
   setGoals: (goals, date) => {
     const key = db.goalKey(date || currentGoalDate);
     const timestamp = Date.now();
+
+    // Debug logging
+    console.log('[Goals] setGoals called:', {
+      key,
+      count: goals.length,
+      goals: goals.map(g => ({ text: g.text, done: g.done }))
+    });
+    console.trace('[Goals] Call stack');
+
     db.set(key, goals);
     // Store timestamp for conflict resolution
     localStorage.setItem(`ts_${key}`, timestamp.toString());
@@ -593,9 +602,9 @@ const db = {
       if (key && key.startsWith('dirty_goals-')) {
         const goalKey = key.substring(6); // remove 'dirty_'
         const localGoals = db.get(goalKey, []);
-        
+
         console.log(`[Sync] Pushing dirty goals: ${goalKey} (${localGoals.length} items)`);
-        
+
         try {
           const err = await window.supabaseDB.setGoals(goalKey, localGoals);
           if (!err) {
