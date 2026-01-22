@@ -423,6 +423,7 @@ const db = {
   getAllHabits: () => db.get('habits', []),
   setHabits: (habits) => {
     db.set('habits', habits);
+    db.lastLocalChange = Date.now();
     if (isSupabaseAvailable()) {
       window.supabaseDB.setHabits(habits)
         .then(err => { if (!err) db.clearDirty('habits'); })
@@ -433,6 +434,7 @@ const db = {
   setKanban: (data, weekDate) => {
     const key = db.weekKey(weekDate || currentWeekDate);
     db.set(key, data);
+    db.lastLocalChange = Date.now();
     if (isSupabaseAvailable()) {
       window.supabaseDB.setKanban(key, data)
         .then(err => { if (!err) db.clearDirty(key); })
@@ -1084,7 +1086,7 @@ function initRealtimeSync() {
   };
 
   // Cooldown period (ms) - skip realtime sync if we just made a local change
-  const SYNC_COOLDOWN = 3000;
+  const SYNC_COOLDOWN = 5000;
 
   realtimeChannel = window.supabaseDB.subscribeToChanges(
     // On goals change (calendar + today's goals)
@@ -1092,7 +1094,7 @@ function initRealtimeSync() {
       debounceRefresh(async () => {
         // Skip if we just made a local change (avoid overwriting our own changes)
         if (Date.now() - db.lastLocalChange < SYNC_COOLDOWN) {
-          console.log('[Realtime] Skipping sync - local change cooldown active');
+          console.log('[Realtime] Skipping goals sync - local change cooldown active');
           return;
         }
         console.log('[Realtime] Refreshing goals and calendar...');
@@ -1105,6 +1107,11 @@ function initRealtimeSync() {
     // On habits change
     (payload) => {
       debounceRefresh(async () => {
+        // Skip if we just made a local change
+        if (Date.now() - db.lastLocalChange < SYNC_COOLDOWN) {
+          console.log('[Realtime] Skipping habits sync - local change cooldown active');
+          return;
+        }
         console.log('[Realtime] Refreshing habits...');
         await db.loadFromCloud();
         renderHabits();
@@ -1113,6 +1120,11 @@ function initRealtimeSync() {
     // On kanban/backlog change
     (payload) => {
       debounceRefresh(async () => {
+        // Skip if we just made a local change
+        if (Date.now() - db.lastLocalChange < SYNC_COOLDOWN) {
+          console.log('[Realtime] Skipping kanban sync - local change cooldown active');
+          return;
+        }
         console.log('[Realtime] Refreshing kanban...');
         await db.loadFromCloud();
         renderKanban();
@@ -1121,6 +1133,11 @@ function initRealtimeSync() {
     // On settings/lists change
     (payload) => {
       debounceRefresh(async () => {
+        // Skip if we just made a local change
+        if (Date.now() - db.lastLocalChange < SYNC_COOLDOWN) {
+          console.log('[Realtime] Skipping settings sync - local change cooldown active');
+          return;
+        }
         console.log('[Realtime] Refreshing lists and settings...');
         await db.loadFromCloud();
         renderAllLists();
@@ -2550,7 +2567,7 @@ function rolloverIncompleteGoals() {
     // If there were incomplete goals, move them to today
     if (incomplete.length > 0) {
       // Keep only completed goals in the past day
-      db.set(pastKey, completed);
+      db.setGoals(completed, pastDate);
 
       // Add incomplete goals to today (avoid duplicates)
       incomplete.forEach(incompleteGoal => {
@@ -2567,7 +2584,7 @@ function rolloverIncompleteGoals() {
 
   // Save today's goals with rollovers
   if (hasRollovers) {
-    db.set(todayKey, todayGoals);
+    db.setGoals(todayGoals, today);
   }
 }
 
@@ -2695,7 +2712,7 @@ window.addGoal = async () => {
   if (!text || !text.trim()) return;
 
   const goals = db.getGoals();
-  goals.push({ text: text.trim(), done: false });
+  goals.push({ text: text.trim(), done: false, urgency: null });
   db.setGoals(goals);
   renderGoals();
 };
