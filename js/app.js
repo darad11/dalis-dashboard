@@ -470,6 +470,7 @@ const db = {
   setNotes: (text, date) => {
     const key = db.notesKey(date || currentGoalDate);
     db.set(key, text);
+    db.lastLocalChange = Date.now();
     if (isSupabaseAvailable()) {
       window.supabaseDB.setNotes(key, text)
         .then(err => { if (!err) db.clearDirty(key); })
@@ -480,6 +481,7 @@ const db = {
   setWeeklyReview: (text, date) => {
     const key = db.reviewKey(date || currentNoteDate);
     db.set(key, text);
+    db.lastLocalChange = Date.now();
     if (isSupabaseAvailable()) {
       window.supabaseDB.setNotes(key, text)
         .then(err => { if (!err) db.clearDirty(key); })
@@ -489,6 +491,7 @@ const db = {
   getBacklog: () => db.get('backlog', {}),
   setBacklog: (backlog) => {
     db.set('backlog', backlog);
+    db.lastLocalChange = Date.now();
     if (isSupabaseAvailable()) {
       window.supabaseDB.setBacklog(backlog)
         .then(err => { if (!err) db.clearDirty('backlog'); })
@@ -505,6 +508,7 @@ const db = {
     const checks = db.get('habitChecks', {});
     if (value) checks[key] = true; else delete checks[key];
     db.set('habitChecks', checks); // Marks dirty
+    db.lastLocalChange = Date.now();
 
     // 3. Sync to Cloud
     if (isSupabaseAvailable()) {
@@ -517,6 +521,8 @@ const db = {
   setCalendarTasks: (date, tasks) => {
     const key = db.calKey(date);
     db.set(key, tasks);
+    // Mark that we just made a local change (cooldown for realtime sync)
+    db.lastLocalChange = Date.now();
     if (isSupabaseAvailable()) {
       window.supabaseDB.setGoals(key, tasks)
         .then(err => { if (!err) db.clearDirty(key); })
