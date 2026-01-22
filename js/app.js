@@ -587,51 +587,21 @@ const db = {
     const allGoals = await window.supabaseDB.getAllGoals();
     const cloudGoalKeys = new Set(Object.keys(allGoals));
 
-    // For each dirty goal key, MERGE with cloud instead of replacing
+    // For each dirty goal key, PUSH to cloud first (no merge - local wins for dirty items)
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith('dirty_goals-')) {
         const goalKey = key.substring(6); // remove 'dirty_'
         const localGoals = db.get(goalKey, []);
-        const cloudGoals = allGoals[goalKey] || [];
-
-        // Merge: combine both, deduplicate by task text
-        const mergedGoals = [...cloudGoals];
-        const cloudTexts = new Set(cloudGoals.map(g => typeof g === 'string' ? g : g.text));
-
-        localGoals.forEach(localGoal => {
-          const text = typeof localGoal === 'string' ? localGoal : localGoal.text;
-          // Add local goal if not already in cloud
-          if (!cloudTexts.has(text)) {
-            mergedGoals.push(localGoal);
-          } else {
-            // Update existing goal with local state (done, urgency, etc.)
-            const idx = mergedGoals.findIndex(g => (typeof g === 'string' ? g : g.text) === text);
-            if (idx >= 0) {
-              mergedGoals[idx] = localGoal;
-            }
-          }
-        });
-
-        // Remove goals that were deleted locally (not in local but in cloud)
-        // Only if local has fewer items (indicates deletion, not just stale data)
-        let finalGoals = mergedGoals;
-        if (localGoals.length < cloudGoals.length) {
-          const localTexts = new Set(localGoals.map(g => typeof g === 'string' ? g : g.text));
-          finalGoals = mergedGoals.filter(g => {
-            const text = typeof g === 'string' ? g : g.text;
-            return localTexts.has(text);
-          });
-        }
-
-        console.log(`[Sync] Merging goals for ${goalKey}: local=${localGoals.length}, cloud=${cloudGoals.length}, merged=${finalGoals.length}`);
-
+        
+        console.log(`[Sync] Pushing dirty goals: ${goalKey} (${localGoals.length} items)`);
+        
         try {
-          const err = await window.supabaseDB.setGoals(goalKey, finalGoals);
+          const err = await window.supabaseDB.setGoals(goalKey, localGoals);
           if (!err) {
             db.clearDirty(goalKey);
-            db.set(goalKey, finalGoals, true);
-            allGoals[goalKey] = finalGoals;
+            // Update allGoals with what we pushed so we don't overwrite on pull
+            allGoals[goalKey] = localGoals;
             cloudGoalKeys.add(goalKey);
           }
         } catch (e) {
