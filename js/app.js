@@ -385,11 +385,13 @@ const db = {
     catch { return def; }
   },
 
-  // Update set to handle dirty flagging (Gold Standard Sync)
+  // Update set to handle dirty flagging and timestamp tracking
   set: (key, val, fromCloud = false) => {
     localStorage.setItem(key, JSON.stringify(val));
     if (!fromCloud) {
       localStorage.setItem('dirty_' + key, '1');
+      // Track when this data was last modified (for stale detection)
+      localStorage.setItem('ts_' + key, Date.now().toString());
     }
     updateSyncStatus();
   },
@@ -551,11 +553,42 @@ const db = {
     if (!isSupabaseAvailable() || !window.currentUserId) return;
     console.log('[Sync] Starting Sync...');
 
+    // --- Phase 0: Clear STALE dirty flags ---
+    // Dirty flags from PREVIOUS sessions (before page load) are stale
+    // They represent old cached data that should NOT overwrite newer cloud data
+    console.log('[Sync] Phase 0: Clearing stale dirty flags...');
+
+    const staleKeysCleared = [];
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('dirty_')) {
+        const dataKey = key.substring(6);
+        const timestamp = parseInt(localStorage.getItem(`ts_${dataKey}`) || '0');
+
+        // If the data was last modified BEFORE this session started, it's stale
+        // Also if there's NO timestamp, it's definitely stale (legacy data)
+        // Clear the dirty flag so we accept cloud data instead of pushing old data
+        if (timestamp === 0 || timestamp < db.sessionStartTime) {
+          if (timestamp === 0) {
+            console.log(`[Sync] Clearing stale dirty flag (no timestamp): ${dataKey}`);
+          } else {
+            console.log(`[Sync] Clearing stale dirty flag: ${dataKey} (modified ${new Date(timestamp).toLocaleString()})`);
+          }
+          localStorage.removeItem(key);
+          staleKeysCleared.push(dataKey);
+        }
+      }
+    }
+
+    if (staleKeysCleared.length > 0) {
+      console.log(`[Sync] Cleared ${staleKeysCleared.length} stale dirty flags`);
+    }
+
     // --- Phase 1: PULL from Cloud FIRST (Get latest state) ---
     // This ensures we have the newest data before deciding what to push
     console.log('[Sync] Phase 1: Pulling from cloud...');
 
-    // Store current dirty keys BEFORE pulling (we'll check timestamps after)
+    // Store current dirty keys BEFORE pulling (only remaining non-stale ones)
     const dirtyKeysBeforePull = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
