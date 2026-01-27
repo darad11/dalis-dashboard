@@ -2209,6 +2209,7 @@ function renderHabits() {
 
           if (migrated) {
             db.set('habitChecks', checks);
+            db.lastLocalChange = Date.now();
             if (isSupabaseAvailable()) window.supabaseDB.setSetting('habitChecks', checks);
             // Refresh local storage keys to ensure UI renders correctly
             db.loadHabitChecks(checks);
@@ -2791,6 +2792,7 @@ function getListItems(listName) {
 function setListItems(listName, items) {
   const config = getListConfig(listName);
   db.set(config.key, items);
+  db.lastLocalChange = Date.now();
   // Sync to Supabase
   if (isSupabaseAvailable()) {
     window.supabaseDB.setList(listName, items)
@@ -2994,6 +2996,7 @@ window.createNewCustomList = async () => {
   const id = 'custom-' + Date.now();
   meta.push({ id, title: name.trim() });
   db.set('customListsMeta', meta);
+  db.lastLocalChange = Date.now();
 
   // Sync to Supabase
   if (isSupabaseAvailable()) {
@@ -3120,6 +3123,7 @@ function handleListDrop(e) {
 
   // Save reordered metadata
   db.set('customListsMeta', meta);
+  db.lastLocalChange = Date.now();
 
   // Sync to Supabase
   if (isSupabaseAvailable()) {
@@ -3138,6 +3142,7 @@ window.updateListTitle = (id, el) => {
   if (list) {
     list.title = el.innerText;
     db.set('customListsMeta', meta);
+    db.lastLocalChange = Date.now();
     // Toggle border
     el.style.borderBottom = list.title === 'Custom List' ? '1px dashed rgba(255,255,255,0.2)' : 'none';
 
@@ -3161,6 +3166,7 @@ window.deleteList = async (id) => {
 
   const newMeta = meta.filter(m => m.id !== id);
   db.set('customListsMeta', newMeta);
+  db.lastLocalChange = Date.now();
   localStorage.removeItem('list-' + id);
   localStorage.removeItem('dirty_list-' + id); // Also remove dirty flag
 
@@ -4146,6 +4152,7 @@ function saveGymData(type) {
   }
 
   db.set('gymHubData', gymData);
+  db.lastLocalChange = Date.now();
 
   // Sync to Supabase
   if (isSupabaseAvailable()) {
@@ -4699,6 +4706,7 @@ window.deleteTrainingGoal = deleteTrainingGoal;
 // ===== SYNC HELPER =====
 function syncGymData() {
   const gymData = db.get('gymHubData', {});
+  db.lastLocalChange = Date.now();
   if (isSupabaseAvailable()) {
     window.supabaseDB.setSetting('gymHubData', gymData)
       .then(err => { if (!err) db.clearDirty('gymHubData'); })
