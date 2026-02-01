@@ -633,18 +633,28 @@ const db = {
       db.set('customListsMeta', cloudListMeta, true);
     }
 
-    // 1. Goals - MERGE local dirty goals with cloud goals (prevent data loss)
+    // 1. Goals - Only push goals modified DURING THIS SESSION, pull everything else
     const allGoals = await window.supabaseDB.getAllGoals();
     const cloudGoalKeys = new Set(Object.keys(allGoals));
 
-    // For each dirty goal key, PUSH to cloud first (no merge - local wins for dirty items)
+    // For each dirty goal key, ONLY push if modified during THIS session
+    // This prevents old cached data from overwriting newer cloud data
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith('dirty_goals-')) {
         const goalKey = key.substring(6); // remove 'dirty_'
-        const localGoals = db.get(goalKey, []);
+        const timestamp = parseInt(localStorage.getItem(`ts_${goalKey}`) || '0');
 
-        console.log(`[Sync] Pushing dirty goals: ${goalKey} (${localGoals.length} items)`);
+        // CRITICAL: Only push if modified DURING this session
+        // If it's old cached data (from before page load), clear the dirty flag and skip
+        if (timestamp < db.sessionStartTime) {
+          console.log(`[Sync] Skipping stale goals (not from this session): ${goalKey}`);
+          db.clearDirty(goalKey);
+          continue;
+        }
+
+        const localGoals = db.get(goalKey, []);
+        console.log(`[Sync] Pushing session-modified goals: ${goalKey} (${localGoals.length} items)`);
 
         try {
           const err = await window.supabaseDB.setGoals(goalKey, localGoals);
@@ -801,11 +811,19 @@ const db = {
     updateSyncStatus();
 
     // --- Phase 3: Push remaining dirty items (non-goals) ---
-    console.log('[Sync] Phase 3: Pushing remaining dirty items...');
+    // ONLY push items modified DURING this session
+    console.log('[Sync] Phase 3: Pushing session-modified items...');
 
-    for (const { key } of dirtyKeysBeforePull) {
+    for (const { key, timestamp } of dirtyKeysBeforePull) {
       // Skip goals - already handled in Phase 1
       if (key.startsWith('goals-') || key.startsWith('cal-')) continue;
+
+      // CRITICAL: Only push if modified DURING this session
+      if (timestamp < db.sessionStartTime) {
+        console.log(`[Sync] Skipping stale item (not from this session): ${key}`);
+        db.clearDirty(key);
+        continue;
+      }
 
       // Only push if still dirty (might have been cleared)
       if (!db.isDirty(key)) continue;
