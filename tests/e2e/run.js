@@ -11,6 +11,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { createEnv, openDashboard, settle } = require('./harness');
+const { CloudStore } = require('./cloud-store');
 const { seedDemo } = require('./demo-data');
 
 const USER = '00000000-0000-4000-8000-000000000001';
@@ -1449,7 +1450,10 @@ scenario('desktop with mouse: no section bar, no touch buttons, hover effects un
     for (const s of scenarios) {
       if (filter && !filter.test(s.name)) continue;
       ran++;
-      env.store.reset();
+      // A new store, not a reset of the old one: a request that a page of the previous scenario
+      // sent just before it closed is still inside the store's latency and would otherwise
+      // land in this scenario's data
+      env.store = new CloudStore();
       const started = Date.now();
       try {
         await s.fn(env);

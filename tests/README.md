@@ -20,6 +20,11 @@ Voraussetzungen:
 E2E-Hinweise:
 - `tests/e2e/demo-data.js` füllt den In-Memory-Mock mit Beispielinhalten (Ziele, Woche, Habits,
   Listen) für Layout-Tests – nie die echte Datenbank.
+- Jedes Szenario bekommt einen **neuen** In-Memory-Store, keinen zurückgesetzten: Eine Anfrage,
+  die eine gerade geschlossene Seite noch abgeschickt hat, steckt beim Szenariowechsel noch in der
+  simulierten Latenz und landete sonst in den Daten des nächsten Szenarios (so fehlte in
+  `6 year change` gelegentlich das Setup-Formular: die Step-Challenge-Einstellung aus
+  `5 day change…` kam dort an).
 - Touch-Geräte werden mit `isMobile` + `hasTouch` emuliert (`pointer: coarse`, `hover: none`).
   Keine `fullPage`-Screenshots in diesen Tests: Chromium verliert dabei die Touch-Emulation
   (`pointer: coarse` wird falsch); für lange Seiten den Viewport vergrößern.
@@ -69,3 +74,6 @@ höher“ entfernt, Funktion für API-Rollen aufrufbar, Schlüssel-Limit entfern
 vorgehende Geräteuhr entfernt (SQL).
 Fehlerantworten der Edge Function: alte Fassung (nur „date must be a day like …“) → Unit-Test
 „error answers say what arrived“ rot.
+Testumgebung: Seite schließt, während ihre Einstellungs-Anfrage noch läuft (nachgestellt mit 300 ms
+Latenz) → mit dem alten `env.store.reset()` steht die Einstellung danach im nächsten Szenario und
+das Setup-Formular fehlt; mit einem neuen Store pro Szenario bleibt es leer.
