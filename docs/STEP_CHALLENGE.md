@@ -91,8 +91,9 @@ Realtime-Freigabe. Geprüft mit `tests/sql/run.sh` gegen ein lokales PostgreSQL 
 
 Eine Webseite kann Apple Health nicht lesen (HealthKit gibt es nur für Apps auf dem Gerät). Ein
 **Kurzbefehl** auf dem iPhone kann es: Er liest die heutigen Schritte und schickt sie an das
-Dashboard – per Automation mehrmals am Tag, ohne Eintippen. Offene Dashboards zeigen den neuen
-Wert sofort (wie eine Änderung von einem anderen Gerät).
+Dashboard – per Automation mehrmals am Tag, ohne Eintippen. Ein zweiter Kurzbefehl schickt dabei
+auch die Endsumme von gestern (Schritte nach dem letzten Lauf eines Tages). Offene Dashboards
+zeigen den neuen Wert sofort (wie eine Änderung von einem anderen Gerät).
 
 ### 1. Upload-Schlüssel im Dashboard
 
@@ -140,26 +141,59 @@ Platzhalter – er muss angetippt und belegt werden.
    gespeichert ist, wird von späteren Läufen **nicht** gesenkt (siehe Regeln) – den Tag dann im
    Dashboard einmal von Hand korrigieren. Bei einer Fehlermeldung: [Fehlersuche](#fehlersuche).
 
-### 3. Automation
+### 3. Gestern nachtragen
+
+Der Kurzbefehl schickt immer nur den laufenden Tag. Schritte nach seinem letzten Lauf am Abend
+(z. B. 23:56 bis Mitternacht) kämen nie an – am nächsten Morgen zählt schon der neue Tag. Ein
+zweiter Kurzbefehl schickt deshalb bei jedem Lauf auch die Summe von **gestern**: Beim ersten
+Lauf am nächsten Tag kommt der Rest dazu, sobald die Watch ihre letzten Schritte ans iPhone
+übertragen hat; danach antwortet er nur noch `Already stored`. Ein niedrigerer Wert ändert nie
+etwas (siehe [Regeln](#regeln)).
+
+1. Den Kurzbefehl aus Schritt 2 lange drücken → **Duplizieren**. Die Kopie umbenennen in
+   **Step Challenge gestern** und öffnen.
+2. Aktion **Datum anpassen** (*Adjust Date*) hinzufügen und **ganz nach oben** ziehen (in einer
+   Aktion lassen sich nur Ergebnisse von Aktionen darüber auswählen): **Subtrahieren** ·
+   **1 Tage** · von **Aktuelles Datum**. Ergebnis: „Angepasstes Datum“ = gestern, gleiche Uhrzeit.
+3. **Health-Messungen suchen:** bei Startdatum statt **ist heute** den Vergleich **ist** wählen
+   und als Datum die Variable **Angepasstes Datum** einsetzen. Quelle (Apple Watch) und
+   Gruppieren (Ohne) bleiben, wie sie sind.
+4. **Datum formatieren:** **Aktuelles Datum** antippen und durch **Angepasstes Datum** ersetzen.
+5. **Vor dem ersten Start prüfen:** „Aktuelles Datum“ steht nur noch in „Datum anpassen“, „heute“
+   nirgends mehr. Sonst landet die Summe von gestern auf heute – und wird dort nicht automatisch
+   gesenkt.
+6. Einmal ausführen (▶︎). Die Antwort nennt **gestern**, z. B. `Saved: 15041 steps on
+   2026-10-16`, `Already stored: …` oder `Received … steps for 2026-10-16, kept the stored …`.
+   Die gezählte Zahl (hinter `Saved` bzw. `Received`) entspricht ungefähr der Health-App für
+   gestern. Zu klein oder 0: siehe [Fehlersuche](#fehlersuche).
+7. Im **ersten** Kurzbefehl ganz unten **Kurzbefehl ausführen** (*Run Shortcut*) hinzufügen →
+   **Step Challenge gestern**. Jeder Lauf schickt dann heute und gestern. Im Editor zeigt der
+   erste Kurzbefehl unten jetzt die Antwort für gestern.
+
+Der Upload-Schlüssel steht danach in **beiden** Kurzbefehlen – ein neuer Schlüssel muss in
+beide.
+
+### 4. Automation
 
 Es gibt keinen Auslöser „wenn sich die Schritte ändern“: Der Kurzbefehl läuft nur, wenn eine
 Automation ihn startet. Gesperrt kann das iPhone Health nicht lesen (siehe Grenzen) – deshalb
 ist der wichtigste Auslöser das Öffnen einer App, denn dann ist das iPhone entsperrt:
 
-1. **App-Automation (Haupt-Auslöser):** Kurzbefehle → **Automation** → **+** → **App** →
-   eine oder mehrere Apps, die du oft öffnest (z. B. WhatsApp, Safari) → **Wird geöffnet** →
-   **Sofort ausführen**, **Bei Ausführung benachrichtigen** aus → **Weiter** → deinen
-   Kurzbefehl wählen. Er läuft dann bei jedem Öffnen dieser Apps.
-2. **Tageszeit (Ergänzung):** **+** → **Tageszeit**, z. B. 23:30, **Täglich** → **Sofort
-   ausführen** → Kurzbefehl. Für jede Uhrzeit eine eigene Automation. Läuft sie bei gesperrtem
-   iPhone, ändert sich nichts; der nächste Lauf holt es nach.
+**App-Automation:** Kurzbefehle → **Automation** → **+** → **App** → eine oder mehrere Apps,
+die du oft öffnest (z. B. WhatsApp, Safari) → **Wird geöffnet** → **Sofort ausführen**, **Bei
+Ausführung benachrichtigen** aus → **Weiter** → den **ersten** Kurzbefehl wählen (er startet den
+Nachtrag selbst). Er läuft dann bei jedem Öffnen dieser Apps.
+
+Eine zusätzliche Automation zu einer Uhrzeit (z. B. 23:30) ist nicht nötig: Bei gesperrtem
+iPhone kann sie Health nicht lesen, und die Schritte nach dem letzten Lauf holt der Nachtrag
+(Schritt 3) am nächsten Tag.
 
 Vorher die Test-Aktion „Hinweis zeigen“ wieder löschen – ein Fenster hält die Automation an.
 
 ### Regeln
 
-- Übertragen wird die **Tagessumme** von heute; jeder Lauf ersetzt den Wert des Tages durch
-  den höheren. **Ein niedrigerer Wert ersetzt nie einen höheren** (ein Lauf auf dem
+- Übertragen wird die **Tagessumme** von heute, mit dem Nachtrag auch die von gestern; jeder
+  Lauf ersetzt den Wert des Tages durch den höheren. **Ein niedrigerer Wert ersetzt nie einen höheren** (ein Lauf auf dem
   gesperrten iPhone oder ein halber Tag löscht also nichts). Ein von Hand eingetragener
   höherer Wert bleibt; ein niedrigerer wird beim nächsten Lauf auf den Health-Wert angehoben.
 - Ein Tag, der auf „nicht erfasst“ gesetzt wurde, wird durch einen Upload wieder gefüllt.
@@ -189,15 +223,16 @@ Vorher die Test-Aktion „Hinweis zeigen“ wieder löschen – ein Fenster häl
   („the device encrypts the HealthKit store when the user locks the device“, [HealthKit:
   Protecting user privacy](https://developer.apple.com/documentation/healthkit/protecting-user-privacy)).
   Läuft eine Automation dann, kann der Kurzbefehl nichts lesen; der nächste Lauf holt es nach.
-- Übertragen wird nur **heute**. Schritte nach dem letzten erfolgreichen Lauf eines Tages
-  (z. B. nach 23:45) fehlen – bei Bedarf von Hand nachtragen.
+- Übertragen werden **heute** und mit dem Nachtrag **gestern**. Schritte nach dem letzten Lauf
+  eines Tages kommen beim ersten Lauf am nächsten Tag dazu. Weiter zurück holt der Kurzbefehl
+  nichts nach (z. B. wenn einen ganzen Tag lang kein Lauf stattfand) – dann von Hand eintragen.
 - Mit „Quelle ist Apple Watch“ zählt der Kurzbefehl nur die Watch. Die Health-App ergänzt
   iPhone-Schritte aus Zeiten ohne Watch – deshalb liegt der Wert gleich oder knapp darunter. Ein
   Tag ganz ohne Watch ergibt 0 (ändert nichts) – dann von Hand eintragen.
-- Ein Kurzbefehl auf einem echten iPhone erreicht die Edge Function (Log vom 16.10.2026, erster
-  Lauf mit leerem Datum, siehe [Fehlersuche](#fehlersuche)); ein erfolgreicher Upload und die
-  Automation sind noch nicht bestätigt. Geprüft sind Datenbank, Edge Function und Dashboard
-  (siehe [tests/README.md](../tests/README.md)).
+- Auf dem echten iPhone bestätigt: Uploads über die App-Automation (Datenbank am 17.10.2026,
+  00:15: 16.10. mit 15.025 Schritten, letzter Upload 23:56; 17.10. ab 00:00). Der Nachtrag für
+  gestern ist noch nicht auf einem echten iPhone bestätigt. Geprüft sind Datenbank, Edge Function
+  und Dashboard (siehe [tests/README.md](../tests/README.md)).
 
 ### Fehlersuche
 
@@ -206,7 +241,10 @@ Ausführen im Editor an):
 
 | Antwort | Ursache → Lösung |
 |---|---|
-| `date is empty: in "Format Date" …` | „Datum formatieren“ hat kein Datum (blasses **Datum**) → antippen, **Aktuelles Datum** |
+| `date is empty: in "Format Date" …` | „Datum formatieren“ hat kein Datum (blasses **Datum**) → antippen, **Aktuelles Datum** (im Kurzbefehl für gestern: **Angepasstes Datum**) |
+| Kurzbefehl für gestern: `Saved: … steps on` **heute** | „Datum formatieren“ formatiert noch **Aktuelles Datum** → **Angepasstes Datum**; den heutigen Wert im Dashboard von Hand korrigieren (er wird sonst nicht gesenkt) |
+| Kurzbefehl für gestern: `Received` mit sehr kleiner Zahl, `kept the stored …` | „Health-Messungen suchen“ steht noch auf **ist heute** (gezählt wurde heute) → **ist** · **Angepasstes Datum** |
+| Kurzbefehl für gestern: `Received 0 steps …` | „Startdatum ist Angepasstes Datum“ findet keine Messung → Filter prüfen; hilft das nicht, melden (dann ist ein anderer Datumsvergleich nötig) |
 | `date must be a day like 2026-10-16, received "…"` | falsches Datumsformat (z. B. „Kurz“: `16.10.26`) → **Datumsformat: ISO 8601** |
 | `date is missing … fields received: …` | Feld heißt nicht genau `date` (klein geschrieben) |
 | `steps is empty: …` | keine Schritte gelesen – z. B. Lauf auf dem gesperrten iPhone; der nächste Lauf holt es nach |
@@ -251,7 +289,8 @@ sein (`"12.345"`), `date` auch `16.10.2026`.
 Einmalig in Supabase: Migration ausführen (idempotent, ändert nichts Bestehendes) und die
 Function veröffentlichen: `supabase functions deploy health-steps --no-verify-jwt`.
 
-Stand im Supabase-Projekt: Version 3 seit 16.10.2026, 22:47 (Antwort mit `received`, genauere
+Stand im Supabase-Projekt: Version 4 seit 17.10.2026, 00:16 (Hinweis bei leerem Datum nennt auch
+den Kurzbefehl für gestern; Version 3 vom 16.10.2026, 22:47: Antwort mit `received`, genauere
 Fehlermeldungen); Inhalt nach dem Hochladen zurückgelesen und mit dem Repository verglichen.
 
 ## Schnelleingabe per Link (optional, z. B. iOS-Kurzbefehl)

@@ -942,7 +942,8 @@
         h('code', null, 'token'), ' (Text: your key), ', h('code', null, 'date'), ' (Text: Formatted Date), ',
         h('code', null, 'steps'), ' (Number: the Sum).'),
       h('li', null, 'Run it once: it answers “Saved: … steps”. Compare with the Health app: the same or slightly less is right; almost twice as much means the Source filter is missing.'),
-      h('li', null, 'Automation → + → App → apps you open often (e.g. WhatsApp) → Is Opened → Run Immediately, Notify When Run off → your Shortcut: it then runs whenever you open them, with the iPhone unlocked (Health cannot be read while it is locked). Optionally also Time of Day, e.g. 23:30.'));
+      h('li', null, 'Steps after the last run of a day: duplicate the Shortcut as “Step Challenge yesterday”. In the copy add “Adjust Date” at the very top: Subtract 1 day from Current Date. In “Find Health Samples” change Start Date “is today” to “is” with Adjusted Date, and in “Format Date” replace Current Date with Adjusted Date. Run it: the answer must name yesterday’s date. Then add “Run Shortcut” → “Step Challenge yesterday” at the end of your first Shortcut.'),
+      h('li', null, 'Automation → + → App → apps you open often (e.g. WhatsApp) → Is Opened → Run Immediately, Notify When Run off → your Shortcut: it then runs whenever you open them, with the iPhone unlocked (Health cannot be read while it is locked).'));
   }
 
   function renderHealthPanel(keys) {
@@ -957,8 +958,8 @@
       const setUp = keys.length > 0 && !hs.newKey;
       if (!setUp) {
         children.push(h('p', { class: 'step-health-note' },
-          'Websites cannot read Apple Health. A Shortcut on your iPhone can: it reads today\'s steps and sends them here, ' +
-          'several times a day without asking. A lower count never replaces a higher one.'));
+          'Websites cannot read Apple Health. A Shortcut on your iPhone can: it reads today\'s steps and sends them here ' +
+          'several times a day without asking; the next day it also sends yesterday\'s final count. A lower count never replaces a higher one.'));
       }
       if (hs.newKey) {
         children.push(h('div', { class: 'step-health-secret' },

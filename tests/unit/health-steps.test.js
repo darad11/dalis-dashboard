@@ -105,7 +105,7 @@ test('error answers say what arrived, so a wrongly built Shortcut can be fixed',
   };
   // "Format Date" without a date: Formatted Date is empty (seen on a real iPhone, 79-byte body)
   for (const empty of ['', '  ', null]) {
-    assert.match(await error({ token: TOKEN, date: empty, steps: 12345 }, 400), /^date is empty: .*Current Date \(Aktuelles Datum\)/);
+    assert.match(await error({ token: TOKEN, date: empty, steps: 12345 }, 400), /^date is empty: .*Current Date \(Aktuelles Datum\), in the Shortcut for yesterday Adjusted Date \(Angepasstes Datum\)$/);
   }
   assert.match(await error({ token: TOKEN, Datum: '2026-10-16', steps: 5 }, 400), /^date is missing: .*fields received: "token", "Datum", "steps"$/);
   const wrong = await error({ token: TOKEN, date: '16.10.26, 20:29', steps: 5 }, 400);

@@ -110,7 +110,7 @@ export async function handleHealthSteps(req, env) {
   const date = parseDate(body.date);
   if (!date) {
     return reply(400, { ok: false, error: isEmpty(body.date)
-      ? 'date is empty: in "Format Date" (Datum formatieren) the date must be Current Date (Aktuelles Datum)'
+      ? 'date is empty: in "Format Date" (Datum formatieren) no date is set: choose Current Date (Aktuelles Datum), in the Shortcut for yesterday Adjusted Date (Angepasstes Datum)'
       : `date must be a day like 2026-10-16, received ${preview(body.date)}: set the date format of "Format Date" (Datum formatieren) to ISO 8601` });
   }
   if (body.steps === undefined) {

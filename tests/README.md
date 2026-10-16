@@ -73,7 +73,8 @@ keine Aktualisierung von „last upload“ nach einem Upload (E2E); „niedriger
 höher“ entfernt, Funktion für API-Rollen aufrufbar, Schlüssel-Limit entfernt, Schutz gegen
 vorgehende Geräteuhr entfernt (SQL).
 Fehlerantworten der Edge Function: alte Fassung (nur „date must be a day like …“) → Unit-Test
-„error answers say what arrived“ rot.
+„error answers say what arrived“ rot; ebenso der Hinweis bei leerem Datum aus Version 3 (nennt
+nur „Aktuelles Datum“, nicht „Angepasstes Datum“ für den Kurzbefehl für gestern).
 Testumgebung: Seite schließt, während ihre Einstellungs-Anfrage noch läuft (nachgestellt mit 300 ms
 Latenz) → mit dem alten `env.store.reset()` steht die Einstellung danach im nächsten Szenario und
 das Setup-Formular fehlt; mit einem neuen Store pro Szenario bleibt es leer.
