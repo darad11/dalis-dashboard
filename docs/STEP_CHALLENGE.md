@@ -67,6 +67,11 @@ Die Herleitung des Gesamtwerts steht in den Details unter „How the total is ca
   neueren Wert überschreibt. Hat ein anderes Gerät denselben Tag neuer geändert, zeigt die
   Karte einen Hinweis mit beiden Werten.
 - Andere Geräte erhalten Änderungen per Realtime sofort, sonst beim nächsten Öffnen.
+- Kommen Daten an, während man tippt (erster Sync nach dem Öffnen, Realtime von einem anderen
+  Gerät), wird die Karte neu aufgebaut; **Markierung und Cursor bleiben dabei erhalten**. Vorher
+  sprang der Cursor ans Ende – wer den Vorschlag markiert hatte und überschrieb, bekam
+  beide Zahlen hintereinander (z. B. `4.018.4052.233.411`, Fehlermeldung „Only digits are
+  allowed“). Aufgefallen, weil ein E2E-Test gelegentlich daran scheiterte.
 - Offline / Cloud-Fehler: Daten bleiben lokal, Badge zeigt „Offline“ bzw. „Sync error“,
   Upload wird automatisch wiederholt (bei Rückkehr online, beim Öffnen, alle 60 s).
 - Fehlt die Tabelle (Migration noch nicht ausgeführt): Badge „Device only“; das Sync-Panel
@@ -97,25 +102,34 @@ kopieren und in den Kurzbefehl einsetzen. Danach **Done**.
 ### 2. Kurzbefehl bauen
 
 App **Kurzbefehle** → **+**. Die Aktionen findest du über die Suche (z. B. „Health“, „Statistik“,
-„Datum“, „URL“). Die deutschen Namen unten sind nicht auf einem Gerät überprüft und können leicht
-abweichen; in Klammern steht der englische Name.
+„Datum“, „URL“). Die deutschen Namen stammen aus Screenshots eines iPhones (Oktober 2026); in
+Klammern steht der englische Name. Ein **blasser** Eintrag in einer Aktion ist ein leerer
+Platzhalter – er muss angetippt und belegt werden.
 
-1. Health-Samples suchen (*Find Health Samples*): Typ **Schritte**, Startdatum **ist heute**,
-   Gruppieren nach **Tag**.
-2. Statistik berechnen (*Calculate Statistics*): **Summe**.
-3. Datum formatieren (*Format Date*): **Aktuelles Datum**, Format **Eigenes**: `yyyy-MM-dd`.
+1. Health-Messungen suchen (*Find Health Samples*): Typ ist **Steps** (Schritte), Startdatum
+   **ist heute**, Gruppieren nach **Tag**.
+2. Statistik berechnen (*Calculate Statistics*): **Summe** – erscheint als „Summe von
+   Health-Messungen berechnen“.
+3. Datum formatieren (*Format Date*):
+   - das blasse **Datum** oben antippen → **Aktuelles Datum** wählen (bleibt es blass, ist das
+     Datum leer);
+   - **Datumsformat: ISO 8601** – dann ist kein eigenes Format nötig (mit oder ohne Uhrzeit,
+     beides wird angenommen). Wer **Eigenes** wählt: im Feld „Zeichenketten formatieren“ muss
+     genau `yyyy-MM-dd` stehen (das erste `y` klein – die Tastatur schreibt es gern groß) und
+     keine Variable wie „Summe“.
 4. Inhalte von URL abrufen (*Get Contents of URL*): URL = die kopierte Adresse,
-   Methode **POST**, Anfragetext **JSON** mit drei Feldern:
+   Methode **POST**, Haupttext anfordern **JSON**, über „neues Feld hinzufügen“ drei Felder:
 
    | Schlüssel | Typ | Wert |
    |---|---|---|
    | `token` | Text | der kopierte Upload-Schlüssel |
    | `date` | Text | Formatiertes Datum (aus Schritt 3) |
-   | `steps` | Zahl | Statistik (aus Schritt 2) |
+   | `steps` | Zahl | Summe (aus Schritt 2) |
 
-5. Einmal ausführen. Die Antwort lautet `Saved: … steps on …`. **Vergleiche die Zahl mit der
-   Health-App.** Ist sie höher, wurden iPhone und Apple Watch beide gezählt: in Schritt 1
-   zusätzlich nach einer **Quelle** filtern (meist die Watch).
+5. Einmal ausführen (▶︎). Die Antwort lautet `Saved: … steps on …`. **Vergleiche die Zahl mit
+   der Health-App.** Ist sie höher, wurden iPhone und Apple Watch beide gezählt: in Schritt 1
+   zusätzlich nach einer **Quelle** filtern (meist die Watch). Bei einer Fehlermeldung:
+   [Fehlersuche](#fehlersuche).
 
 ### 3. Automation
 
@@ -161,8 +175,30 @@ zusätzlich eine Automation „App → wird geöffnet“ (z. B. Safari oder die 
   (z. B. nach 23:45) fehlen – bei Bedarf von Hand nachtragen.
 - Ob die Summe aus dem Kurzbefehl genau der Zahl der Health-App entspricht, hängt von den
   Quellen ab (iPhone, Watch, andere Apps) – beim ersten Lauf vergleichen (Schritt 5).
-- Kurzbefehl und Automation sind **nicht auf einem echten iPhone getestet**; geprüft sind
-  Datenbank, Edge Function und Dashboard (siehe [tests/README.md](../tests/README.md)).
+- Ein Kurzbefehl auf einem echten iPhone erreicht die Edge Function (Log vom 16.10.2026, erster
+  Lauf mit leerem Datum, siehe [Fehlersuche](#fehlersuche)); ein erfolgreicher Upload und die
+  Automation sind noch nicht bestätigt. Geprüft sind Datenbank, Edge Function und Dashboard
+  (siehe [tests/README.md](../tests/README.md)).
+
+### Fehlersuche
+
+Die Edge Function sagt in der Antwort, was angekommen ist (die Kurzbefehle-App zeigt sie beim
+Ausführen im Editor an):
+
+| Antwort | Ursache → Lösung |
+|---|---|
+| `date is empty: in "Format Date" …` | „Datum formatieren“ hat kein Datum (blasses **Datum**) → antippen, **Aktuelles Datum** |
+| `date must be a day like 2026-10-16, received "…"` | falsches Datumsformat (z. B. „Kurz“: `16.10.26`) → **Datumsformat: ISO 8601** |
+| `date is missing … fields received: …` | Feld heißt nicht genau `date` (klein geschrieben) |
+| `steps is empty: …` | keine Schritte gelesen – z. B. Lauf auf dem gesperrten iPhone; der nächste Lauf holt es nach |
+| `steps must be a number, received "…"` | im Feld `steps` steht nicht die **Summe** |
+| `Unknown upload token …` / `Unknown or revoked upload token …` | Schlüssel unvollständig kopiert oder widerrufen → im Dashboard neu erzeugen und einsetzen |
+| `date must be within the last 31 days` | Datum weit daneben, z. B. `YYYY` statt `yyyy` im eigenen Format → **ISO 8601** |
+
+Der erste echte Lauf (16.10.2026, 20:29) brachte `date must be a day like 2026-10-16`: Im
+Kurzbefehl war bei „Datum formatieren“ kein Datum gesetzt, und im Formatfeld stand die Variable
+„Summe“. Die Anfrage war 79 Bytes groß – mit Schlüssel (43 Zeichen) und fünfstelliger Schrittzahl
+genau ein leeres `date`. Deshalb nennt die Funktion ein leeres Datum ausdrücklich (`date is empty`).
 
 ### Technik
 
@@ -174,8 +210,9 @@ zusätzlich eine Automation „App → wird geöffnet“ (z. B. Safari oder die 
 
 Anfrage: `POST https://<projekt>.supabase.co/functions/v1/health-steps` mit
 `{"token": "…", "date": "2026-10-16", "steps": 12345}`. Antworten: `200` gespeichert
-(bzw. höherer Wert behalten), `400` Datum/Zahl ungültig, `401` Schlüssel unbekannt oder
-widerrufen, `405` nicht POST, `502` Datenbank nicht erreichbar. `steps` darf auch Text
+(bzw. höherer Wert behalten), `400` Datum/Zahl fehlt, leer oder ungültig (die Antwort nennt,
+was ankam, siehe [Fehlersuche](#fehlersuche)), `401` Schlüssel fehlt, unbekannt oder widerrufen,
+`405` nicht POST, `502` Datenbank nicht erreichbar. `steps` darf auch Text
 sein (`"12.345"`), `date` auch `16.10.2026`.
 
 Einmalig in Supabase: Migration ausführen (idempotent, ändert nichts Bestehendes) und die

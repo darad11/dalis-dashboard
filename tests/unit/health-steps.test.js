@@ -93,6 +93,35 @@ test('malformed requests are answered without touching the database', async () =
   assert.equal(db.calls.length, 0);
 });
 
+test('error answers say what arrived, so a wrongly built Shortcut can be fixed', async () => {
+  const { handleHealthSteps } = await load();
+  const db = fakeDb(200, {});
+  const env = { supabaseUrl: URL_, secretKey: 'sb_secret_x', fetch: db.fetch };
+  const error = async (body, status) => {
+    const res = await handleHealthSteps(post(body), env);
+    assert.equal(res.status, status, JSON.stringify(body));
+    return (await res.json()).error;
+  };
+  // "Format Date" without a date: Formatted Date is empty (seen on a real iPhone, 79-byte body)
+  for (const empty of ['', '  ', null]) {
+    assert.match(await error({ token: TOKEN, date: empty, steps: 12345 }, 400), /^date is empty: .*Current Date \(Aktuelles Datum\)/);
+  }
+  assert.match(await error({ token: TOKEN, Datum: '2026-10-16', steps: 5 }, 400), /^date is missing: .*fields received: "token", "Datum", "steps"$/);
+  const wrong = await error({ token: TOKEN, date: '16.10.26, 20:29', steps: 5 }, 400);
+  assert.match(wrong, /received "16\.10\.26, 20:29": .*ISO 8601/);
+  const long = await error({ token: TOKEN, date: `${'x'.repeat(30)}\n${'y'.repeat(60)}`, steps: 5 }, 400);
+  assert.match(long, new RegExp(`received "${'x'.repeat(30)} ${'y'.repeat(9)}…"`), 'one line, cut after 40 characters');
+  assert.match(await error({ token: TOKEN, date: { day: 16 }, steps: 5 }, 400), /received "\{\\"day\\":16\}"/);
+  assert.match(await error({ token: TOKEN, date: '2026-10-16' }, 400), /^steps is missing: .*fields received: "token", "date"$/);
+  assert.match(await error({ token: TOKEN, date: '2026-10-16', steps: '' }, 400), /^steps is empty: /);
+  assert.match(await error({ token: TOKEN, date: '2026-10-16', steps: 'many' }, 400), /^steps must be a number, received "many"$/);
+  assert.match(await error({ date: '2026-10-16', steps: 5 }, 401), /^token is missing: .*fields received: "date", "steps"$/);
+  assert.match(await error({}, 401), /fields received: none$/);
+  // A token pasted into the wrong field comes back cut short, never whole
+  assert.doesNotMatch(await error({ token: TOKEN, date: TOKEN, steps: 5 }, 400), new RegExp(TOKEN));
+  assert.equal(db.calls.length, 0);
+});
+
 test('a valid upload calls submit_health_steps with the secret key on apikey', async () => {
   const { handleHealthSteps } = await load();
   const db = fakeDb(200, { date: '2026-10-16', steps: 12345, updated: true });

@@ -15,6 +15,24 @@ export const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 const USAGE = 'POST JSON {"token", "date": "YYYY-MM-DD", "steps"}';
 
+// Error answers say what arrived, so a wrongly built Shortcut can be fixed from its result
+// (the Shortcuts app shows the answer); action names also in German, as the app shows them
+const PREVIEW_LENGTH = 40;
+
+function preview(value) {
+  const text = String(typeof value === 'string' ? value : JSON.stringify(value)).replace(/\s+/g, ' ').trim();
+  return JSON.stringify(text.length > PREVIEW_LENGTH ? `${text.slice(0, PREVIEW_LENGTH).trimEnd()}…` : text);
+}
+
+function fieldNames(body) {
+  const names = Object.keys(body);
+  return names.length ? names.slice(0, 8).map(name => JSON.stringify(name.slice(0, 20))).join(', ') : 'none';
+}
+
+function isEmpty(value) {
+  return value === null || (typeof value === 'string' && value.trim() === '');
+}
+
 function reply(status, body, extraHeaders) {
   return new Response(JSON.stringify(body), {
     status,
@@ -78,14 +96,31 @@ export async function handleHealthSteps(req, env) {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return reply(400, { ok: false, error: `The request body must be JSON: ${USAGE}` });
   }
+  if (body.token === undefined) {
+    return reply(401, { ok: false, error: `token is missing: add the field "token" with your upload key; fields received: ${fieldNames(body)}` });
+  }
   const token = typeof body.token === 'string' ? body.token.trim() : '';
   if (!TOKEN_PATTERN.test(token)) {
     return reply(401, { ok: false, error: 'Unknown upload token: copy it again from the dashboard (Step Challenge → Apple Health)' });
   }
+  if (body.date === undefined) {
+    return reply(400, { ok: false, error: `date is missing: add the field "date" with Formatted Date (Formatiertes Datum); fields received: ${fieldNames(body)}` });
+  }
   const date = parseDate(body.date);
-  if (!date) return reply(400, { ok: false, error: 'date must be a day like 2026-10-16 (Format Date: yyyy-MM-dd)' });
+  if (!date) {
+    return reply(400, { ok: false, error: isEmpty(body.date)
+      ? 'date is empty: in "Format Date" (Datum formatieren) the date must be Current Date (Aktuelles Datum)'
+      : `date must be a day like 2026-10-16, received ${preview(body.date)}: set the date format of "Format Date" (Datum formatieren) to ISO 8601` });
+  }
+  if (body.steps === undefined) {
+    return reply(400, { ok: false, error: `steps is missing: add the field "steps" with the Sum (Summe); fields received: ${fieldNames(body)}` });
+  }
   const steps = parseSteps(body.steps);
-  if (steps === null) return reply(400, { ok: false, error: 'steps must be a number' });
+  if (steps === null) {
+    return reply(400, { ok: false, error: isEmpty(body.steps)
+      ? 'steps is empty: no steps were read from Apple Health (it cannot be read while the iPhone is locked)'
+      : `steps must be a number, received ${preview(body.steps)}` });
+  }
 
   let res;
   try {

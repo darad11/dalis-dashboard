@@ -5,7 +5,7 @@ Keiner der Tests spricht mit dem echten Supabase-Projekt.
 
 | Suite | Prüft | Befehl |
 |---|---|---|
-| Unit | Berechnungslogik Step Challenge (`js/steps-core.js`); Kalender-Regeln: Uhrzeiten, Kalender, Reihenfolge, Farben, Editor-Eingaben (`js/calendar-core.js`); Sync-Fingerabdruck mit Uhrzeiten (`js/data-utils.js`); Edge Function `health-steps` (Anfragen prüfen, Zahlen/Daten aus dem Kurzbefehl, Aufruf der Datenbankfunktion, Antworten ohne interne Details) | `node --test "tests/unit/*.test.js"` |
+| Unit | Berechnungslogik Step Challenge (`js/steps-core.js`); Kalender-Regeln: Uhrzeiten, Kalender, Reihenfolge, Farben, Editor-Eingaben (`js/calendar-core.js`); Sync-Fingerabdruck mit Uhrzeiten (`js/data-utils.js`); Edge Function `health-steps` (Anfragen prüfen, Zahlen/Daten aus dem Kurzbefehl, Fehlerantworten nennen leere/fehlende Felder und was ankam, Aufruf der Datenbankfunktion, Antworten ohne interne Details) | `node --test "tests/unit/*.test.js"` |
 | Vertrag | `js/supabase.js` erzeugt die erwarteten PostgREST-Requests (echte supabase-js, abgefangenes `fetch`), u. a. Uhrzeit-Spalten nur wenn gesetzt, `"HH:MM:SS"` → `"HH:MM"`, Upload-Schlüssel: nur der Hash wird gesendet und nie zurückgelesen | `npm install --no-save @supabase/supabase-js@2.117.2 && node --test "tests/contract/*.test.js"` |
 | SQL | Migrationen (Step Challenge, Kalender-Uhrzeiten, Apple-Health-Upload), RLS, Trigger, Constraints, Rechte der Funktion `submit_health_steps` (nur `service_role`) gegen ein **lokales Wegwerf-PostgreSQL** | `tests/sql/run.sh "host=/tmp port=5432 user=postgres"` |
 | E2E | Dashboard in Chromium mit In-Memory-Supabase-Mock (Step Challenge, Sync, bestehende Funktionen, durchgehende Seite mit Abschnittsleiste und Glas-Linse, Menüs, iPhone/iPhone-Duo/iPad-Layout, Kalender mit Uhrzeiten und eigenen Kalendern, Desktop unverändert) | `node tests/e2e/run.js` (optional Filter: `node tests/e2e/run.js foldable`) |
@@ -36,6 +36,7 @@ Szenarien für Apple Health, Handy/Tablet und Kalender (`tests/e2e/run.js`):
 |---|---|
 | `16 Apple Health: upload key…` | Schlüssel entsteht im Browser (43 Zeichen), in der Cloud nur der SHA-256-Hash, nicht im localStorage; Kopieren; Upload des Kurzbefehls erscheint sofort (Realtime), niedrigerer Wert ändert nichts; „Done“ vergisst den Schlüssel, Status „last upload today, 10:10“; Liste unter „Manage“; Widerrufen mit Rückfrage, danach wird der Schlüssel abgelehnt, Schritte bleiben |
 | `17 Apple Health without the database update…` | ohne Migration klarer Hinweis, kein Schlüssel erzeugbar, manuelle Eingabe und Upload laufen weiter |
+| `setup: a rebuild while typing…` | Neuaufbau der Schritte-Karte (Daten von einem anderen Gerät) während des Tippens: Auswahl und Cursor bleiben, Tippen ersetzt den markierten Vorschlag (vorher hing es ihn an, z. B. `4.018.4052.233.411`; daran scheiterte `7+8` gelegentlich, wenn der erste Sync während `page.fill` fertig wurde) |
 | `scroll: phones show one continuous page…` | alle Abschnitte sichtbar in der Reihenfolge Today → Lists, Markierung folgt dem Scrollen, Antippen springt (Fokus wandert mit), „+“/„⋯“ oben, Dark Mode aus dem Menü, Bedienelemente ≥ 44 pt |
 | `scroll: a short last section…` | Seitenende markiert den kurzen letzten Abschnitt; ein gewählter Abschnitt bleibt markiert |
 | `scroll: the steps link and #section- links…` | `?steps=` öffnet Health, `#section-lists` öffnet Lists |
@@ -54,8 +55,11 @@ fehlende Umrechnung `"HH:MM:SS"` (Vertragstest); Glas-Linse: ohne Klick-Unterdr�
 Ziehen, ohne Prüfung „schon gewählt“, ohne Tipp-Ersatz an den Enden, Leiste wächst trotz
 „Bewegung reduzieren“, ohne Abbruch-Behandlung (`pointercancel` und `lostpointercapture`);
 Today's Goals ohne Fokus-Erhalt beim Neuaufbau der Liste.
+Schritte-Karte: Cursor nach dem Neuaufbau wieder ans Ende (alte Logik) → `setup: a rebuild while typing…` rot.
 `openDashboard` nimmt dafür zusätzlich `reducedMotion` an.
 Apple Health: Klartext-Schlüssel statt Hash gespeichert, Schlüssel nach „Done“ noch sichtbar,
 keine Aktualisierung von „last upload“ nach einem Upload (E2E); „niedriger ersetzt nie
 höher“ entfernt, Funktion für API-Rollen aufrufbar, Schlüssel-Limit entfernt, Schutz gegen
 vorgehende Geräteuhr entfernt (SQL).
+Fehlerantworten der Edge Function: alte Fassung (nur „date must be a day like …“) → Unit-Test
+„error answers say what arrived“ rot.

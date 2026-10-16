@@ -176,6 +176,40 @@ scenario('7+8 goal reached and exceeded', async (env) => {
   await context.close();
 });
 
+// The card is rebuilt whenever data changes; a rebuild while typing used to move the caret to
+// the end, so typing over the selected suggestion appended to it ("4.018.4052.233.411").
+// This made "7+8" fail now and then (first sync finishing during page.fill).
+scenario('setup: a rebuild while typing keeps the selection and the caret', async (env) => {
+  const { page, errors, context } = await open(env);
+  await waitFor(async () => (await page.evaluate(() => window.stepCounter.syncSummary())) === 'all changes are in the cloud', 'first sync done');
+  const goal = page.locator('#step-setup-goal');
+  const otherDeviceLogs = async (date) => {
+    await goal.evaluate(el => { el.__old = true; });
+    const row = { user_id: USER, date, steps: 5000, deleted: false, updated_at: '2026-10-16T08:00:00Z' };
+    env.store.seed('step_entries', [row]);
+    env.store.emit({ eventType: 'INSERT', schema: 'public', table: 'step_entries', new: env.store.rows('step_entries').pop(), old: {} });
+    await waitFor(() => page.evaluate(() => !document.querySelector('#step-setup-goal').__old), 'card rebuilt');
+  };
+
+  await goal.focus();
+  await goal.evaluate(el => el.select()); // about to type over the suggested goal
+  await otherDeviceLogs('2026-10-10');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'step-setup-goal');
+  await page.keyboard.type('4.100.000');
+  assert.equal(await goal.inputValue(), '4.100.000', 'typing replaces the selected suggestion');
+
+  await goal.evaluate(el => el.setSelectionRange(0, 0));
+  await otherDeviceLogs('2026-10-11');
+  await page.keyboard.type('1');
+  assert.equal(await goal.inputValue(), '14.100.000', 'the caret stays where it was');
+
+  await confirmSetup(page);
+  await waitFor(() => (env.store.rows('settings').find(r => r.key === 'stepChallenge') || { value: { years: {} } }).value.years['2026'], 'challenge uploaded');
+  assert.equal(env.store.rows('settings').find(r => r.key === 'stepChallenge').value.years['2026'].goal, 14100000);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 scenario('9 missing day is shown and can be filled in', async (env) => {
   const { page, errors, context } = await open(env, { now: Date.parse('2026-10-19T09:00:00+02:00') });
   await confirmSetup(page);

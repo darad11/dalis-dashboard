@@ -655,6 +655,7 @@
     state.postRender = [];
     // Removing a focused input fires focusout in some browsers: remember it first
     const keepFocus = state.focusField;
+    const selection = typingSelection();
     const showSetup = !cfg || state.editingSettings;
     root.replaceChildren(
       renderHeader(year, cfg),
@@ -662,7 +663,7 @@
       h('div', { class: 'step-tooltip', role: 'tooltip', hidden: true })
     );
     state.focusField = keepFocus;
-    restoreFocus();
+    restoreFocus(selection);
     state.postRender.forEach(fn => fn());
     renderSyncStatus();
   }
@@ -936,10 +937,10 @@
     return h('ol', { class: 'step-health-steps' },
       h('li', null, 'Shortcuts app → +. Add “Find Health Samples” (search “Health”): Type Steps, Start Date is today, Group By Day.'),
       h('li', null, 'Add “Calculate Statistics”: Sum.'),
-      h('li', null, 'Add “Format Date”: Current Date, Custom, yyyy-MM-dd.'),
+      h('li', null, 'Add “Format Date”: tap the pale “Date” and choose Current Date (pale = empty); Date Format ISO 8601.'),
       h('li', null, 'Add “Get Contents of URL” with the address, Method POST, Request Body JSON: ',
         h('code', null, 'token'), ' (Text: your key), ', h('code', null, 'date'), ' (Text: Formatted Date), ',
-        h('code', null, 'steps'), ' (Number: Statistics).'),
+        h('code', null, 'steps'), ' (Number: the Sum).'),
       h('li', null, 'Run it once: it answers “Saved: … steps”. More than the Health app shows? Then iPhone and Apple Watch were both counted – limit “Find Health Samples” to one source.'),
       h('li', null, 'Automation → + → Time of Day (e.g. 12:00, 18:00, 21:00, 23:45) → Run Immediately → your Shortcut. While the iPhone is locked, Health cannot be read; the next run catches up.'));
   }
@@ -1701,14 +1702,30 @@
   }
 
   // ----- Focus handling across re-renders -----
-  function restoreFocus() {
+  // Caret and selection of the field being typed in. The card is rebuilt whenever data changes
+  // (e.g. the first sync finishing while the setup form is filled in); without this the caret
+  // jumped to the end, so typing over a selected value appended to it instead of replacing it.
+  function typingSelection() {
+    const el = document.activeElement;
+    if (!el || !state.root || !state.root.contains(el) || !el.dataset || el.dataset.keep !== state.focusField) return null;
+    try {
+      // null for inputs without a text selection (type=date)
+      return el.selectionStart === null ? null : { start: el.selectionStart, end: el.selectionEnd, direction: el.selectionDirection };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function restoreFocus(selection) {
     if (!state.focusField || !state.root) return;
     const el = state.root.querySelector(`[data-keep="${state.focusField}"]`);
     if (el && !el.disabled) {
       el.focus({ preventScroll: true });
       if (typeof el.setSelectionRange === 'function' && el.type === 'text') {
-        const end = el.value.length;
-        el.setSelectionRange(end, end);
+        const length = el.value.length;
+        // Focus moved here by the app (no previous selection): caret at the end
+        if (selection) el.setSelectionRange(Math.min(selection.start, length), Math.min(selection.end, length), selection.direction || 'none');
+        else el.setSelectionRange(length, length);
       }
     }
   }
