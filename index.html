@@ -16,17 +16,12 @@
   <link rel="manifest" href="manifest.webmanifest">
   <title>Dali's Dashboard</title>
   <script>
-    // Phone/tablet layout flag and last section, set before first paint so the page
-    // does not flash the desktop layout. Same query as TAB_MODE_QUERY in js/mobile.js.
+    // Phone/tablet layout flag, set before first paint so the page does not flash the
+    // desktop layout. Same query as TOUCH_LAYOUT_QUERY in js/mobile.js.
     (function () {
       try {
-        var root = document.documentElement;
-        var tabs = window.matchMedia('(pointer: coarse) and (max-width: 1099px)').matches;
-        root.classList.toggle('tabs-on', tabs);
-        var tab = null;
-        try { tab = localStorage.getItem('dashboardTab'); } catch (e) { }
-        if (/[?&]steps=/.test(location.search)) tab = 'health';
-        root.setAttribute('data-tab', /^(today|week|health|habits|lists)$/.test(tab || '') ? tab : 'today');
+        var touch = window.matchMedia('(pointer: coarse) and (max-width: 1099px)').matches;
+        document.documentElement.classList.toggle('touch-layout', touch);
       } catch (e) { }
     })();
   </script>
@@ -37,8 +32,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Styles -->
-  <link rel="stylesheet" href="css/style.css?v=20261016b">
-  <link rel="stylesheet" href="css/mobile.css?v=20261016b">
+  <link rel="stylesheet" href="css/style.css?v=20261016c">
+  <link rel="stylesheet" href="css/calendar.css?v=20261016c">
+  <link rel="stylesheet" href="css/mobile.css?v=20261016c">
   <style>
     /* Nutrition Settings Styles */
     .settings-icon-btn {
@@ -259,13 +255,24 @@
   </div>
 
   <div class="container" id="mainContainer">
-    <header class="brand-header">
-      <div class="brand-logo">d.</div>
-      <div class="brand-text">
-        <span class="brand-name">dali's</span>
-        <span class="brand-tagline">dashboard</span>
+    <!-- Phone/tablet: sticky bar with the brand and the add/more buttons (css/mobile.css) -->
+    <div class="app-bar">
+      <header class="brand-header">
+        <div class="brand-logo">d.</div>
+        <div class="brand-text">
+          <span class="brand-name">dali's</span>
+          <span class="brand-tagline">dashboard</span>
+        </div>
+      </header>
+      <div class="app-bar-actions" data-mobile-only>
+        <button type="button" class="app-bar-btn" id="appBarAdd" aria-label="New Event">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <button type="button" class="app-bar-btn" id="appBarMore" aria-label="More" aria-haspopup="menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="18.5" cy="12" r="1.9"/></svg>
+        </button>
       </div>
-    </header>
+    </div>
 
     <!-- Floating Action Menu -->
     <div class="fab-container" id="fabContainer">
@@ -310,682 +317,693 @@
       <div class="fab-backdrop" onclick="toggleFabMenu()"></div>
     </div>
 
-    <!-- 1. POMODORO + STATS SIDE BY SIDE -->
-    <!-- 1. POMODORO + STATS + SIDEBAR -->
-    <!-- data-tab-section: which tab of the phone/tablet tab bar shows this block (js/mobile.js) -->
-    <div class="dashboard-main-layout" data-tab-section="today">
-      <div class="combined-glass-panel glass-panel" id="pomoStatsWrapper">
-        <!-- Focus Section -->
-        <div class="pomodoro-section">
-          <div class="pomo-header-row"
-            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-            <h3 style="margin-bottom: 0;">🧠 Focus</h3>
-            <button class="btn icon-btn" onclick="toggleStats()" id="btnToggleStats" title="Show Statistics"
-              style="width: 32px; height: 32px; font-size: 1rem; margin-right: -8px;">📊</button>
+    <!-- The page is one continuous scroll in this order; on phones and tablets the tab bar
+         (#mobileTabbar) follows the section on screen and jumps to a section (js/mobile.js) -->
+    <section class="page-section" id="section-today" aria-label="Today">
+      <!-- 1. POMODORO + STATS + SIDEBAR -->
+      <div class="dashboard-main-layout">
+        <div class="combined-glass-panel glass-panel" id="pomoStatsWrapper">
+          <!-- Focus Section -->
+          <div class="pomodoro-section">
+            <div class="pomo-header-row"
+              style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+              <h3 style="margin-bottom: 0;">🧠 Focus</h3>
+              <button class="btn icon-btn" onclick="toggleStats()" id="btnToggleStats" title="Show Statistics"
+                style="width: 32px; height: 32px; font-size: 1rem; margin-right: -8px;">📊</button>
+            </div>
+            <div class="pomodoro-modes">
+              <button class="pomo-mode-btn active" data-mode="work">Focus</button>
+              <button class="pomo-mode-btn" data-mode="short">Break</button>
+              <button class="pomo-mode-btn" data-mode="long">Long</button>
+            </div>
+            <div class="pomodoro-display">
+              <svg class="pomo-ring" viewBox="0 0 100 100">
+                <circle class="pomo-ring-bg" cx="50" cy="50" r="45" />
+                <circle class="pomo-ring-progress" cx="50" cy="50" r="45" />
+              </svg>
+              <div class="pomo-time" id="pomoTime">25:00</div>
+            </div>
+            <div class="pomodoro-controls">
+              <button class="btn pomo-btn" id="pomoStart">▶ Start</button>
+              <button class="btn pomo-btn" id="pomoReset">↺ Reset</button>
+            </div>
+            <div class="pomo-sessions">
+              <span id="pomoCount">0</span> sessions today
+            </div>
+            <!-- Ambient Sound -->
+            <div class="ambient-controls">
+              <label class="ambient-label">🔊</label>
+              <select id="ambientSelect" class="ambient-select">
+                <option value="none">None</option>
+                <option value="white">White Noise</option>
+                <option value="brown">Brown Noise</option>
+                <option value="pink">Pink Noise</option>
+                <option value="rain">Rain</option>
+                <option value="forest">Forest</option>
+                <option value="cafe">Café</option>
+              </select>
+              <input type="range" id="ambientVolume" class="ambient-volume" min="0" max="100" value="30">
+            </div>
+            <button class="btn pip-btn" onclick="togglePiP()" title="Picture-in-Picture">
+              <svg class="pip-icon" viewBox="0 0 24 20" width="16" height="14" fill="none" stroke="currentColor"
+                stroke-width="2">
+                <rect x="1" y="1" width="22" height="14" rx="2" />
+                <rect x="12" y="8" width="10" height="6" rx="1" fill="currentColor" />
+              </svg>
+            </button>
           </div>
-          <div class="pomodoro-modes">
-            <button class="pomo-mode-btn active" data-mode="work">Focus</button>
-            <button class="pomo-mode-btn" data-mode="short">Break</button>
-            <button class="pomo-mode-btn" data-mode="long">Long</button>
+
+          <!-- Statistics Section (Collapsed by default) -->
+          <div class="stats-section">
+            <div style="margin-bottom: 32px; position: relative;">
+              <h3 id="statsWeekTitle" style="margin: 0; text-align: center;">Week of December 30</h3>
+              <div style="display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 16px;">
+                <button class="btn" onclick="goToStatsToday()" style="margin-right: 8px;">Today</button>
+                <button class="btn chevron-prev" onclick="changeStatsWeek(-1)" aria-label="Previous week">◀︎</button>
+                <button class="btn chevron-next" onclick="changeStatsWeek(1)" aria-label="Next week">▶︎</button>
+              </div>
+            </div>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value" id="statPomos">0</div>
+                <div class="stat-label">Sessions</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="statTasks">0</div>
+                <div class="stat-label">Tasks Done</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="statHabits">0%</div>
+                <div class="stat-label">Habits</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="statStreak">0</div>
+                <div class="stat-label">Day Streak</div>
+              </div>
+            </div>
           </div>
-          <div class="pomodoro-display">
-            <svg class="pomo-ring" viewBox="0 0 100 100">
-              <circle class="pomo-ring-bg" cx="50" cy="50" r="45" />
-              <circle class="pomo-ring-progress" cx="50" cy="50" r="45" />
-            </svg>
-            <div class="pomo-time" id="pomoTime">25:00</div>
-          </div>
-          <div class="pomodoro-controls">
-            <button class="btn pomo-btn" id="pomoStart">▶ Start</button>
-            <button class="btn pomo-btn" id="pomoReset">↺ Reset</button>
-          </div>
-          <div class="pomo-sessions">
-            <span id="pomoCount">0</span> sessions today
-          </div>
-          <!-- Ambient Sound -->
-          <div class="ambient-controls">
-            <label class="ambient-label">🔊</label>
-            <select id="ambientSelect" class="ambient-select">
-              <option value="none">None</option>
-              <option value="white">White Noise</option>
-              <option value="brown">Brown Noise</option>
-              <option value="pink">Pink Noise</option>
-              <option value="rain">Rain</option>
-              <option value="forest">Forest</option>
-              <option value="cafe">Café</option>
-            </select>
-            <input type="range" id="ambientVolume" class="ambient-volume" min="0" max="100" value="30">
-          </div>
-          <button class="btn pip-btn" onclick="togglePiP()" title="Picture-in-Picture">
-            <svg class="pip-icon" viewBox="0 0 24 20" width="16" height="14" fill="none" stroke="currentColor"
-              stroke-width="2">
-              <rect x="1" y="1" width="22" height="14" rx="2" />
-              <rect x="12" y="8" width="10" height="6" rx="1" fill="currentColor" />
-            </svg>
-          </button>
         </div>
 
-        <!-- Statistics Section (Collapsed by default) -->
-        <div class="stats-section">
-          <div style="margin-bottom: 32px; position: relative;">
-            <h3 id="statsWeekTitle" style="margin: 0; text-align: center;">Week of December 30</h3>
-            <div style="display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 16px;">
-              <button class="btn" onclick="goToStatsToday()" style="margin-right: 8px;">Today</button>
-              <button class="btn" onclick="changeStatsWeek(-1)" aria-label="Previous week">◀︎</button>
-              <button class="btn" onclick="changeStatsWeek(1)" aria-label="Next week">▶︎</button>
-            </div>
+
+
+
+
+        <!-- PiP Timer (Hidden) -->
+        <div class="pip-timer" id="pipTimer">
+          <div class="pip-header">
+            <span class="pip-title"></span>
+            <button class="pip-close" onclick="togglePiP()">×</button>
           </div>
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-value" id="statPomos">0</div>
-              <div class="stat-label">Sessions</div>
+          <div class="pip-time" id="pipTime">25:00</div>
+          <div class="pip-controls">
+            <button class="pip-control-btn" id="pipPlayPause" onclick="togglePomodoro()">▶</button>
+          </div>
+        </div>
+
+        <!-- Right Sidebar (Goals + Notes) -->
+        <div class="dashboard-sidebar">
+          <div class="sidebar-datetime" id="sidebarDateTime">--.--.---- - --:--</div>
+          <div class="glass-panel goals-container">
+            <div class="section-nav">
+              <button class="btn nav-btn chevron-prev" onclick="changeGoalDate(-1)" aria-label="Previous day">◀</button>
+              <h2 id="goalsTitle">🎯 Today's Goals</h2>
+              <button class="btn nav-btn chevron-next" onclick="changeGoalDate(1)" aria-label="Next day">▶</button>
             </div>
-            <div class="stat-card">
-              <div class="stat-value" id="statTasks">0</div>
-              <div class="stat-label">Tasks Done</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value" id="statHabits">0%</div>
-              <div class="stat-label">Habits</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value" id="statStreak">0</div>
-              <div class="stat-label">Day Streak</div>
-            </div>
+            <div class="goals-list" id="goalsList"></div>
+            <button class="btn" onclick="addGoal()" style="margin-top:auto;">+ Add Goal</button>
           </div>
         </div>
       </div>
-
-
-
-
-
-      <!-- PiP Timer (Hidden) -->
-      <div class="pip-timer" id="pipTimer">
-        <div class="pip-header">
-          <span class="pip-title"></span>
-          <button class="pip-close" onclick="togglePiP()">×</button>
-        </div>
-        <div class="pip-time" id="pipTime">25:00</div>
-        <div class="pip-controls">
-          <button class="pip-control-btn" id="pipPlayPause" onclick="togglePomodoro()">▶</button>
-        </div>
-      </div>
-
-      <!-- Right Sidebar (Goals + Notes) -->
-      <div class="dashboard-sidebar">
-        <div class="sidebar-datetime" id="sidebarDateTime">--.--.---- - --:--</div>
-        <div class="glass-panel goals-container">
-          <div class="section-nav">
-            <button class="btn nav-btn" onclick="changeGoalDate(-1)" aria-label="Previous day">◀</button>
-            <h2 id="goalsTitle">🎯 Today's Goals</h2>
-            <button class="btn nav-btn" onclick="changeGoalDate(1)" aria-label="Next day">▶</button>
-          </div>
-          <div class="goals-list" id="goalsList"></div>
-          <button class="btn" onclick="addGoal()" style="margin-top:auto;">+ Add Goal</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 3. WEEKLY FOCUS (moved above quick notes) -->
-    <section class="week-overview-section" data-tab-section="week" aria-labelledby="weekOverviewHeading">
-      <h2 id="weekOverviewHeading" style="margin-top: 32px;">⚡ Weekly Overview & Tasks</h2>
-      <div class="glass-panel week-nav-panel" style="padding: 20px 24px;">
-        <div class="section-nav" style="margin-bottom: 0;">
-          <h3 id="weekTitle" style="margin: 0;">Friday, January 3</h3>
-          <div class="section-nav-buttons" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
-            <button class="btn" onclick="goToWeekToday()" style="margin-right: 8px;">Today</button>
-            <button class="btn" onclick="changeWeek(-1)" aria-label="Previous week">◀︎</button>
-            <button class="btn" onclick="changeWeek(1)" aria-label="Next week">▶︎</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="kanban-board week-kanban" id="weekKanban"></div>
-      <h3 class="inspirational-quote" style="margin-top: 24px;">Your future is created by what you do today, not tomorrow
-      </h3>
     </section>
 
-    <div class="divider"></div>
-
-    <!-- 7. HEALTH HUB (Collapsible) -->
-    <div class="gym-hub-section" data-tab-section="health">
-      <div class="gym-hub-header" onclick="toggleGymHub()">
-        <h2>🔋 Health Hub</h2>
-        <span class="gym-hub-toggle" id="gymHubToggle">▼</span>
-      </div>
-
-      <!-- Hero section always visible -->
-      <div class="gym-hub-hero-always">
-        <!-- ===== TODAY'S DASHBOARD (Hero Card) ===== -->
-        <div class="gym-hero glass-panel">
-          <div class="hero-grid">
-            <!-- Streak Section -->
-            <div class="hero-stat">
-              <div class="hero-stat-icon">🔥</div>
-              <div class="hero-stat-content">
-                <div class="hero-stat-value" id="streakNumber">0</div>
-                <div class="hero-stat-label">Day Streak</div>
-              </div>
-              <button class="btn hero-btn" onclick="logWorkoutDay()">✓ Log</button>
-            </div>
-
-            <!-- Water Section -->
-            <div class="hero-stat water">
-              <div class="hero-stat-icon">💧</div>
-              <div class="hero-stat-content">
-                <div class="hero-stat-value"><span id="waterAmount">0</span><span class="hero-stat-unit">ml</span></div>
-                <div class="water-mini-bar">
-                  <div class="water-mini-fill" id="waterProgressFill"></div>
-                </div>
-              </div>
-              <div class="hero-water-btns-vertical">
-                <button class="btn hero-btn small" onclick="addWater(250)">+250</button>
-                <button class="btn hero-btn small" onclick="addWater(500)">+500</button>
-                <button class="btn hero-btn small" onclick="addWater(1000)">+1000</button>
-              </div>
-            </div>
-
-            <!-- Supplements Quick Add -->
-            <div class="hero-stat hero-supps-quick">
-              <div class="hero-stat-label" style="text-align: center; margin-bottom: 6px;">Supplements</div>
-              <div class="hero-supps-btns" id="heroSuppsQuick">
-                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="öl ziehen"
-                  onclick="quickToggleSupplement('öl ziehen')" title="Öl Ziehen (Oil Pulling)">🥥</button>
-                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="salzwasser"
-                  onclick="quickToggleSupplement('salzwasser')" title="Salzwasser (Salt Water)">🧂</button>
-                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="apfelessig"
-                  onclick="quickToggleSupplement('apfelessig')" title="Apfelessig (Apple Cider Vinegar)">🍎</button>
-                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="vitamin d"
-                  onclick="quickToggleSupplement('vitamin d')" title="Vitamin D">☀️</button>
-                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="multivitamin"
-                  onclick="quickToggleSupplement('multivitamin')" title="Multivitamin">💊</button>
-                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="schwarzkümmelöl"
-                  onclick="quickToggleSupplement('schwarzkümmelöl')"
-                  title="Schwarzkümmelöl (Black Cumin Oil)">🖤</button>
-                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="eisen"
-                  onclick="quickToggleSupplement('eisen')" title="Eisen (Iron)">🔩</button>
-                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="zink"
-                  onclick="quickToggleSupplement('zink')" title="Zink (Zinc)">⚡</button>
-                <button class="btn hero-btn icon-only supp-quick-btn" data-supp="magnesium"
-                  onclick="quickToggleSupplement('magnesium')" title="Magnesium">🧲</button>
-              </div>
-            </div>
-
-            <!-- Mini Quick Add -->
-            <div class="hero-stat hero-quick-add">
-              <div class="hero-stat-label" style="text-align: center; margin-bottom: 6px;">Quick Add</div>
-              <div class="hero-quick-btns">
-                <button class="btn hero-btn icon-only" onclick="quickAddFood('chicken', 165, 31, 0, 3.6)"
-                  title="Chicken">🍗</button>
-                <button class="btn hero-btn icon-only" onclick="quickAddFood('rice', 130, 2.7, 28, 0.3)"
-                  title="Rice">🍚</button>
-                <button class="btn hero-btn icon-only" onclick="quickAddFood('eggs', 155, 13, 1.1, 11)"
-                  title="Eggs">🥚</button>
-                <button class="btn hero-btn icon-only" onclick="quickAddFood('shake', 120, 25, 3, 1)"
-                  title="Shake">🥤</button>
-              </div>
-            </div>
-
-            <!-- Mini Donut Chart & Status Merged -->
-            <div class="hero-donut">
-              <div class="hero-donut-chart">
-                <svg class="mini-donut" viewBox="0 0 100 100">
-                  <circle class="mini-donut-bg" cx="50" cy="50" r="40" />
-                  <circle class="mini-donut-segment pro" id="heroDonutPro" cx="50" cy="50" r="40"
-                    stroke-dasharray="0 251.3" />
-                  <circle class="mini-donut-segment carb" id="heroDonutCarb" cx="50" cy="50" r="40"
-                    stroke-dasharray="0 251.3" />
-                  <circle class="mini-donut-segment fat" id="heroDonutFat" cx="50" cy="50" r="40"
-                    stroke-dasharray="0 251.3" />
-                </svg>
-                <div class="hero-donut-center">
-                  <span class="hero-donut-value" id="heroTotalCal">0</span>
-                  <span class="hero-donut-label">kcal</span>
-                </div>
-              </div>
-              <div class="hero-donut-legend">
-                <div class="mini-legend-item"><span class="dot pro"></span><span id="heroLegendPro">0g</span></div>
-                <div class="mini-legend-item"><span class="dot carb"></span><span id="heroLegendCarb">0g</span></div>
-                <div class="mini-legend-item"><span class="dot fat"></span><span id="heroLegendFat">0g</span></div>
-              </div>
-
-              <!-- Status Group -->
-              <div class="hero-status-group">
-                <div class="status-badge on-track" id="statusBadge">
-                  <span class="status-icon">✓</span>
-                  <span class="status-text">On Track</span>
-                </div>
-                <div class="status-detail">
-                  <span id="statusRemaining">2000</span> kcal left
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="streak-history" id="streakHistory"></div>
-
-      <!-- Step Challenge (rendered by js/steps.js once the user is known) -->
-      <section class="glass-panel step-card" id="stepChallenge" aria-labelledby="stepChallengeTitle" hidden></section>
-
-      <!-- Collapsible content -->
-      <div class="gym-hub-content collapsed" id="gymHubContent">
-        <!-- Motivational Quote -->
-        <h3 class="inspirational-quote" id="gymQuote">The only bad workout is the one that didn't happen.</h3>
-
-        <div class="gym-hub-grid pro">
-          <!-- ===== TRAINING CARD ===== -->
-          <div class="gym-card glass-panel">
-            <div class="gym-card-header">
-              <span class="gym-card-icon">🏋️</span>
-              <h3>Training</h3>
-            </div>
-            <div class="gym-date-nav-compact">
-              <button class="btn" onclick="navigateTrainingDate(-1)">◀︎</button>
-              <span class="gym-date-label" id="trainingDateDisplay">Today</span>
-              <button class="btn" onclick="navigateTrainingDate(1)" id="trainingNextBtn">▶︎</button>
-              <button class="btn gym-today-btn" id="trainingTodayBtn" onclick="goToTrainingToday()"
-                style="display:none">Today</button>
-            </div>
-
-            <!-- Training Goal -->
-
-            <!-- Weekly Split (Compact) -->
-            <div class="split-compact">
-              <div class="split-day-compact" data-day="0"><span>S</span></div>
-              <div class="split-day-compact" data-day="1"><span>M</span></div>
-              <div class="split-day-compact" data-day="2"><span>T</span></div>
-              <div class="split-day-compact" data-day="3"><span>W</span></div>
-              <div class="split-day-compact" data-day="4"><span>T</span></div>
-              <div class="split-day-compact" data-day="5"><span>F</span></div>
-              <div class="split-day-compact" data-day="6"><span>S</span></div>
-            </div>
-
-            <div class="split-edit-list">
-              <div class="split-input-row">
-                <span class="day-label">Mon</span>
-                <input type="text" id="splitMon" placeholder="Push" class="split-input-clean"
-                  onchange="saveGymData('weeklySplit')" />
-              </div>
-              <div class="split-input-row">
-                <span class="day-label">Tue</span>
-                <input type="text" id="splitTue" placeholder="Pull" class="split-input-clean"
-                  onchange="saveGymData('weeklySplit')" />
-              </div>
-              <div class="split-input-row">
-                <span class="day-label">Wed</span>
-                <input type="text" id="splitWed" placeholder="Legs" class="split-input-clean"
-                  onchange="saveGymData('weeklySplit')" />
-              </div>
-              <div class="split-input-row">
-                <span class="day-label">Thu</span>
-                <input type="text" id="splitThu" placeholder="Rest" class="split-input-clean"
-                  onchange="saveGymData('weeklySplit')" />
-              </div>
-              <div class="split-input-row">
-                <span class="day-label">Fri</span>
-                <input type="text" id="splitFri" placeholder="Push" class="split-input-clean"
-                  onchange="saveGymData('weeklySplit')" />
-              </div>
-              <div class="split-input-row">
-                <span class="day-label">Sat</span>
-                <input type="text" id="splitSat" placeholder="Pull" class="split-input-clean"
-                  onchange="saveGymData('weeklySplit')" />
-              </div>
-              <div class="split-input-row">
-                <span class="day-label">Sun</span>
-                <input type="text" id="splitSun" placeholder="Rest" class="split-input-clean"
-                  onchange="saveGymData('weeklySplit')" />
-              </div>
-            </div>
-
-            <!-- Training Goals (Checklist) -->
-            <div class="section-label" style="margin-top: 16px;">Gym Goals</div>
-            <div class="checklist-container" id="trainingGoalsList"></div>
-            <div class="add-row">
-              <input type="text" id="newTrainingGoal" placeholder="Add goal..."
-                onkeypress="handleEnter(event, addTrainingGoal)" />
-              <button class="btn" onclick="addTrainingGoal()">+</button>
-            </div>
-          </div>
-
-          <!-- ===== NUTRITION CARD ===== -->
-          <div class="gym-card glass-panel">
-            <div class="gym-card-header">
-              <span class="gym-card-icon">🥗</span>
-              <h3>Nutrition</h3>
-              <button class="settings-icon-btn" onclick="openNutritionSettings()">⚙️</button>
-            </div>
-            <div class="gym-date-nav-compact">
-              <button class="btn" onclick="navigateNutritionDate(-1)">◀︎</button>
-              <span class="gym-date-label" id="nutritionDateDisplay">Today</span>
-              <button class="btn" onclick="navigateNutritionDate(1)" id="nutritionNextBtn">▶︎</button>
-              <button class="btn gym-today-btn" id="nutritionTodayBtn" onclick="goToNutritionToday()"
-                style="display:none">Today</button>
-            </div>
-
-            <!-- Macro Tracker - Circular Charts -->
-            <div class="macro-rings">
-              <div class="macro-ring-item">
-                <div class="ring-wrapper">
-                  <svg class="ring-chart" viewBox="0 0 100 100">
-                    <circle class="ring-bg" cx="50" cy="50" r="42" />
-                    <circle class="ring-fill cal" id="ringCalories" cx="50" cy="50" r="42" stroke-dasharray="264"
-                      stroke-dashoffset="264" />
-                  </svg>
-                  <div class="ring-center">
-                    <span class="ring-value" id="ringCalValue">0</span>
-                    <span class="ring-label">cal</span>
-                  </div>
-                </div>
-                <input type="number" id="macroCalories" placeholder="0" class="ring-input" oninput="updateMacroChart()"
-                  onchange="saveGymData('macros')" />
-                <div class="ring-goal">/ <span id="goalCalDisplay">2000</span></div>
-              </div>
-
-              <div class="macro-ring-item">
-                <div class="ring-wrapper">
-                  <svg class="ring-chart" viewBox="0 0 100 100">
-                    <circle class="ring-bg" cx="50" cy="50" r="42" />
-                    <circle class="ring-fill pro" id="ringProtein" cx="50" cy="50" r="42" stroke-dasharray="264"
-                      stroke-dashoffset="264" />
-                  </svg>
-                  <div class="ring-center">
-                    <span class="ring-value" id="ringProValue">0</span>
-                    <span class="ring-label">P</span>
-                  </div>
-                </div>
-                <input type="number" id="macroProtein" placeholder="0" class="ring-input" oninput="updateMacroChart()"
-                  onchange="saveGymData('macros')" />
-                <div class="ring-goal">/ <span id="goalProtDisplay">150</span>g</div>
-              </div>
-
-              <div class="macro-ring-item">
-                <div class="ring-wrapper">
-                  <svg class="ring-chart" viewBox="0 0 100 100">
-                    <circle class="ring-bg" cx="50" cy="50" r="42" />
-                    <circle class="ring-fill carb" id="ringCarbs" cx="50" cy="50" r="42" stroke-dasharray="264"
-                      stroke-dashoffset="264" />
-                  </svg>
-                  <div class="ring-center">
-                    <span class="ring-value" id="ringCarbValue">0</span>
-                    <span class="ring-label">C</span>
-                  </div>
-                </div>
-                <input type="number" id="macroCarbs" placeholder="0" class="ring-input" oninput="updateMacroChart()"
-                  onchange="saveGymData('macros')" />
-                <div class="ring-goal">/ <span id="goalCarbDisplay">200</span>g</div>
-              </div>
-
-              <div class="macro-ring-item">
-                <div class="ring-wrapper">
-                  <svg class="ring-chart" viewBox="0 0 100 100">
-                    <circle class="ring-bg" cx="50" cy="50" r="42" />
-                    <circle class="ring-fill fat" id="ringFat" cx="50" cy="50" r="42" stroke-dasharray="264"
-                      stroke-dashoffset="264" />
-                  </svg>
-                  <div class="ring-center">
-                    <span class="ring-value" id="ringFatValue">0</span>
-                    <span class="ring-label">F</span>
-                  </div>
-                </div>
-                <input type="number" id="macroFat" placeholder="0" class="ring-input" oninput="updateMacroChart()"
-                  onchange="saveGymData('macros')" />
-                <div class="ring-goal">/ <span id="goalFatDisplay">70</span>g</div>
-              </div>
-            </div>
-
-
-            <!-- Quick Add Foods -->
-            <div class="quick-add-section">
-              <div class="quick-add-label">Quick Add:</div>
-              <div class="quick-add-buttons">
-                <button class="quick-add-btn" onclick="quickAddFood('chicken', 165, 31, 0, 3.6)">🍗 Chicken</button>
-                <button class="quick-add-btn" onclick="quickAddFood('rice', 130, 2.7, 28, 0.3)">🍚 Rice</button>
-                <button class="quick-add-btn" onclick="quickAddFood('eggs', 155, 13, 1.1, 11)">🥚 2 Eggs</button>
-                <button class="quick-add-btn" onclick="quickAddFood('shake', 120, 25, 3, 1)">🥤 Shake</button>
-                <button class="quick-add-btn" onclick="quickAddFood('oats', 150, 5, 27, 3)">🥣 Oats</button>
-                <button class="quick-add-btn" onclick="quickAddFood('banana', 105, 1.3, 27, 0.4)">🍌 Banana</button>
-              </div>
-            </div>
-
-            <!-- Macro Summary Chart -->
-            <div class="macro-summary">
-              <div class="summary-donut">
-                <svg class="donut-chart" viewBox="0 0 100 100">
-                  <circle class="donut-bg" cx="50" cy="50" r="40" />
-                  <circle class="donut-segment pro" id="donutProtein" cx="50" cy="50" r="40"
-                    stroke-dasharray="0 251.3" />
-                  <circle class="donut-segment carb" id="donutCarbs" cx="50" cy="50" r="40"
-                    stroke-dasharray="0 251.3" />
-                  <circle class="donut-segment fat" id="donutFat" cx="50" cy="50" r="40" stroke-dasharray="0 251.3" />
-                </svg>
-                <div class="donut-center">
-                  <span class="donut-total" id="totalCalories">0</span>
-                  <span class="donut-label">kcal</span>
-                </div>
-              </div>
-              <div class="summary-legend">
-                <div class="legend-item">
-                  <span class="legend-dot pro"></span>
-                  <span class="legend-text">Protein</span>
-                  <span class="legend-value" id="legendProtein">0g (0%)</span>
-                </div>
-                <div class="legend-item">
-                  <span class="legend-dot carb"></span>
-                  <span class="legend-text">Carbs</span>
-                  <span class="legend-value" id="legendCarbs">0g (0%)</span>
-                </div>
-                <div class="legend-item">
-                  <span class="legend-dot fat"></span>
-                  <span class="legend-text">Fat</span>
-                  <span class="legend-value" id="legendFat">0g (0%)</span>
-                </div>
-                <div class="legend-divider"></div>
-                <div class="legend-item total">
-                  <span class="legend-text">Remaining</span>
-                  <span class="legend-value" id="legendRemaining">2000 kcal</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-
-          <!-- ===== DAILY HABITS CARD ===== -->
-          <div class="gym-card glass-panel card-compact supplements-card" style="height: fit-content;">
-            <div class="gym-card-header">
-              <span class="gym-card-icon">💊</span>
-              <h3>Supplements</h3>
-            </div>
-            <div class="gym-date-nav-compact">
-              <button class="btn" onclick="navigateSupplementsDate(-1)">◀︎</button>
-              <span class="gym-date-label" id="supplementsDateDisplay">This Week</span>
-              <button class="btn" onclick="navigateSupplementsDate(1)" id="supplementsNextBtn">▶︎</button>
-              <button class="btn gym-today-btn" id="supplementsTodayBtn" onclick="goToSupplementsToday()"
-                style="display:none">Today</button>
-            </div>
-
-            <!-- Supplements -->
-            <div class="checklist-container" id="supplementList"></div>
-            <div class="add-row center" style="justify-content: center;">
-              <button class="btn" onclick="addSupplement()">+</button>
-            </div>
-
-          </div>
-
-          <!-- ===== WATER TRACKER CARD ===== -->
-          <div class="gym-card glass-panel card-compact" style="height: fit-content;">
-            <div class="gym-card-header">
-              <span class="gym-card-icon">💧</span>
-              <h3>Water</h3>
-            </div>
-            <div class="water-tracker-compact">
-              <div class="water-display-compact">
-                <span class="water-amount-big" id="waterAmountCard">0</span>
-                <span class="water-unit-big">ml</span>
-              </div>
-              <div class="water-progress-compact">
-                <div class="water-bar-bg">
-                  <div class="water-bar-fill" id="waterProgressFillCard"></div>
-                </div>
-                <span class="water-goal-text">/ 3000ml</span>
-              </div>
-              <div class="water-btns-row">
-                <button class="btn" onclick="addWater(250)">+250</button>
-                <button class="btn" onclick="addWater(500)">+500</button>
-                <button class="btn water-reset" onclick="resetWater()">↺</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-
-    <!-- 3. MINI LISTS (Goals 2026, Shopping, Chores) -->
-    <section class="lists-section" data-tab-section="lists" aria-label="Lists">
-      <h2 class="mobile-section-title" data-mobile-only>📋 Lists</h2>
-      <div id="unifiedListsGrid" class="lists-grid"></div>
-
-      <button class="btn glass-panel create-list-btn" onclick="createNewCustomList()"
-        style="width: auto; min-width: 200px; border: 1px dashed rgba(255,255,255,0.3); justify-content: center; padding: 12px 24px; opacity: 0.8; margin: 48px auto 48px auto; display: flex;">
-        + Create New List
-      </button>
-    </section>
-
-    <div class="divider"></div>
-
-    <!-- 4. CALENDAR (Collapsible) -->
-    <div class="calendar-section" data-tab-section="week">
-      <div class="calendar-section-header" onclick="toggleCalendarSection()">
-        <h2>📅 Calendar</h2>
-        <span class="calendar-section-toggle" id="calendarToggle" style="margin-left: auto;">▼</span>
-      </div>
-
-      <div class="calendar-section-content" id="calendarContent">
-        <div class="glass-panel">
-          <div class="calendar-header">
-            <div class="calendar-title-group" style="flex-direction: column;">
-              <h3 id="title">User Calendar</h3>
-            </div>
+    <section class="page-section" id="section-week" aria-label="Week">
+      <!-- 3. WEEKLY FOCUS (moved above quick notes) -->
+      <section class="week-overview-section" aria-labelledby="weekOverviewHeading">
+        <h2 id="weekOverviewHeading" style="margin-top: 32px;">⚡ Weekly Overview & Tasks</h2>
+        <div class="glass-panel week-nav-panel" style="padding: 20px 24px;">
+          <div class="section-nav" style="margin-bottom: 0;">
+            <h3 id="weekTitle" style="margin: 0;">Friday, January 3</h3>
             <div class="section-nav-buttons" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
-              <button class="btn" onclick="goToToday()" style="margin-right: 8px;">Today</button>
-              <button class="btn" id="prevMonth" aria-label="Previous month">◀︎</button>
-              <button class="btn" id="nextMonth" aria-label="Next month">▶︎</button>
+              <button class="btn" onclick="goToWeekToday()" style="margin-right: 8px;">Today</button>
+              <button class="btn chevron-prev" onclick="changeWeek(-1)" aria-label="Previous week">◀︎</button>
+              <button class="btn chevron-next" onclick="changeWeek(1)" aria-label="Next week">▶︎</button>
             </div>
           </div>
-
-          <div class="calendar-grid-header">
-            <div>MO</div>
-            <div>DI</div>
-            <div>MI</div>
-            <div>DO</div>
-            <div>FR</div>
-            <div>SA</div>
-            <div>SO</div>
-          </div>
-
-          <div class="calendar-grid" id="calendar">
-            <!-- JS generates Calendar -->
-          </div>
-
-          <!-- Phone/tablet: tasks of the selected day (filled by renderCalendarAgenda in js/app.js) -->
-          <div class="calendar-agenda" id="calendarAgenda" data-mobile-only></div>
         </div>
-      </div>
-    </div>
 
-    <!-- 8. HABITS (Collapsible) -->
-    <div class="habits-section" data-tab-section="habits">
-      <div class="habits-header" onclick="toggleHabitsSection()">
-        <h2>✨ Habits</h2>
-        <span class="habits-toggle" id="habitsToggle" style="margin-left: auto;">▼</span>
-      </div>
-
-      <div class="habits-content" id="habitsContent">
-        <h3 class="inspirational-quote">You don't look like your goals. You look like your habits. Effort never lies.
+        <div class="kanban-board week-kanban" id="weekKanban"></div>
+        <h3 class="inspirational-quote" style="margin-top: 24px;">Your future is created by what you do today, not tomorrow
         </h3>
-        <div class="glass-panel">
-          <div class="calendar-header">
-            <div class="calendar-title-group" style="flex-direction: column;">
-              <h3 id="habitsWeekTitle">Today, Week of December 30</h3>
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
-              <button class="btn" onclick="changeHabitsWeek(-1)" aria-label="Previous week">◀︎</button>
-              <button class="btn" onclick="goToHabitsToday()" style="margin: 0 4px;">Today</button>
-              <button class="btn" onclick="changeHabitsWeek(1)" aria-label="Next week">▶︎</button>
-            </div>
-          </div>
-          <div style="margin: 8px 0 4px 0;">
-            <button class="btn" onclick="addHabit()">+ New Habit</button>
-          </div>
-          <div class="habits-grid" id="habits"></div>
+      </section>
 
-          <!-- Habit Analytics (Collapsible) -->
-          <div class="habit-analytics collapsed" id="habitAnalytics">
-            <div style="display: flex; justify-content: center; margin-top: 8px; margin-bottom: 16px;">
-              <button class="btn icon-btn" onclick="toggleAnalytics()" id="analyticsToggle" title="Toggle Analytics">
-                📊
-              </button>
+      <!-- 4. CALENDAR (Collapsible) -->
+      <div class="calendar-section">
+        <div class="calendar-section-header" onclick="toggleCalendarSection()">
+          <h2>📅 Calendar</h2>
+          <span class="calendar-section-toggle" id="calendarToggle" style="margin-left: auto;">▼</span>
+        </div>
+
+        <div class="calendar-section-content" id="calendarContent">
+          <div class="glass-panel">
+            <div class="calendar-header">
+              <div class="calendar-title-group" style="flex-direction: column;">
+                <h3 id="title">User Calendar</h3>
+              </div>
+              <div class="section-nav-buttons" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+                <button class="btn calendars-btn" onclick="CalendarUI.openCalendars({ returnFocus: this })">Calendars</button>
+                <button class="btn" onclick="goToToday()" style="margin-right: 8px;">Today</button>
+                <button class="btn chevron-prev" id="prevMonth" aria-label="Previous month">◀︎</button>
+                <button class="btn chevron-next" id="nextMonth" aria-label="Next month">▶︎</button>
+              </div>
             </div>
-            <div class="analytics-content" id="analyticsContent">
-              <div class="habit-stats-grid">
-                <div class="habit-stat-card">
-                  <div class="habit-stat-value" id="habitOverallRate">--%</div>
-                  <div class="habit-stat-label">This Week</div>
+
+            <div class="calendar-grid-header">
+              <div>MO</div>
+              <div>DI</div>
+              <div>MI</div>
+              <div>DO</div>
+              <div>FR</div>
+              <div>SA</div>
+              <div>SO</div>
+            </div>
+
+            <div class="calendar-grid" id="calendar">
+              <!-- JS generates Calendar -->
+            </div>
+
+            <!-- Phone/tablet: tasks of the selected day (filled by renderCalendarAgenda in js/app.js) -->
+            <div class="calendar-agenda" id="calendarAgenda" data-mobile-only></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section class="page-section" id="section-health" aria-label="Health">
+      <!-- 7. HEALTH HUB (Collapsible) -->
+      <div class="gym-hub-section">
+        <div class="gym-hub-header" onclick="toggleGymHub()">
+          <h2>🔋 Health Hub</h2>
+          <span class="gym-hub-toggle" id="gymHubToggle">▼</span>
+        </div>
+
+        <!-- Hero section always visible -->
+        <div class="gym-hub-hero-always">
+          <!-- ===== TODAY'S DASHBOARD (Hero Card) ===== -->
+          <div class="gym-hero glass-panel">
+            <div class="hero-grid">
+              <!-- Streak Section -->
+              <div class="hero-stat">
+                <div class="hero-stat-icon">🔥</div>
+                <div class="hero-stat-content">
+                  <div class="hero-stat-value" id="streakNumber">0</div>
+                  <div class="hero-stat-label">Day Streak</div>
                 </div>
-                <div class="habit-stat-card">
-                  <div class="habit-stat-value" id="habitMonthlyRate">--%</div>
-                  <div class="habit-stat-label">Last 4 Weeks</div>
+                <button class="btn hero-btn" onclick="logWorkoutDay()">✓ Log</button>
+              </div>
+
+              <!-- Water Section -->
+              <div class="hero-stat water">
+                <div class="hero-stat-icon">💧</div>
+                <div class="hero-stat-content">
+                  <div class="hero-stat-value"><span id="waterAmount">0</span><span class="hero-stat-unit">ml</span></div>
+                  <div class="water-mini-bar">
+                    <div class="water-mini-fill" id="waterProgressFill"></div>
+                  </div>
                 </div>
-                <div class="habit-stat-card">
-                  <div class="habit-stat-value" id="habitCurrentStreak">--</div>
-                  <div class="habit-stat-label">Current Streak</div>
-                </div>
-                <div class="habit-stat-card">
-                  <div class="habit-stat-value" id="habitBestStreak">--</div>
-                  <div class="habit-stat-label">Best Streak</div>
+                <div class="hero-water-btns-vertical">
+                  <button class="btn hero-btn small" onclick="addWater(250)">+250</button>
+                  <button class="btn hero-btn small" onclick="addWater(500)">+500</button>
+                  <button class="btn hero-btn small" onclick="addWater(1000)">+1000</button>
                 </div>
               </div>
 
-              <!-- Per-Habit Breakdown -->
-              <div class="habit-breakdown" id="habitBreakdown"></div>
+              <!-- Supplements Quick Add -->
+              <div class="hero-stat hero-supps-quick">
+                <div class="hero-stat-label" style="text-align: center; margin-bottom: 6px;">Supplements</div>
+                <div class="hero-supps-btns" id="heroSuppsQuick">
+                  <button class="btn hero-btn icon-only supp-quick-btn" data-supp="öl ziehen"
+                    onclick="quickToggleSupplement('öl ziehen')" title="Öl Ziehen (Oil Pulling)">🥥</button>
+                  <button class="btn hero-btn icon-only supp-quick-btn" data-supp="salzwasser"
+                    onclick="quickToggleSupplement('salzwasser')" title="Salzwasser (Salt Water)">🧂</button>
+                  <button class="btn hero-btn icon-only supp-quick-btn" data-supp="apfelessig"
+                    onclick="quickToggleSupplement('apfelessig')" title="Apfelessig (Apple Cider Vinegar)">🍎</button>
+                  <button class="btn hero-btn icon-only supp-quick-btn" data-supp="vitamin d"
+                    onclick="quickToggleSupplement('vitamin d')" title="Vitamin D">☀️</button>
+                  <button class="btn hero-btn icon-only supp-quick-btn" data-supp="multivitamin"
+                    onclick="quickToggleSupplement('multivitamin')" title="Multivitamin">💊</button>
+                  <button class="btn hero-btn icon-only supp-quick-btn" data-supp="schwarzkümmelöl"
+                    onclick="quickToggleSupplement('schwarzkümmelöl')"
+                    title="Schwarzkümmelöl (Black Cumin Oil)">🖤</button>
+                  <button class="btn hero-btn icon-only supp-quick-btn" data-supp="eisen"
+                    onclick="quickToggleSupplement('eisen')" title="Eisen (Iron)">🔩</button>
+                  <button class="btn hero-btn icon-only supp-quick-btn" data-supp="zink"
+                    onclick="quickToggleSupplement('zink')" title="Zink (Zinc)">⚡</button>
+                  <button class="btn hero-btn icon-only supp-quick-btn" data-supp="magnesium"
+                    onclick="quickToggleSupplement('magnesium')" title="Magnesium">🧲</button>
+                </div>
+              </div>
 
-              <!-- Weekly Trend Chart -->
-              <div class="habit-chart-container">
+              <!-- Mini Quick Add -->
+              <div class="hero-stat hero-quick-add">
+                <div class="hero-stat-label" style="text-align: center; margin-bottom: 6px;">Quick Add</div>
+                <div class="hero-quick-btns">
+                  <button class="btn hero-btn icon-only" onclick="quickAddFood('chicken', 165, 31, 0, 3.6)"
+                    title="Chicken">🍗</button>
+                  <button class="btn hero-btn icon-only" onclick="quickAddFood('rice', 130, 2.7, 28, 0.3)"
+                    title="Rice">🍚</button>
+                  <button class="btn hero-btn icon-only" onclick="quickAddFood('eggs', 155, 13, 1.1, 11)"
+                    title="Eggs">🥚</button>
+                  <button class="btn hero-btn icon-only" onclick="quickAddFood('shake', 120, 25, 3, 1)"
+                    title="Shake">🥤</button>
+                </div>
+              </div>
+
+              <!-- Mini Donut Chart & Status Merged -->
+              <div class="hero-donut">
+                <div class="hero-donut-chart">
+                  <svg class="mini-donut" viewBox="0 0 100 100">
+                    <circle class="mini-donut-bg" cx="50" cy="50" r="40" />
+                    <circle class="mini-donut-segment pro" id="heroDonutPro" cx="50" cy="50" r="40"
+                      stroke-dasharray="0 251.3" />
+                    <circle class="mini-donut-segment carb" id="heroDonutCarb" cx="50" cy="50" r="40"
+                      stroke-dasharray="0 251.3" />
+                    <circle class="mini-donut-segment fat" id="heroDonutFat" cx="50" cy="50" r="40"
+                      stroke-dasharray="0 251.3" />
+                  </svg>
+                  <div class="hero-donut-center">
+                    <span class="hero-donut-value" id="heroTotalCal">0</span>
+                    <span class="hero-donut-label">kcal</span>
+                  </div>
+                </div>
+                <div class="hero-donut-legend">
+                  <div class="mini-legend-item"><span class="dot pro"></span><span id="heroLegendPro">0g</span></div>
+                  <div class="mini-legend-item"><span class="dot carb"></span><span id="heroLegendCarb">0g</span></div>
+                  <div class="mini-legend-item"><span class="dot fat"></span><span id="heroLegendFat">0g</span></div>
+                </div>
+
+                <!-- Status Group -->
+                <div class="hero-status-group">
+                  <div class="status-badge on-track" id="statusBadge">
+                    <span class="status-icon">✓</span>
+                    <span class="status-text">On Track</span>
+                  </div>
+                  <div class="status-detail">
+                    <span id="statusRemaining">2000</span> kcal left
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="streak-history" id="streakHistory"></div>
+
+        <!-- Step Challenge (rendered by js/steps.js once the user is known) -->
+        <section class="glass-panel step-card" id="stepChallenge" aria-labelledby="stepChallengeTitle" hidden></section>
+
+        <!-- Collapsible content -->
+        <div class="gym-hub-content collapsed" id="gymHubContent">
+          <!-- Motivational Quote -->
+          <h3 class="inspirational-quote" id="gymQuote">The only bad workout is the one that didn't happen.</h3>
+
+          <div class="gym-hub-grid pro">
+            <!-- ===== TRAINING CARD ===== -->
+            <div class="gym-card glass-panel">
+              <div class="gym-card-header">
+                <span class="gym-card-icon">🏋️</span>
+                <h3>Training</h3>
+              </div>
+              <div class="gym-date-nav-compact">
+                <button class="btn chevron-prev" onclick="navigateTrainingDate(-1)" aria-label="Previous day">◀︎</button>
+                <span class="gym-date-label" id="trainingDateDisplay">Today</span>
+                <button class="btn chevron-next" onclick="navigateTrainingDate(1)" id="trainingNextBtn" aria-label="Next day">▶︎</button>
+                <button class="btn gym-today-btn" id="trainingTodayBtn" onclick="goToTrainingToday()"
+                  style="display:none">Today</button>
+              </div>
+
+              <!-- Training Goal -->
+
+              <!-- Weekly Split (Compact) -->
+              <div class="split-compact">
+                <div class="split-day-compact" data-day="0"><span>S</span></div>
+                <div class="split-day-compact" data-day="1"><span>M</span></div>
+                <div class="split-day-compact" data-day="2"><span>T</span></div>
+                <div class="split-day-compact" data-day="3"><span>W</span></div>
+                <div class="split-day-compact" data-day="4"><span>T</span></div>
+                <div class="split-day-compact" data-day="5"><span>F</span></div>
+                <div class="split-day-compact" data-day="6"><span>S</span></div>
+              </div>
+
+              <div class="split-edit-list">
+                <div class="split-input-row">
+                  <span class="day-label">Mon</span>
+                  <input type="text" id="splitMon" placeholder="Push" class="split-input-clean"
+                    onchange="saveGymData('weeklySplit')" />
+                </div>
+                <div class="split-input-row">
+                  <span class="day-label">Tue</span>
+                  <input type="text" id="splitTue" placeholder="Pull" class="split-input-clean"
+                    onchange="saveGymData('weeklySplit')" />
+                </div>
+                <div class="split-input-row">
+                  <span class="day-label">Wed</span>
+                  <input type="text" id="splitWed" placeholder="Legs" class="split-input-clean"
+                    onchange="saveGymData('weeklySplit')" />
+                </div>
+                <div class="split-input-row">
+                  <span class="day-label">Thu</span>
+                  <input type="text" id="splitThu" placeholder="Rest" class="split-input-clean"
+                    onchange="saveGymData('weeklySplit')" />
+                </div>
+                <div class="split-input-row">
+                  <span class="day-label">Fri</span>
+                  <input type="text" id="splitFri" placeholder="Push" class="split-input-clean"
+                    onchange="saveGymData('weeklySplit')" />
+                </div>
+                <div class="split-input-row">
+                  <span class="day-label">Sat</span>
+                  <input type="text" id="splitSat" placeholder="Pull" class="split-input-clean"
+                    onchange="saveGymData('weeklySplit')" />
+                </div>
+                <div class="split-input-row">
+                  <span class="day-label">Sun</span>
+                  <input type="text" id="splitSun" placeholder="Rest" class="split-input-clean"
+                    onchange="saveGymData('weeklySplit')" />
+                </div>
+              </div>
+
+              <!-- Training Goals (Checklist) -->
+              <div class="section-label" style="margin-top: 16px;">Gym Goals</div>
+              <div class="checklist-container" id="trainingGoalsList"></div>
+              <div class="add-row">
+                <input type="text" id="newTrainingGoal" placeholder="Add goal..."
+                  onkeypress="handleEnter(event, addTrainingGoal)" />
+                <button class="btn" onclick="addTrainingGoal()">+</button>
+              </div>
+            </div>
+
+            <!-- ===== NUTRITION CARD ===== -->
+            <div class="gym-card glass-panel">
+              <div class="gym-card-header">
+                <span class="gym-card-icon">🥗</span>
+                <h3>Nutrition</h3>
+                <button class="settings-icon-btn" onclick="openNutritionSettings()">⚙️</button>
+              </div>
+              <div class="gym-date-nav-compact">
+                <button class="btn chevron-prev" onclick="navigateNutritionDate(-1)" aria-label="Previous day">◀︎</button>
+                <span class="gym-date-label" id="nutritionDateDisplay">Today</span>
+                <button class="btn chevron-next" onclick="navigateNutritionDate(1)" id="nutritionNextBtn" aria-label="Next day">▶︎</button>
+                <button class="btn gym-today-btn" id="nutritionTodayBtn" onclick="goToNutritionToday()"
+                  style="display:none">Today</button>
+              </div>
+
+              <!-- Macro Tracker - Circular Charts -->
+              <div class="macro-rings">
+                <div class="macro-ring-item">
+                  <div class="ring-wrapper">
+                    <svg class="ring-chart" viewBox="0 0 100 100">
+                      <circle class="ring-bg" cx="50" cy="50" r="42" />
+                      <circle class="ring-fill cal" id="ringCalories" cx="50" cy="50" r="42" stroke-dasharray="264"
+                        stroke-dashoffset="264" />
+                    </svg>
+                    <div class="ring-center">
+                      <span class="ring-value" id="ringCalValue">0</span>
+                      <span class="ring-label">cal</span>
+                    </div>
+                  </div>
+                  <input type="number" id="macroCalories" placeholder="0" class="ring-input" oninput="updateMacroChart()"
+                    onchange="saveGymData('macros')" />
+                  <div class="ring-goal">/ <span id="goalCalDisplay">2000</span></div>
+                </div>
+
+                <div class="macro-ring-item">
+                  <div class="ring-wrapper">
+                    <svg class="ring-chart" viewBox="0 0 100 100">
+                      <circle class="ring-bg" cx="50" cy="50" r="42" />
+                      <circle class="ring-fill pro" id="ringProtein" cx="50" cy="50" r="42" stroke-dasharray="264"
+                        stroke-dashoffset="264" />
+                    </svg>
+                    <div class="ring-center">
+                      <span class="ring-value" id="ringProValue">0</span>
+                      <span class="ring-label">P</span>
+                    </div>
+                  </div>
+                  <input type="number" id="macroProtein" placeholder="0" class="ring-input" oninput="updateMacroChart()"
+                    onchange="saveGymData('macros')" />
+                  <div class="ring-goal">/ <span id="goalProtDisplay">150</span>g</div>
+                </div>
+
+                <div class="macro-ring-item">
+                  <div class="ring-wrapper">
+                    <svg class="ring-chart" viewBox="0 0 100 100">
+                      <circle class="ring-bg" cx="50" cy="50" r="42" />
+                      <circle class="ring-fill carb" id="ringCarbs" cx="50" cy="50" r="42" stroke-dasharray="264"
+                        stroke-dashoffset="264" />
+                    </svg>
+                    <div class="ring-center">
+                      <span class="ring-value" id="ringCarbValue">0</span>
+                      <span class="ring-label">C</span>
+                    </div>
+                  </div>
+                  <input type="number" id="macroCarbs" placeholder="0" class="ring-input" oninput="updateMacroChart()"
+                    onchange="saveGymData('macros')" />
+                  <div class="ring-goal">/ <span id="goalCarbDisplay">200</span>g</div>
+                </div>
+
+                <div class="macro-ring-item">
+                  <div class="ring-wrapper">
+                    <svg class="ring-chart" viewBox="0 0 100 100">
+                      <circle class="ring-bg" cx="50" cy="50" r="42" />
+                      <circle class="ring-fill fat" id="ringFat" cx="50" cy="50" r="42" stroke-dasharray="264"
+                        stroke-dashoffset="264" />
+                    </svg>
+                    <div class="ring-center">
+                      <span class="ring-value" id="ringFatValue">0</span>
+                      <span class="ring-label">F</span>
+                    </div>
+                  </div>
+                  <input type="number" id="macroFat" placeholder="0" class="ring-input" oninput="updateMacroChart()"
+                    onchange="saveGymData('macros')" />
+                  <div class="ring-goal">/ <span id="goalFatDisplay">70</span>g</div>
+                </div>
+              </div>
+
+
+              <!-- Quick Add Foods -->
+              <div class="quick-add-section">
+                <div class="quick-add-label">Quick Add:</div>
+                <div class="quick-add-buttons">
+                  <button class="quick-add-btn" onclick="quickAddFood('chicken', 165, 31, 0, 3.6)">🍗 Chicken</button>
+                  <button class="quick-add-btn" onclick="quickAddFood('rice', 130, 2.7, 28, 0.3)">🍚 Rice</button>
+                  <button class="quick-add-btn" onclick="quickAddFood('eggs', 155, 13, 1.1, 11)">🥚 2 Eggs</button>
+                  <button class="quick-add-btn" onclick="quickAddFood('shake', 120, 25, 3, 1)">🥤 Shake</button>
+                  <button class="quick-add-btn" onclick="quickAddFood('oats', 150, 5, 27, 3)">🥣 Oats</button>
+                  <button class="quick-add-btn" onclick="quickAddFood('banana', 105, 1.3, 27, 0.4)">🍌 Banana</button>
+                </div>
+              </div>
+
+              <!-- Macro Summary Chart -->
+              <div class="macro-summary">
+                <div class="summary-donut">
+                  <svg class="donut-chart" viewBox="0 0 100 100">
+                    <circle class="donut-bg" cx="50" cy="50" r="40" />
+                    <circle class="donut-segment pro" id="donutProtein" cx="50" cy="50" r="40"
+                      stroke-dasharray="0 251.3" />
+                    <circle class="donut-segment carb" id="donutCarbs" cx="50" cy="50" r="40"
+                      stroke-dasharray="0 251.3" />
+                    <circle class="donut-segment fat" id="donutFat" cx="50" cy="50" r="40" stroke-dasharray="0 251.3" />
+                  </svg>
+                  <div class="donut-center">
+                    <span class="donut-total" id="totalCalories">0</span>
+                    <span class="donut-label">kcal</span>
+                  </div>
+                </div>
+                <div class="summary-legend">
+                  <div class="legend-item">
+                    <span class="legend-dot pro"></span>
+                    <span class="legend-text">Protein</span>
+                    <span class="legend-value" id="legendProtein">0g (0%)</span>
+                  </div>
+                  <div class="legend-item">
+                    <span class="legend-dot carb"></span>
+                    <span class="legend-text">Carbs</span>
+                    <span class="legend-value" id="legendCarbs">0g (0%)</span>
+                  </div>
+                  <div class="legend-item">
+                    <span class="legend-dot fat"></span>
+                    <span class="legend-text">Fat</span>
+                    <span class="legend-value" id="legendFat">0g (0%)</span>
+                  </div>
+                  <div class="legend-divider"></div>
+                  <div class="legend-item total">
+                    <span class="legend-text">Remaining</span>
+                    <span class="legend-value" id="legendRemaining">2000 kcal</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+
+            <!-- ===== DAILY HABITS CARD ===== -->
+            <div class="gym-card glass-panel card-compact supplements-card" style="height: fit-content;">
+              <div class="gym-card-header">
+                <span class="gym-card-icon">💊</span>
+                <h3>Supplements</h3>
+              </div>
+              <div class="gym-date-nav-compact">
+                <button class="btn chevron-prev" onclick="navigateSupplementsDate(-1)" aria-label="Previous week">◀︎</button>
+                <span class="gym-date-label" id="supplementsDateDisplay">This Week</span>
+                <button class="btn chevron-next" onclick="navigateSupplementsDate(1)" id="supplementsNextBtn" aria-label="Next week">▶︎</button>
+                <button class="btn gym-today-btn" id="supplementsTodayBtn" onclick="goToSupplementsToday()"
+                  style="display:none">Today</button>
+              </div>
+
+              <!-- Supplements -->
+              <div class="checklist-container" id="supplementList"></div>
+              <div class="add-row center" style="justify-content: center;">
+                <button class="btn" onclick="addSupplement()">+</button>
+              </div>
+
+            </div>
+
+            <!-- ===== WATER TRACKER CARD ===== -->
+            <div class="gym-card glass-panel card-compact" style="height: fit-content;">
+              <div class="gym-card-header">
+                <span class="gym-card-icon">💧</span>
+                <h3>Water</h3>
+              </div>
+              <div class="water-tracker-compact">
+                <div class="water-display-compact">
+                  <span class="water-amount-big" id="waterAmountCard">0</span>
+                  <span class="water-unit-big">ml</span>
+                </div>
+                <div class="water-progress-compact">
+                  <div class="water-bar-bg">
+                    <div class="water-bar-fill" id="waterProgressFillCard"></div>
+                  </div>
+                  <span class="water-goal-text">/ 3000ml</span>
+                </div>
+                <div class="water-btns-row">
+                  <button class="btn" onclick="addWater(250)">+250</button>
+                  <button class="btn" onclick="addWater(500)">+500</button>
+                  <button class="btn water-reset" onclick="resetWater()">↺</button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- 9. WEEKLY REVIEW (Collapsible) -->
-    <div class="weekly-review-section" data-tab-section="habits">
-      <div class="weekly-review-header" onclick="toggleWeeklyReviewSection()">
-        <h2>📝 Weekly Review</h2>
-        <span class="weekly-review-toggle" id="weeklyReviewToggle" style="margin-left: auto;">▼</span>
-      </div>
+    <div class="divider"></div>
 
-      <div class="weekly-review-content" id="weeklyReviewContent">
-        <div class="glass-panel">
-          <div class="calendar-header">
-            <div class="calendar-title-group" style="flex-direction: column;">
-              <h3 id="reviewWeekTitle">Today, Week of December 30</h3>
+    <section class="page-section" id="section-habits" aria-label="Habits">
+      <!-- 8. HABITS (Collapsible) -->
+      <div class="habits-section">
+        <div class="habits-header" onclick="toggleHabitsSection()">
+          <h2>✨ Habits</h2>
+          <span class="habits-toggle" id="habitsToggle" style="margin-left: auto;">▼</span>
+        </div>
+
+        <div class="habits-content" id="habitsContent">
+          <h3 class="inspirational-quote">You don't look like your goals. You look like your habits. Effort never lies.
+          </h3>
+          <div class="glass-panel">
+            <div class="calendar-header">
+              <div class="calendar-title-group" style="flex-direction: column;">
+                <h3 id="habitsWeekTitle">Today, Week of December 30</h3>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+                <button class="btn chevron-prev" onclick="changeHabitsWeek(-1)" aria-label="Previous week">◀︎</button>
+                <button class="btn" onclick="goToHabitsToday()" style="margin: 0 4px;">Today</button>
+                <button class="btn chevron-next" onclick="changeHabitsWeek(1)" aria-label="Next week">▶︎</button>
+              </div>
             </div>
-            <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
-              <button class="btn" onclick="goToReviewToday()" style="margin-right: 8px;">Today</button>
-              <button class="btn" onclick="changeReviewWeek(-1)" aria-label="Previous week">◀︎</button>
-              <button class="btn" onclick="changeReviewWeek(1)" aria-label="Next week">▶︎</button>
+            <div class="habits-toolbar">
+              <button class="btn" onclick="addHabit()">+ New Habit</button>
+            </div>
+            <div class="habits-grid" id="habits"></div>
+
+            <!-- Habit Analytics (Collapsible) -->
+            <div class="habit-analytics collapsed" id="habitAnalytics">
+              <div style="display: flex; justify-content: center; margin-top: 8px; margin-bottom: 16px;">
+                <button class="btn icon-btn" onclick="toggleAnalytics()" id="analyticsToggle" title="Toggle Analytics">
+                  📊
+                </button>
+              </div>
+              <div class="analytics-content" id="analyticsContent">
+                <div class="habit-stats-grid">
+                  <div class="habit-stat-card">
+                    <div class="habit-stat-value" id="habitOverallRate">--%</div>
+                    <div class="habit-stat-label">This Week</div>
+                  </div>
+                  <div class="habit-stat-card">
+                    <div class="habit-stat-value" id="habitMonthlyRate">--%</div>
+                    <div class="habit-stat-label">Last 4 Weeks</div>
+                  </div>
+                  <div class="habit-stat-card">
+                    <div class="habit-stat-value" id="habitCurrentStreak">--</div>
+                    <div class="habit-stat-label">Current Streak</div>
+                  </div>
+                  <div class="habit-stat-card">
+                    <div class="habit-stat-value" id="habitBestStreak">--</div>
+                    <div class="habit-stat-label">Best Streak</div>
+                  </div>
+                </div>
+
+                <!-- Per-Habit Breakdown -->
+                <div class="habit-breakdown" id="habitBreakdown"></div>
+
+                <!-- Weekly Trend Chart -->
+                <div class="habit-chart-container">
+                </div>
+              </div>
             </div>
           </div>
-          <textarea class="weekly-review" id="weeklyReview"
-            placeholder="How was your week? What did you accomplish? What could be better?"></textarea>
         </div>
       </div>
-    </div>
+
+      <!-- 9. WEEKLY REVIEW (Collapsible) -->
+      <div class="weekly-review-section">
+        <div class="weekly-review-header" onclick="toggleWeeklyReviewSection()">
+          <h2>📝 Weekly Review</h2>
+          <span class="weekly-review-toggle" id="weeklyReviewToggle" style="margin-left: auto;">▼</span>
+        </div>
+
+        <div class="weekly-review-content" id="weeklyReviewContent">
+          <div class="glass-panel">
+            <div class="calendar-header">
+              <div class="calendar-title-group" style="flex-direction: column;">
+                <h3 id="reviewWeekTitle">Today, Week of December 30</h3>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+                <button class="btn" onclick="goToReviewToday()" style="margin-right: 8px;">Today</button>
+                <button class="btn chevron-prev" onclick="changeReviewWeek(-1)" aria-label="Previous week">◀︎</button>
+                <button class="btn chevron-next" onclick="changeReviewWeek(1)" aria-label="Next week">▶︎</button>
+              </div>
+            </div>
+            <textarea class="weekly-review" id="weeklyReview"
+              placeholder="How was your week? What did you accomplish? What could be better?"></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section class="page-section" id="section-lists" aria-label="Lists">
+      <!-- 3. MINI LISTS (Goals 2026, Shopping, Chores) -->
+      <section class="lists-section" aria-label="Lists">
+        <h2 class="mobile-section-title" data-mobile-only>📋 Lists</h2>
+        <div id="unifiedListsGrid" class="lists-grid"></div>
+
+        <button class="btn glass-panel create-list-btn" onclick="createNewCustomList()"
+          style="width: auto; min-width: 200px; border: 1px dashed rgba(255,255,255,0.3); justify-content: center; padding: 12px 24px; opacity: 0.8; margin: 48px auto 48px auto; display: flex;">
+          + Create New List
+        </button>
+      </section>
+    </section>
   </div>
 
   <!-- Nutrition Settings Modal -->
@@ -1026,39 +1044,43 @@
     </div>
   </div>
 
-  <!-- Phone/tablet section tabs (shown only with html.tabs-on, see js/mobile.js) -->
-  <nav class="mobile-tabbar" id="mobileTabbar" aria-label="Dashboard sections" data-mobile-only>
-    <button type="button" class="mobile-tab" data-tab="today">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
-      <span>Today</span>
-    </button>
-    <button type="button" class="mobile-tab" data-tab="week">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
-      <span>Week</span>
-    </button>
-    <button type="button" class="mobile-tab" data-tab="health">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg>
-      <span>Health</span>
-    </button>
-    <button type="button" class="mobile-tab" data-tab="habits">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.3 5 5.2.6-3.9 3.6 1.1 5.2L12 15.3l-4.7 2.6 1.1-5.2-3.9-3.6 5.2-.6z"/></svg>
-      <span>Habits</span>
-    </button>
-    <button type="button" class="mobile-tab" data-tab="lists">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.75" cy="6.5" r="1.25"/><circle cx="4.75" cy="12" r="1.25"/><circle cx="4.75" cy="17.5" r="1.25"/></svg>
-      <span>Lists</span>
-    </button>
+  <!-- Phone/tablet: section bar. The page scrolls continuously; the bar marks the section on
+       screen and jumps to a section (js/mobile.js). Plain links, so it also works without JS. -->
+  <nav class="mobile-tabbar" id="mobileTabbar" aria-label="Sections" data-mobile-only>
+    <span class="tabbar-indicator" aria-hidden="true"></span>
+    <a class="mobile-tab" href="#section-today" data-section="today">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zm4.6 7.2-5.3 5.9a1 1 0 0 1-1.45.04l-2.6-2.6a1 1 0 1 1 1.42-1.42l1.85 1.86 4.6-5.12a1 1 0 0 1 1.48 1.34z"/></svg>
+      <span class="mobile-tab-label">Today</span>
+    </a>
+    <a class="mobile-tab" href="#section-week" data-section="week">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2.25a1 1 0 0 1 1 1V4h6v-.75a1 1 0 1 1 2 0V4h.75A3.25 3.25 0 0 1 21 7.25V9H3V7.25A3.25 3.25 0 0 1 6.25 4H7v-.75a1 1 0 0 1 1-1zM3 10.5h18v7.25A3.25 3.25 0 0 1 17.75 21H6.25A3.25 3.25 0 0 1 3 17.75V10.5zm4 2.75a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm5 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm5 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5z"/></svg>
+      <span class="mobile-tab-label">Week</span>
+    </a>
+    <a class="mobile-tab" href="#section-health" data-section="health">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.2c-.3 0-.6-.1-.85-.27C7.9 18.7 2.5 14.6 2.5 9.3 2.5 6.3 4.8 4 7.6 4c1.8 0 3.4.9 4.4 2.3C13 4.9 14.6 4 16.4 4c2.8 0 5.1 2.3 5.1 5.3 0 5.3-5.4 9.4-8.65 11.63-.25.17-.55.27-.85.27z"/></svg>
+      <span class="mobile-tab-label">Health</span>
+    </a>
+    <a class="mobile-tab" href="#section-habits" data-section="habits">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.9 2.9l2.25 4.7 5.13.7c.82.12 1.15 1.13.55 1.7l-3.74 3.6.92 5.1c.15.82-.71 1.44-1.44 1.05L12 17.33l-4.57 2.42c-.73.39-1.59-.23-1.44-1.05l.92-5.1-3.74-3.6c-.6-.57-.27-1.58.55-1.7l5.13-.7 2.25-4.7c.36-.75 1.44-.75 1.8 0z"/></svg>
+      <span class="mobile-tab-label">Habits</span>
+    </a>
+    <a class="mobile-tab" href="#section-lists" data-section="lists">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 4.75a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5zm0 5.5a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5zm0 5.5a1.75 1.75 0 1 1 0 3.5 1.75 1.75 0 0 1 0-3.5zM9 5.25h11.25a1.25 1.25 0 0 1 0 2.5H9a1.25 1.25 0 0 1 0-2.5zm0 5.5h11.25a1.25 1.25 0 0 1 0 2.5H9a1.25 1.25 0 0 1 0-2.5zm0 5.5h11.25a1.25 1.25 0 0 1 0 2.5H9a1.25 1.25 0 0 1 0-2.5z"/></svg>
+      <span class="mobile-tab-label">Lists</span>
+    </a>
   </nav>
 
   <!-- Supabase (pinned: update deliberately, not on every upstream release) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
-  <script src="js/data-utils.js?v=20261016"></script>
+  <script src="js/data-utils.js?v=20261016c"></script>
+  <script src="js/calendar-core.js?v=20261016c"></script>
   <script src="js/auth.js?v=20261016"></script>
-  <script src="js/supabase.js?v=20261016"></script>
+  <script src="js/supabase.js?v=20261016c"></script>
   <script src="js/steps-core.js?v=20261016"></script>
   <script src="js/steps.js?v=20261016"></script>
-  <script src="js/mobile.js?v=20261016b"></script>
-  <script src="js/app.js?v=20261016b"></script>
+  <script src="js/mobile.js?v=20261016c"></script>
+  <script src="js/app.js?v=20261016c"></script>
+  <script src="js/calendar-ui.js?v=20261016c"></script>
 </body>
 
 </html>

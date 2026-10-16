@@ -1234,6 +1234,11 @@ body.dark .task-item {
 }
 
 /* ===== HABITS ===== */
+/* "+ New Habit" sits above the weekday labels of the habit table: keep them apart */
+.habits-toolbar {
+    margin: 8px 0 20px;
+}
+
 .habits-grid {
     display: grid;
     grid-template-columns: 200px repeat(7, 1fr);

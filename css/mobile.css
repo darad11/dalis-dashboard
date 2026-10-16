@@ -1,12 +1,23 @@
 /*
  * Phones, tablets and foldables (iPhone, iPhone Duo folded/unfolded, iPad).
- * Loaded after style.css. Desktop (mouse/trackpad, 1100px and wider) is untouched:
- *   - .tabs-on      touch screen narrower than 1100px (set in index.html / js/mobile.js)
- *   - (hover: none) touch screen of any width (no hover, no double-click, no right-click)
- *   - max-width     layout fixes that narrow desktop windows need as well
- * Layouts depend on the available width only. Safari does not tell whether an iPhone Duo
- * is folded, so folded (~466px), split view (~445px) and unfolded (~890px landscape)
- * simply use the compact (< 700px) or medium (700-1099px) layout.
+ * Loaded after style.css and calendar.css. Desktop (mouse/trackpad, 1100px and wider) is untouched:
+ *   - html.touch-layout  touch screen narrower than 1100px (set in index.html / js/mobile.js)
+ *   - (hover: none)      touch screen of any width (no hover, no double-click, no right-click)
+ *   - max-width          layout fixes that narrow desktop windows need as well
+ *
+ * Touch layout = iOS look (Apple Human Interface Guidelines, iOS 26/27):
+ *   - Liquid Glass only on the navigation layer that floats above the content: app bar buttons,
+ *     section bar, menus. Content sits on solid inset grouped cards (HIG Materials: no glass in
+ *     the content layer).
+ *   - System font with Dynamic Type (Safari: -apple-system-body follows the text size set in
+ *     iOS Settings; sizes below are rem of that body size, 17px by default).
+ *   - iOS system colours with dark and increased contrast variants. Two values are a little
+ *     darker/lighter than Apple's defaults so that text keeps a 4.5:1 contrast (WCAG AA):
+ *     secondary text and the indigo tint (the dashboard's brand colour).
+ *   - Controls at least 44 x 44 pt.
+ * Layouts depend on the available width only. Safari does not tell whether an iPhone Duo is
+ * folded, so folded (~466px), split view (~445px) and unfolded (~890px landscape) simply use the
+ * compact (< 700px) or medium (700-1099px) layout.
  */
 
 :root {
@@ -14,15 +25,7 @@
     --safe-right: env(safe-area-inset-right, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --safe-left: env(safe-area-inset-left, 0px);
-    --tabbar-height: 58px;
     --touch-target: 44px;
-    --tabbar-bg: rgba(246, 247, 250, 0.88);
-    --tab-active: #4f46e5;
-}
-
-body.dark {
-    --tabbar-bg: rgba(15, 23, 42, 0.88);
-    --tab-active: #a5b4fc;
 }
 
 html {
@@ -38,7 +41,7 @@ body {
 /* Elements that only exist for the phone/tablet layout */
 .mobile-tabbar,
 .mobile-section-title,
-.calendar-agenda,
+.app-bar-actions,
 .fab-item-label,
 .item-more-btn {
     display: none;
@@ -174,17 +177,11 @@ body {
     .kanban-card,
     .focus-item,
     .mobile-tab,
-    .item-more-btn {
+    .item-more-btn,
+    .agenda-row,
+    .menu-item,
+    .app-bar-btn {
         -webkit-tap-highlight-color: transparent;
-    }
-
-    /* Pressed feedback instead of hover */
-    .btn:active,
-    .kanban-add-btn:active,
-    .add-task-btn:active,
-    .quick-add-btn:active {
-        transform: scale(0.97);
-        background-color: rgba(99, 102, 241, 0.14);
     }
 
     /* Blur on ~150 buttons costs scrolling smoothness on phones; buttons are opaque enough */
@@ -193,7 +190,7 @@ body {
         backdrop-filter: none;
     }
 
-    /* Hover-only delete buttons were invisible but still tappable: replaced by "⋯" sheets */
+    /* Hover-only delete buttons were invisible but still tappable: replaced by "⋯" menus */
     .focus-delete,
     .kanban-card-delete,
     .task-delete,
@@ -222,13 +219,14 @@ body {
     }
 
     .item-more-btn svg {
-        width: 20px;
-        height: 20px;
+        width: 22px;
+        height: 22px;
         fill: currentColor;
     }
 
-    .item-more-btn:active {
-        background: rgba(99, 102, 241, 0.16);
+    .item-more-btn:active,
+    .item-more-btn[aria-expanded="true"] {
+        background: rgba(120, 120, 128, 0.16);
         color: var(--text-primary);
     }
 
@@ -265,557 +263,798 @@ body {
 }
 
 /* ===================================================================
-   Tab layout: touch screens narrower than 1100px
+   Touch layout: iOS design tokens
    =================================================================== */
-
-/* ---- Page frame, safe areas (notch, Dynamic Island, home indicator, fold edges) ---- */
-html.tabs-on body {
-    padding: calc(var(--safe-top) + 6px) calc(var(--safe-right) + 12px) calc(var(--tabbar-height) + var(--safe-bottom) + 28px) calc(var(--safe-left) + 12px);
+html.touch-layout {
+    /* 17px = iOS body text where the system text style is not available (Chromium, Android) */
+    font-size: 106.25%;
+    /* Safari: body size of the text size chosen in iOS Settings (Dynamic Type) */
+    font: -apple-system-body;
+    --gutter: 16px;
+    --app-bar-height: 52px;
+    --tabbar-height: 62px;
+    --tabbar-bottom: max(10px, calc(var(--safe-bottom) - 12px));
+    --tabbar-space: calc(var(--tabbar-height) + var(--tabbar-bottom) + 28px);
+    --radius-card: 26px;
+    --radius-inner: 14px;
+    --ios-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, "Helvetica Neue", Arial, sans-serif;
+    --ios-font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", system-ui, "Helvetica Neue", Arial, sans-serif;
+    --spring: cubic-bezier(0.32, 1.28, 0.52, 1);
+    background-color: var(--page-bg, #f2f2f7);
 }
 
-html.tabs-on.sheet-open {
+/* Colours: style.css components read these tokens, so they follow automatically */
+html.touch-layout body {
+    --bg-color: #f2f2f7;                       /* systemGroupedBackground */
+    --surface-color: #ffffff;                  /* secondarySystemGroupedBackground */
+    --surface-2: #f2f2f7;                      /* tertiarySystemGroupedBackground */
+    --glass-border: rgba(60, 60, 67, 0.14);
+    --card-border: rgba(60, 60, 67, 0.14);
+    --separator: rgba(60, 60, 67, 0.29);       /* separator */
+    --text-primary: #000000;                   /* label */
+    --text-secondary: rgba(60, 60, 67, 0.78);  /* secondaryLabel, darkened for 4.5:1 */
+    --text-tertiary: rgba(60, 60, 67, 0.45);
+    --fill-1: rgba(120, 120, 128, 0.2);        /* systemFill */
+    --fill-2: rgba(120, 120, 128, 0.16);       /* secondarySystemFill */
+    --fill-3: rgba(118, 118, 128, 0.12);       /* tertiarySystemFill */
+    --control-border: rgba(60, 60, 67, 0.55);  /* outline of empty checkboxes, 3:1 */
+    --accent-color: rgb(86, 74, 222);          /* systemIndigo (increased contrast variant) */
+    --accent-hover: rgb(72, 61, 199);
+    --tint-fill: rgb(86, 74, 222);             /* filled buttons, white label 6.1:1 */
+    --tint-soft: rgba(86, 74, 222, 0.12);
+    --danger-color: rgb(215, 0, 21);           /* destructive text, 5.4:1 */
+    --success-color: rgb(0, 137, 50);
+    --warning-color: rgb(197, 83, 0);
+    --glass-bg: rgba(255, 255, 255, 0.62);
+    --glass-edge: rgba(255, 255, 255, 0.8);
+    --glass-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.07), 0 10px 30px rgba(0, 0, 0, 0.12);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -0.5px 0 rgba(255, 255, 255, 0.4);
+    --glass-blur: blur(18px) saturate(180%);
+    --selection-pill: rgba(120, 120, 128, 0.16);
+    --press: rgba(120, 120, 128, 0.16);
+    --font-main: var(--ios-font);
+    --page-bg: #f2f2f7;
+    background: var(--bg-color);
+    color: var(--text-primary);
+    font-family: var(--ios-font);
+    font-size: 1rem;
+    line-height: 1.294;
+    -webkit-font-smoothing: antialiased;
+    padding: 0;
+}
+
+html.touch-layout body.dark {
+    --bg-color: #000000;
+    --surface-color: #1c1c1e;
+    --surface-2: #2c2c2e;
+    --glass-border: rgba(84, 84, 88, 0.45);
+    --card-border: rgba(84, 84, 88, 0.45);
+    --separator: rgba(84, 84, 88, 0.65);
+    --text-primary: #ffffff;
+    --text-secondary: rgba(235, 235, 245, 0.6);
+    --text-tertiary: rgba(235, 235, 245, 0.3);
+    --fill-1: rgba(120, 120, 128, 0.36);
+    --fill-2: rgba(120, 120, 128, 0.32);
+    --fill-3: rgba(118, 118, 128, 0.24);
+    --control-border: rgba(235, 235, 245, 0.45);
+    --accent-color: rgb(140, 150, 255);        /* systemIndigo dark, lighter for 4.5:1 on fills */
+    --accent-hover: rgb(160, 168, 255);
+    --tint-fill: rgb(97, 85, 245);
+    --tint-soft: rgba(140, 150, 255, 0.16);
+    --danger-color: rgb(255, 66, 69);
+    --success-color: rgb(48, 209, 88);
+    --warning-color: rgb(255, 146, 48);
+    --glass-bg: rgba(44, 44, 48, 0.58);
+    --glass-edge: rgba(255, 255, 255, 0.14);
+    --glass-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.6), 0 10px 32px rgba(0, 0, 0, 0.5);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    --selection-pill: rgba(255, 255, 255, 0.14);
+    --press: rgba(255, 255, 255, 0.12);
+    --page-bg: #000000;
+}
+
+html.touch-layout:has(body.dark) {
+    --page-bg: #000000;
+}
+
+@media (prefers-contrast: more) {
+    html.touch-layout body {
+        --text-secondary: rgba(60, 60, 67, 0.88);
+        --separator: rgba(60, 60, 67, 0.5);
+        --control-border: rgba(60, 60, 67, 0.75);
+        --glass-edge: rgba(0, 0, 0, 0.28);
+    }
+
+    html.touch-layout body.dark {
+        --text-secondary: rgba(235, 235, 245, 0.78);
+        --separator: rgba(140, 140, 146, 0.8);
+        --control-border: rgba(235, 235, 245, 0.7);
+        --accent-color: rgb(167, 170, 255);
+        --glass-edge: rgba(255, 255, 255, 0.4);
+    }
+}
+
+/* Reduce Transparency: opaque bars and menus */
+@media (prefers-reduced-transparency: reduce) {
+    html.touch-layout body {
+        --glass-bg: #f9f9f9;
+        --glass-blur: none;
+    }
+
+    html.touch-layout body.dark {
+        --glass-bg: #1c1c1e;
+    }
+}
+
+/* Liquid Glass recipe for the floating navigation layer */
+html.touch-layout .app-bar-actions,
+html.touch-layout .mobile-tabbar,
+html.touch-layout .menu,
+html.touch-layout .pip-timer,
+html.touch-layout .notification-banner {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border: 0.5px solid var(--glass-edge);
+    box-shadow: var(--glass-shadow), var(--glass-highlight);
+}
+
+/* ===================================================================
+   Touch layout: page frame, app bar, section bar
+   =================================================================== */
+html.touch-layout .container {
+    position: relative;
+    max-width: none;
+    padding: 0 calc(var(--safe-right) + var(--gutter)) var(--tabbar-space) calc(var(--safe-left) + var(--gutter));
+}
+
+html.touch-layout .container>.divider,
+html.touch-layout .fab-container,
+html.touch-layout .quick-capture-btn {
+    display: none;
+}
+
+html.touch-layout .page-section {
+    /* Start of a section lands just below the app bar (section bar, deep links) */
+    scroll-margin-top: calc(var(--safe-top) + var(--app-bar-height) + 4px);
+}
+
+html.touch-layout .page-section~.page-section {
+    margin-top: 36px;
+}
+
+html.touch-layout .page-section:focus {
+    outline: none;
+}
+
+/* ---- App bar: brand, then "+" and "⋯" in one glass capsule ---- */
+html.touch-layout .app-bar {
+    position: sticky;
+    top: 0;
+    z-index: 800;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: calc(var(--safe-top) + var(--app-bar-height));
+    margin: 0 calc(-1 * (var(--safe-right) + var(--gutter))) 6px calc(-1 * (var(--safe-left) + var(--gutter)));
+    padding: var(--safe-top) calc(var(--safe-right) + var(--gutter)) 0 calc(var(--safe-left) + var(--gutter));
+}
+
+/* Scroll edge effect: content fades out under the bar instead of a hard edge */
+html.touch-layout .app-bar::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 -22px;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(to bottom, var(--bg-color) 0%, var(--bg-color) calc(100% - 34px), transparent 100%);
+}
+
+html.touch-layout .brand-header {
+    flex: 1;
+    min-width: 0;
+    justify-content: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    min-height: var(--app-bar-height);
+}
+
+html.touch-layout .brand-logo {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 9px;
+    font-size: 1.15rem;
+    box-shadow: none;
+}
+
+html.touch-layout .brand-text {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 5px;
+    min-width: 0;
+    white-space: nowrap;
     overflow: hidden;
 }
 
-/* Room to scroll the last item above the floating + button */
-html.tabs-on[data-tab="today"] body,
-html.tabs-on[data-tab="week"] body {
-    padding-bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 92px);
+/* Bar title: follows the text size up to a cap, as iOS navigation bar titles do */
+html.touch-layout .brand-name {
+    font: 700 min(1.059rem, 21px)/1.2 var(--ios-font);
+    letter-spacing: -0.01em;
 }
 
-.tabs-on .container {
+html.touch-layout .brand-tagline {
+    margin: 0;
+    font: 500 min(1.059rem, 21px)/1.2 var(--ios-font);
+    letter-spacing: -0.01em;
+    text-transform: none;
+    color: var(--text-secondary);
+}
+
+html.touch-layout .app-bar-actions {
+    display: flex;
+    flex-shrink: 0;
+    border-radius: 999px;
+    padding: 0;
+}
+
+.app-bar-btn {
     position: relative;
-    max-width: 100%;
-}
-
-/* Only the sections of the active tab are displayed */
-html.tabs-on[data-tab="today"] [data-tab-section]:not([data-tab-section="today"]),
-html.tabs-on[data-tab="week"] [data-tab-section]:not([data-tab-section="week"]),
-html.tabs-on[data-tab="health"] [data-tab-section]:not([data-tab-section="health"]),
-html.tabs-on[data-tab="habits"] [data-tab-section]:not([data-tab-section="habits"]),
-html.tabs-on[data-tab="lists"] [data-tab-section]:not([data-tab-section="lists"]) {
-    display: none;
-}
-
-.tabs-on .container>.divider {
-    display: none;
-}
-
-.tabs-on .mobile-section-title {
     display: flex;
-}
-
-.tabs-on h2 {
-    font-size: 1.25rem;
-    margin-bottom: 14px;
-}
-
-.tabs-on .glass-panel {
-    padding: 16px;
-    border-radius: 16px;
-    margin-bottom: 16px;
-}
-
-.tabs-on .inspirational-quote {
-    font-size: 0.85rem;
-    margin: 4px 8px 16px !important;
-}
-
-/* Touch targets: 44 x 44 pt (Apple Human Interface Guidelines) */
-.tabs-on .btn {
-    min-height: var(--touch-target);
-    font-size: 0.95rem;
-    width: auto;
-}
-
-/* style.css makes every button full width below 500px; keep that only for "add" buttons */
-.tabs-on .goals-container>.btn,
-.tabs-on .habits-content .glass-panel>div>.btn,
-.tabs-on .list-add-item-btn,
-.tabs-on .calendar-agenda-add {
-    width: 100%;
-}
-
-.tabs-on .icon-btn {
-    width: var(--touch-target);
-    height: var(--touch-target);
-    border-radius: 50%;
-}
-
-.tabs-on .section-nav .btn,
-.tabs-on .calendar-header .btn,
-.tabs-on .stats-section .btn {
-    min-width: var(--touch-target);
-    padding: 0 14px;
-    font-size: 0.95rem;
-}
-
-/* ---- Header: compact brand row, menu button on the right ---- */
-.tabs-on .brand-header {
-    justify-content: flex-start;
-    gap: 10px;
-    margin: 0 0 10px;
-    padding: 6px 56px 6px 2px;
-    min-height: 52px;
-}
-
-.tabs-on .brand-logo {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    font-size: 1.25rem;
-}
-
-.tabs-on .brand-name {
-    font-size: 1.2rem;
-}
-
-.tabs-on .brand-tagline {
-    font-size: 0.72rem;
-    letter-spacing: 0.12em;
-}
-
-.tabs-on .fab-container {
-    position: absolute;
-    top: 8px;
-    right: 0;
-    bottom: auto;
-    z-index: 950;
-}
-
-.tabs-on .fab-trigger {
-    width: 44px;
-    height: 44px;
-}
-
-/* Sync problem or pending upload: small dot on the closed menu button */
-.tabs-on .fab-container:has(#syncStatus[data-sync-state="error"]) .fab-trigger::after,
-.tabs-on .fab-container:has(#syncStatus[data-sync-state="pending"]) .fab-trigger::after {
-    content: '';
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    border: 2px solid var(--bg-color);
-    background: #f59e0b;
-}
-
-.tabs-on .fab-container:has(#syncStatus[data-sync-state="error"]) .fab-trigger::after {
-    background: #ef4444;
-}
-
-/* Menu opens as a list with labels (no hover tooltips on touch) */
-.tabs-on .fab-menu {
-    top: 52px;
-    bottom: auto;
-    right: 0;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 230px;
-    padding: 6px;
-    border-radius: 16px;
-    background: var(--surface-color);
-    border: 1px solid var(--glass-border);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-6px) scale(0.98);
-    transform-origin: top right;
-    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
-}
-
-html.tabs-on body:not(.dark) .fab-menu {
-    background: rgba(255, 255, 255, 0.97);
-}
-
-.tabs-on .fab-container.open .fab-menu {
-    opacity: 1;
-    visibility: visible;
-    transform: none;
-    pointer-events: auto;
-}
-
-.tabs-on .fab-item,
-.tabs-on .fab-container.open .fab-item {
-    width: 100%;
-    height: 48px;
-    justify-content: flex-start;
-    gap: 12px;
-    padding: 0 12px;
-    border: none;
-    border-radius: 10px;
-    background: transparent;
-    box-shadow: none;
-    opacity: 1;
-    transform: none;
-    transition: background-color 0.15s;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-}
-
-.tabs-on .fab-item:active {
-    background: rgba(99, 102, 241, 0.12);
-}
-
-.tabs-on .fab-item-icon {
-    min-width: 28px;
-    text-align: center;
-    font-size: 1.15rem;
-    white-space: nowrap;
-    position: relative;
-}
-
-.tabs-on .fab-item-label {
-    display: inline;
-    font: 500 0.95rem/1.2 var(--font-main);
-    color: var(--text-primary);
-    filter: none;
-}
-
-.tabs-on .fab-item::before,
-.tabs-on .fab-item::after {
-    display: none;
-}
-
-.tabs-on .fab-item-logout .fab-item-label {
-    color: var(--danger-color);
-}
-
-.tabs-on .fab-backdrop {
-    background: rgba(0, 0, 0, 0.18);
-}
-
-/* ---- Bottom tab bar ---- */
-.tabs-on .mobile-tabbar {
-    display: flex;
-    justify-content: center;
-    gap: 2px;
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 900;
-    padding: 5px calc(var(--safe-right) + 8px) calc(var(--safe-bottom) + 5px) calc(var(--safe-left) + 8px);
-    background: var(--tabbar-bg);
-    border-top: 1px solid var(--glass-border);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    backdrop-filter: saturate(180%) blur(20px);
-}
-
-.mobile-tab {
-    flex: 1 1 0;
-    max-width: 120px;
-    min-height: 48px;
-    display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    padding: 4px 2px;
+    width: var(--touch-target);
+    height: var(--touch-target);
+    padding: 0;
     border: none;
-    border-radius: 12px;
+    border-radius: 999px;
     background: transparent;
-    color: var(--text-secondary);
-    font: 600 0.6875rem/1.1 var(--font-main);
-    letter-spacing: 0.01em;
+    color: var(--text-primary);
     cursor: pointer;
     touch-action: manipulation;
 }
 
-.mobile-tab svg {
-    width: 25px;
-    height: 25px;
-    fill: none;
+.app-bar-btn svg {
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
     stroke: currentColor;
-    stroke-width: 1.8;
+    stroke-width: 2.1;
     stroke-linecap: round;
-    stroke-linejoin: round;
+}
+
+#appBarAdd svg {
+    fill: none;
+}
+
+#appBarMore svg {
+    stroke: none;
+}
+
+.app-bar-btn:active,
+.app-bar-btn[aria-expanded="true"] {
+    background: var(--press);
+}
+
+.app-bar-btn:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: -2px;
+}
+
+/* Sync problem or pending upload: badge on "⋯" (orange = waiting, red = error) */
+html.touch-layout:has(#syncStatus[data-sync-state="pending"]) #appBarMore::after,
+html.touch-layout:has(#syncStatus[data-sync-state="error"]) #appBarMore::after {
+    content: '';
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--cal-orange);
+    box-shadow: 0 0 0 2px var(--surface-color);
+}
+
+html.touch-layout:has(#syncStatus[data-sync-state="error"]) #appBarMore::after {
+    background: var(--cal-red);
+}
+
+/* ---- Section bar: floating glass capsule, sliding selection ---- */
+html.touch-layout .mobile-tabbar {
+    position: fixed;
+    z-index: 900;
+    left: 50%;
+    bottom: var(--tabbar-bottom);
+    display: flex;
+    align-items: stretch;
+    width: min(calc(100% - var(--safe-left) - var(--safe-right) - 2 * var(--gutter)), 560px);
+    height: var(--tabbar-height);
+    padding: 4px;
+    border-radius: 999px;
+    transform: translateX(-50%);
+}
+
+.tabbar-indicator {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 0;
+    width: 0;
+    border-radius: 999px;
+    background: var(--selection-pill, rgba(120, 120, 128, 0.16));
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.42s var(--spring), width 0.42s var(--spring), opacity 0.2s;
+}
+
+.tabbar-indicator.ready {
+    opacity: 1;
+}
+
+.tabbar-indicator.no-transition {
+    transition: none;
+}
+
+.mobile-tab {
+    position: relative;
+    z-index: 1;
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 0 2px;
+    border-radius: 999px;
+    color: var(--text-primary);
+    text-decoration: none;
+    font: 600 10px/1.15 var(--ios-font);
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: color 0.2s;
+}
+
+.mobile-tab svg {
+    width: 26px;
+    height: 26px;
+    fill: currentColor;
+}
+
+.mobile-tab-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .mobile-tab.active {
-    color: var(--tab-active);
-}
-
-.mobile-tab.active svg {
-    fill: currentColor;
-    fill-opacity: 0.16;
-    stroke-width: 2;
+    color: var(--accent-color);
 }
 
 .mobile-tab:active {
-    background: rgba(99, 102, 241, 0.1);
+    transform: scale(0.94);
+    transition: transform 0.12s;
 }
 
 .mobile-tab:focus-visible {
     outline: 2px solid var(--accent-color);
-    outline-offset: -2px;
-}
-
-/* ---- Floating buttons: above the tab bar, inside the safe area ---- */
-.tabs-on .quick-capture-btn {
-    right: calc(var(--safe-right) + 16px);
-    bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 16px);
-    width: 56px;
-    height: 56px;
-    font-size: 1.9rem;
-}
-
-/* Quick Add puts a task on today's calendar: only offered where that is visible */
-html.tabs-on:not([data-tab="today"]):not([data-tab="week"]) .quick-capture-btn {
-    display: none;
-}
-
-.tabs-on .pip-timer {
-    right: auto;
-    left: calc(var(--safe-left) + 16px);
-    bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 16px);
-}
-
-.tabs-on .notification-container {
-    top: calc(var(--safe-top) + 10px);
-    width: calc(100% - 24px - var(--safe-left) - var(--safe-right));
-}
-
-/* ---- Dialogs: inside the safe area, scrollable, above the keyboard ---- */
-.tabs-on .input-modal,
-.tabs-on .confirm-modal,
-.tabs-on .shortcuts-modal {
-    padding: calc(var(--safe-top) + 16px) calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 16px) calc(var(--safe-left) + 16px);
-}
-
-.tabs-on .input-modal-content,
-.tabs-on .confirm-modal-content,
-.tabs-on .shortcuts-content {
-    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 32px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-}
-
-.tabs-on .input-modal-actions .btn,
-.tabs-on .confirm-modal-actions .btn {
-    min-height: 48px;
-}
-
-/* Text fields sit in the upper part, so the iOS keyboard does not cover them */
-@media (max-width: 699px) {
-
-    .tabs-on .input-modal,
-    .tabs-on .confirm-modal {
-        align-items: flex-start;
-        padding-top: calc(var(--safe-top) + 10vh);
-    }
-}
-
-.tabs-on .focus-overlay {
-    padding: calc(var(--safe-top) + 24px) calc(var(--safe-right) + 20px) calc(var(--safe-bottom) + 24px) calc(var(--safe-left) + 20px);
-}
-
-.tabs-on .focus-exit-btn {
-    top: calc(var(--safe-top) + 16px);
-    right: calc(var(--safe-right) + 16px);
-    min-height: var(--touch-target);
-}
-
-.tabs-on .focus-timer {
-    width: min(300px, 70vw, 48dvh);
-    height: min(300px, 70vw, 48dvh);
-    margin-bottom: 28px;
-}
-
-.tabs-on .focus-timer .pomo-time {
-    /* scales with the ring, so "25:00" fits on short landscape screens too */
-    font-size: calc(min(300px, 70vw, 48dvh) * 0.21);
-}
-
-/* ---- Action sheet (js/mobile.js) ---- */
-.action-sheet-layer {
-    position: fixed;
-    inset: 0;
-    z-index: 1100;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-}
-
-.action-sheet-backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.35);
-    opacity: 0;
-    transition: opacity 0.18s ease;
-}
-
-.action-sheet {
-    position: relative;
-    width: min(100%, 440px);
-    max-height: calc(100dvh - var(--safe-top) - 16px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding: 0 calc(var(--safe-right) + 10px) calc(var(--safe-bottom) + 10px) calc(var(--safe-left) + 10px);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    transform: translateY(24px);
-    opacity: 0;
-    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s ease;
-}
-
-.action-sheet-layer.open .action-sheet-backdrop {
-    opacity: 1;
-}
-
-.action-sheet-layer.open .action-sheet {
-    transform: none;
-    opacity: 1;
-}
-
-.action-sheet-panel {
-    display: flex;
-    flex-direction: column;
-    background: var(--bg-color);
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
-}
-
-body:not(.dark) .action-sheet-panel,
-body:not(.dark) .action-sheet-cancel {
-    background: #ffffff;
-}
-
-body.dark .action-sheet-panel,
-body.dark .action-sheet-cancel {
-    background: #1e293b;
-}
-
-.action-sheet-header {
-    padding: 14px 18px 12px;
-    text-align: center;
-    border-bottom: 1px solid var(--glass-border);
-}
-
-.action-sheet-title {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--text-primary);
-    overflow-wrap: anywhere;
-}
-
-.action-sheet-message {
-    margin-top: 2px;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-}
-
-.action-sheet-btn {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    min-height: 52px;
-    padding: 0 18px;
-    border: none;
-    border-top: 1px solid var(--glass-border);
-    background: transparent;
-    color: var(--text-primary);
-    font: 500 1.02rem/1.2 var(--font-main);
-    text-align: left;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-}
-
-.action-sheet-panel>.action-sheet-btn:first-child,
-.action-sheet-header+.action-sheet-btn {
-    border-top: none;
-}
-
-.action-sheet-btn:active:not(:disabled) {
-    background: rgba(99, 102, 241, 0.12);
-}
-
-.action-sheet-btn:focus-visible {
-    outline: 2px solid var(--accent-color);
-    outline-offset: -2px;
-}
-
-.action-sheet-btn:disabled {
-    color: var(--text-secondary);
-    opacity: 0.55;
-    cursor: default;
-}
-
-.action-sheet-btn.destructive {
-    color: #dc2626;
-}
-
-body.dark .action-sheet-btn.destructive {
-    color: #f87171;
-}
-
-.action-sheet-icon {
-    width: 24px;
-    text-align: center;
-    font-size: 1.1rem;
-}
-
-.action-sheet-label {
-    flex: 1;
-}
-
-.action-sheet-hint {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-
-.action-sheet-check {
-    color: var(--accent-color);
-    font-weight: 700;
-}
-
-.action-sheet-cancel {
-    justify-content: center;
-    border-top: none;
-    border-radius: 16px;
-    font-weight: 600;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-}
-
-@media (min-width: 700px) {
-    .action-sheet-layer {
-        align-items: center;
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-
-    .action-sheet,
-    .action-sheet-backdrop,
-    .tabs-on .fab-menu {
-        transition: none;
-    }
+    outline-offset: -3px;
 }
 
 /* ===================================================================
-   Today tab: Focus timer + goals
+   Touch layout: typography, cards and controls
    =================================================================== */
-.tabs-on .dashboard-main-layout {
+html.touch-layout h2 {
+    margin: 0 0 12px;
+    font: 700 1.294rem/1.27 var(--ios-font-display);  /* Title 2: 22 / 28 */
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+
+html.touch-layout h3 {
+    font-family: var(--ios-font);
+    letter-spacing: -0.01em;
+}
+
+html.touch-layout .mobile-section-title {
+    display: flex;
+}
+
+html.touch-layout .inspirational-quote {
+    margin: 4px 12px 16px !important;
+    font-size: 0.882rem;   /* Subheadline */
+    line-height: 1.33;
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+/* Content cards: solid inset grouped background, no glass, no border */
+html.touch-layout .glass-panel {
+    padding: 16px;
+    margin-bottom: 16px;
+    border: none;
+    border-radius: var(--radius-card);
+    background: var(--surface-color);
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    transition: none;
+}
+
+/* Buttons (HIG): capsule, grey fill with tinted label; filled for the main action */
+html.touch-layout .btn {
+    min-height: var(--touch-target);
+    width: auto;
+    padding: 0 18px;
+    border: none;
+    border-radius: 999px;
+    background: var(--fill-3);
+    color: var(--accent-color);
+    font: 600 0.941rem/1.2 var(--ios-font);   /* Callout semibold */
+    box-shadow: none;
+    transform: none;
+    transition: opacity 0.15s;
+}
+
+html.touch-layout .btn:active {
+    opacity: 0.55;
+}
+
+html.touch-layout .btn:focus-visible,
+html.touch-layout .habit-check:focus-visible,
+html.touch-layout .day-cell:focus-visible,
+html.touch-layout .agenda-row:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+html.touch-layout #pomoStart,
+html.touch-layout .input-modal-submit,
+html.touch-layout .sync-primary {
+    background: var(--tint-fill);
+    color: #ffffff;
+}
+
+/* Previous/next: chevron symbols instead of ◀︎ ▶︎ (the name is in aria-label) */
+html.touch-layout .btn.chevron-prev,
+html.touch-layout .btn.chevron-next {
+    width: var(--touch-target);
+    min-width: var(--touch-target);
+    padding: 0;
+    font-size: 0;
+}
+
+html.touch-layout .btn.chevron-prev::before,
+html.touch-layout .btn.chevron-next::before {
+    content: '';
+    width: 12px;
+    height: 20px;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 20'%3E%3Cpath d='M10 2 2 10l8 8' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 20'%3E%3Cpath d='M10 2 2 10l8 8' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+html.touch-layout .btn.chevron-next::before {
+    transform: scaleX(-1);
+}
+
+/* Section and card navigation rows: title leading, buttons trailing */
+html.touch-layout .section-nav,
+html.touch-layout .calendar-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0;
+    margin: 0 0 12px;
+}
+
+html.touch-layout .section-nav h2,
+html.touch-layout .section-nav h3,
+html.touch-layout .calendar-title-group {
+    position: static;
+    transform: none;
+    width: auto;
+}
+
+html.touch-layout .calendar-title-group {
+    flex: 1 1 auto;
+    align-items: flex-start;
+}
+
+/* Previous / Today / Next as one capsule: ‹ Today › (CSS order: the HTML order differs
+   between the cards and also drives the desktop layout) */
+html.touch-layout .section-nav-buttons,
+html.touch-layout .calendar-header>div:last-child,
+html.touch-layout .stats-section>div:first-child>div {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0 !important;
+    width: auto !important;
+    margin-left: auto;
+    padding: 0;
+    justify-content: flex-end !important;
+    border-radius: 999px;
+    background: var(--fill-3);
+}
+
+html.touch-layout .section-nav-buttons .btn,
+html.touch-layout .calendar-header>div:last-child .btn,
+html.touch-layout .stats-section>div:first-child>div .btn {
+    margin: 0 !important;
+    padding: 0 10px;
+    background: transparent;
+}
+
+html.touch-layout .section-nav-buttons .btn.chevron-prev,
+html.touch-layout .calendar-header>div:last-child .btn.chevron-prev,
+html.touch-layout .stats-section>div:first-child>div .btn.chevron-prev {
+    order: -1;
+    padding: 0;
+}
+
+html.touch-layout .section-nav-buttons .btn.chevron-next,
+html.touch-layout .calendar-header>div:last-child .btn.chevron-next,
+html.touch-layout .stats-section>div:first-child>div .btn.chevron-next {
+    order: 1;
+    padding: 0;
+}
+
+/* The calendar list button sits next to "New Event" below the agenda (js/app.js) */
+html.touch-layout .calendar-header .calendars-btn {
+    display: none;
+}
+
+/* Card titles: Title 3 (20 / 25); date and month headers: Headline (17 / 22) */
+html.touch-layout .section-nav h3,
+html.touch-layout .calendar-header h3,
+html.touch-layout .goals-container .section-nav h2,
+html.touch-layout .pomo-header-row h3,
+html.touch-layout .gym-card-header h3,
+html.touch-layout .list-panel h3 {
+    margin: 0;
+    font: 600 1.176rem/1.25 var(--ios-font-display);
+    letter-spacing: -0.01em;
+    text-align: left;
+    white-space: normal;
+    color: var(--text-primary);
+}
+
+/* Collapsible section headers ("📅 Calendar ▼") */
+html.touch-layout .calendar-header h3,
+html.touch-layout .week-nav-panel .section-nav h3,
+html.touch-layout #statsWeekTitle {
+    font-size: 1rem !important;
+    font-weight: 600;
+}
+
+html.touch-layout .habits-header,
+html.touch-layout .weekly-review-header,
+html.touch-layout .calendar-section-header,
+html.touch-layout .gym-hub-header {
+    min-height: var(--touch-target);
+    margin: 0 0 8px;
+    padding: 0;
+    gap: 8px;
+}
+
+html.touch-layout .habits-header h2,
+html.touch-layout .weekly-review-header h2,
+html.touch-layout .calendar-section-header h2,
+html.touch-layout .gym-hub-header h2 {
+    margin: 0;
+}
+
+html.touch-layout .habits-toggle,
+html.touch-layout .weekly-review-toggle,
+html.touch-layout .calendar-section-toggle,
+html.touch-layout .gym-hub-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--touch-target);
+    height: var(--touch-target);
+    margin-right: -10px;
+    font-size: 0;
+}
+
+html.touch-layout .habits-toggle::before,
+html.touch-layout .weekly-review-toggle::before,
+html.touch-layout .calendar-section-toggle::before,
+html.touch-layout .gym-hub-toggle::before {
+    content: '';
+    width: 14px;
+    height: 14px;
+    background: var(--accent-color);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 4.5 7 9.5l5-5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 4.5 7 9.5l5-5' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Text fields (filled style), selects as pop-up buttons, sliders */
+html.touch-layout input[type="text"],
+html.touch-layout input[type="number"],
+html.touch-layout input[type="date"]:not(.form-control),
+html.touch-layout textarea,
+html.touch-layout .input-modal-field {
+    font-size: max(16px, 1rem); /* 16px or more: iOS does not zoom into the field */
+}
+
+html.touch-layout .ambient-select {
+    min-height: var(--touch-target);
+    padding: 0 30px 0 12px;
+    border: none;
+    border-radius: 10px;
+    background-color: var(--fill-3);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 16'%3E%3Cpath d='M3 6l3-3 3 3M3 10l3 3 3-3' fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-size: 10px 14px;
+    background-position: right 10px center;
+    background-repeat: no-repeat;
+    color: var(--text-primary);
+    font: 400 1rem/1.2 var(--ios-font);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+html.touch-layout input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: var(--touch-target);
+    background: transparent;
+}
+
+html.touch-layout input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--fill-1);
+}
+
+html.touch-layout input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 28px;
+    height: 28px;
+    margin-top: -12px;
+    border: none;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 0.5px 4px rgba(0, 0, 0, 0.12), 0 6px 13px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+}
+
+/* Round checkboxes (Reminders) */
+html.touch-layout .focus-checkbox,
+html.touch-layout .task-checkbox {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    margin: 0;
+    border: 1.5px solid var(--control-border);
+    border-radius: 50%;
+    background: transparent;
+}
+
+html.touch-layout .focus-checkbox:checked,
+html.touch-layout .task-checkbox:checked {
+    border-color: var(--tint-fill);
+    background: var(--tint-fill);
+}
+
+html.touch-layout .focus-checkbox:checked::after,
+html.touch-layout .task-checkbox:checked::after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    background: #ffffff;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.3l2.6 2.6L10 3.4' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.3l2.6 2.6L10 3.4' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Rows of a grouped list: hairline separators aligned with the text */
+html.touch-layout .focus-item,
+html.touch-layout .kanban-card,
+html.touch-layout .simple-list-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    margin: 0;
+    padding: 10px 2px 10px 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+    font-size: 1rem;
+    cursor: default;
+}
+
+html.touch-layout .focus-item+.focus-item::before,
+html.touch-layout .kanban-card+.kanban-card::before,
+html.touch-layout .simple-list-item+.simple-list-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 36px;
+    right: 0;
+    border-top: 0.5px solid var(--separator);
+}
+
+html.touch-layout .simple-list-item+.simple-list-item::before {
+    left: 34px;
+}
+
+/* Priority marks (style.css: coloured left border) as a small bar before the text */
+html.touch-layout .focus-item[class*="urgency-"],
+html.touch-layout .kanban-card[class*="priority-"],
+html.touch-layout .task-item[class*="priority-"] {
+    border-left: none !important;
+}
+
+html.touch-layout .focus-item.done,
+html.touch-layout .kanban-card.done,
+html.touch-layout .simple-list-item.done {
+    opacity: 1;
+}
+
+html.touch-layout .focus-item.done .focus-text,
+html.touch-layout .kanban-card.done .kanban-card-text,
+html.touch-layout .simple-list-item.done span {
+    color: var(--text-secondary);
+}
+
+/* Add buttons at the end of a list: plain, tinted, leading (Reminders "New Reminder") */
+html.touch-layout .goals-container>.btn,
+html.touch-layout .kanban-add-btn,
+html.touch-layout .list-add-item-btn,
+html.touch-layout .calendar-agenda-add {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-height: var(--touch-target);
+    margin: 4px 0 0;
+    padding: 0;
+    justify-content: flex-start;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: var(--accent-color);
+    font: 600 1rem/1.2 var(--ios-font);
+}
+
+html.touch-layout .kanban-add-btn::after {
+    content: 'Add Task';
+}
+
+html.touch-layout .list-add-item-btn::after {
+    content: 'Add Item';
+}
+
+html.touch-layout .calendar-agenda-add::before {
+    content: '+';
+}
+
+/* ===================================================================
+   Today: focus timer and goals
+   =================================================================== */
+html.touch-layout .dashboard-main-layout {
     flex-direction: column;
     flex-wrap: nowrap;
-    gap: 16px;
-    margin-bottom: 8px;
+    gap: 12px;
+    margin-bottom: 0;
     overflow: visible;
 }
 
-.tabs-on .combined-glass-panel {
+html.touch-layout .combined-glass-panel {
     flex-direction: column;
     width: 100%;
+    margin-bottom: 0 !important;
 }
 
-.tabs-on .pomodoro-section {
+html.touch-layout .pomodoro-section {
     width: 100%;
     height: auto;
     padding: 16px;
@@ -827,46 +1066,88 @@ body.dark .action-sheet-btn.destructive {
         "ring controls"
         "ring sessions"
         "ambient ambient";
-    column-gap: 18px;
+    column-gap: 20px;
     align-items: center;
 }
 
-.tabs-on .pomo-header-row {
+html.touch-layout .pomo-header-row {
     grid-area: head;
     margin-bottom: 12px !important;
 }
 
-.tabs-on .pomo-header-row .icon-btn {
+html.touch-layout .pomo-header-row .icon-btn,
+html.touch-layout .pip-btn {
     width: var(--touch-target) !important;
     height: var(--touch-target) !important;
-    margin-right: -6px !important;
+    min-width: var(--touch-target);
+    padding: 0;
+    border-radius: 50%;
+    background: var(--fill-3);
+    font-size: 1.1rem !important;
 }
 
-.tabs-on .pomodoro-modes {
+html.touch-layout .pomo-header-row .icon-btn {
+    margin-right: 0 !important;
+}
+
+/* Segmented control (HIG): capsule track, the selected segment raised */
+html.touch-layout .pomodoro-modes {
     grid-area: modes;
-    margin: 0 0 14px;
-    justify-content: flex-start;
+    display: flex;
+    gap: 0;
+    margin: 0 0 16px;
+    padding: 2px;
+    border-radius: 999px;
+    background: var(--fill-3);
 }
 
-.tabs-on .pomo-mode-btn {
-    min-height: var(--touch-target);
-    padding: 0 16px;
-    font-size: 0.9rem;
-    flex: 1;
+html.touch-layout .pomo-mode-btn {
+    position: relative;
+    flex: 1 1 0;
+    min-height: 36px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-primary);
+    font: 500 0.882rem/1.2 var(--ios-font);
 }
 
-.tabs-on .pomodoro-display {
+/* 44pt hit area around the 36pt segment */
+html.touch-layout .pomo-mode-btn::after {
+    content: '';
+    position: absolute;
+    inset: -6px 0;
+}
+
+html.touch-layout .pomo-mode-btn.active {
+    background: #ffffff;
+    color: #000000;
+    font-weight: 600;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 0.5px 1px rgba(0, 0, 0, 0.08);
+}
+
+html.touch-layout body.dark .pomo-mode-btn.active {
+    background: rgba(255, 255, 255, 0.24);
+    color: #ffffff;
+}
+
+html.touch-layout .pomodoro-display {
     grid-area: ring;
     width: 132px;
     height: 132px;
     margin: 0;
 }
 
-.tabs-on .pomo-time {
-    font-size: 2.1rem;
+/* The digits follow the text size, but never outgrow the ring (132px here) */
+html.touch-layout .pomo-time {
+    font-family: var(--ios-font-display);
+    font-size: min(2.1rem, 36px);
+    font-weight: 300;
+    letter-spacing: -0.02em;
 }
 
-.tabs-on .pomodoro-controls {
+html.touch-layout .pomodoro-controls {
     grid-area: controls;
     flex-direction: column;
     align-self: end;
@@ -874,409 +1155,402 @@ body.dark .action-sheet-btn.destructive {
     margin: 0;
 }
 
-.tabs-on .pomo-btn {
+html.touch-layout .pomo-btn {
     width: 100%;
     min-width: 0;
 }
 
-.tabs-on .pomo-sessions {
+html.touch-layout .pomo-sessions {
     grid-area: sessions;
     align-self: start;
     margin-top: 8px;
     text-align: center;
+    font-size: 0.765rem;
+    color: var(--text-secondary);
 }
 
-.tabs-on .ambient-controls {
+html.touch-layout .ambient-controls {
     grid-area: ambient;
-    margin-top: 14px;
-    padding: 8px 12px;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 0;
+    border: none;
+    background: transparent;
     flex-wrap: nowrap;
 }
 
-.tabs-on .ambient-select {
+html.touch-layout .ambient-select {
     flex: 1;
-    min-height: var(--touch-target);
     min-width: 0;
 }
 
-html.tabs-on body .ambient-volume {
-    width: 96px;
-    height: var(--touch-target);
-    background: transparent;
+html.touch-layout .ambient-volume {
+    width: 104px;
 }
 
-.tabs-on .ambient-volume::-webkit-slider-runnable-track {
-    height: 4px;
-    border-radius: 2px;
-    background: var(--glass-border);
-}
-
-.tabs-on .ambient-volume::-webkit-slider-thumb {
-    width: 22px;
-    height: 22px;
-    margin-top: -9px;
-}
-
-/* Floating mini timer (in-page fallback on iOS): button next to the statistics button */
-.tabs-on .pip-btn {
+/* Floating mini timer button (in-page fallback on iOS) next to the statistics button */
+html.touch-layout .pip-btn {
     grid-area: head;
     justify-self: end;
     align-self: start;
-    width: var(--touch-target);
-    height: var(--touch-target);
-    margin: 0 46px 0 0;
-    padding: 0;
-    border-radius: 50%;
+    margin: 0 52px 0 0;
 }
 
-.tabs-on .combined-glass-panel:not(.stats-open) .stats-section {
+html.touch-layout .pip-btn svg {
+    color: var(--accent-color);
+}
+
+html.touch-layout .combined-glass-panel:not(.stats-open) .stats-section {
     display: none;
 }
 
-.tabs-on .combined-glass-panel.stats-open .stats-section {
+html.touch-layout .combined-glass-panel.stats-open .stats-section {
     width: 100%;
     padding: 16px;
     white-space: normal;
-    border-top: 1px solid var(--glass-border);
+    border-top: 0.5px solid var(--separator);
 }
 
-.tabs-on .stats-section>div:first-child {
+html.touch-layout .stats-section>div:first-child {
     margin-bottom: 16px !important;
 }
 
-.tabs-on .stats-grid {
+html.touch-layout .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
 }
 
-.tabs-on .dashboard-sidebar {
+html.touch-layout .stat-card {
+    border: none;
+    border-radius: var(--radius-inner);
+    background: var(--surface-2);
+}
+
+html.touch-layout .dashboard-sidebar {
     min-width: 0;
     width: 100%;
-    gap: 8px;
+    gap: 6px;
 }
 
-.tabs-on .sidebar-datetime {
+html.touch-layout .sidebar-datetime {
     position: static;
-    margin: 0 4px;
-    text-align: right;
-    font-size: 0.8rem;
-}
-
-.tabs-on .goals-container {
-    padding: 14px;
-}
-
-.tabs-on .goals-container .section-nav {
-    flex-wrap: nowrap;
-    gap: 8px;
-    padding: 0;
-    margin-bottom: 12px;
-}
-
-.tabs-on .goals-container .section-nav h2 {
-    position: static;
-    transform: none;
-    width: auto;
-    flex: 1;
-    justify-content: center;
-    font-size: 1.15rem;
-    white-space: nowrap;
-}
-
-.tabs-on .section-nav .nav-btn {
-    width: var(--touch-target);
-    height: var(--touch-target);
-    padding: 0;
-    font-size: 0.9rem;
-}
-
-.tabs-on .dashboard-sidebar .goals-list {
-    max-height: none;
-    overflow: visible;
-    margin-bottom: 14px;
-    padding-right: 0;
-}
-
-.tabs-on .focus-item {
-    gap: 12px;
-    min-height: 52px;
-    padding: 10px 12px;
-}
-
-.tabs-on .focus-checkbox {
-    width: 24px;
-    height: 24px;
-    min-width: 24px;
-}
-
-.tabs-on .focus-text {
-    font-size: 1rem;
-}
-
-/* ===================================================================
-   Week tab: weekly overview + calendar
-   =================================================================== */
-.tabs-on .week-overview-section>h2 {
-    margin-top: 4px !important;
-}
-
-.tabs-on .week-nav-panel {
-    padding: 12px 14px !important;
-}
-
-html.tabs-on .week-nav-panel .section-nav {
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 0;
-}
-
-.tabs-on .week-nav-panel .section-nav h3 {
-    position: static;
-    transform: none;
-    width: auto;
-    flex: 1 1 auto;
+    margin: 4px 4px 0;
     text-align: left;
-    font-size: 1rem;
-    white-space: nowrap;
-}
-
-.tabs-on .section-nav-buttons {
-    width: auto !important;
-    flex: 0 0 auto;
-    margin-left: auto;
-}
-
-.tabs-on .section-nav-buttons .btn:first-child,
-.tabs-on .calendar-header>div:last-child .btn:first-child {
-    margin-right: 4px !important;
-}
-
-/* Days as a vertical list on phones */
-.tabs-on .week-kanban {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 8px;
-    padding: 0;
-    overflow: visible;
-}
-
-.tabs-on .kanban-column {
-    min-width: 0;
-    min-height: 0;
-    margin-top: 0;
-    padding: 10px 12px 12px;
-    border-radius: 14px;
-}
-
-.tabs-on .kanban-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-    text-align: left;
-    font-size: 0.85rem;
-    letter-spacing: 0.04em;
-}
-
-.tabs-on .kanban-date {
-    position: static;
-    order: 2;
-    width: auto;
-    font-size: 0.85rem;
+    font-size: 0.765rem;   /* Footnote */
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
+    opacity: 1;
+    color: var(--text-secondary);
 }
 
-.tabs-on .kanban-holiday {
+html.touch-layout .goals-container {
+    padding: 14px 16px 6px;
+}
+
+html.touch-layout .goals-container .section-nav {
+    flex-wrap: nowrap;
+    gap: 6px;
+}
+
+/* Title first, the day chevrons trailing */
+html.touch-layout .goals-container .section-nav h2 {
+    order: -1;
+    flex: 1;
+    min-width: 0;
+    justify-content: flex-start;
+    white-space: normal;
+}
+
+/* ‹ › joined into one capsule */
+html.touch-layout .goals-container .section-nav {
+    gap: 0;
+}
+
+html.touch-layout .goals-container .section-nav h2 {
+    margin-right: 8px;
+}
+
+html.touch-layout .goals-container .section-nav .nav-btn {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    border-radius: 999px 0 0 999px;
+}
+
+html.touch-layout .goals-container .section-nav .nav-btn.chevron-next {
+    border-radius: 0 999px 999px 0;
+}
+
+html.touch-layout .dashboard-sidebar .goals-list {
+    gap: 0;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+}
+
+html.touch-layout .focus-text {
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+/* ===================================================================
+   Week: weekly overview and calendar
+   =================================================================== */
+html.touch-layout .week-overview-section>h2 {
+    margin-top: 0 !important;
+}
+
+html.touch-layout .week-nav-panel {
+    padding: 10px 12px 10px 16px !important;
+}
+
+html.touch-layout .week-nav-panel .section-nav {
+    margin: 0 !important;
+    flex-wrap: nowrap;
+}
+
+html.touch-layout .week-nav-panel .section-nav h3 {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    white-space: normal;
+}
+
+/* Days as cards, one below the other on phones */
+html.touch-layout .week-kanban {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 8px;
+    padding: 0;
+    overflow: visible;
+}
+
+html.touch-layout .kanban-column {
+    min-width: 0;
+    min-height: 0;
+    margin-top: 0;
+    padding: 12px 16px 6px;
+    border: none;
+    border-radius: var(--radius-card);
+    background: var(--surface-color);
+    box-shadow: none;
+}
+
+html.touch-layout .kanban-column.holiday,
+html.touch-layout .kanban-column.today {
+    border: none;
+    background: var(--surface-color);
+    box-shadow: none;
+}
+
+/* Today is marked by the tinted weekday and the "Today" badge (no gradient bar) */
+html.touch-layout .kanban-column.today::before {
+    display: none;
+}
+
+html.touch-layout .kanban-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 4px;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: 0;
+    font: 600 1rem/1.3 var(--ios-font);
+    color: var(--text-primary);
+}
+
+html.touch-layout .kanban-date {
+    position: static;
+    order: 2;
+    width: auto;
+    font: 400 0.882rem/1.3 var(--ios-font);
+    color: var(--text-secondary);
+    text-align: left;
+}
+
+html.touch-layout .kanban-holiday {
     order: 3;
     margin: 0 0 0 auto;
-    font-size: 0.75rem;
+    font-size: 0.765rem;
+    font-weight: 600;
+    color: var(--danger-color);
 }
 
-.tabs-on .kanban-column.today::after {
-    content: 'Today';
-    order: 4;
-    margin-left: auto;
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+html.touch-layout .kanban-column.today .kanban-header>div:not(.kanban-date):not(.kanban-holiday) {
     color: var(--accent-color);
-    position: absolute;
-    top: 12px;
-    right: 14px;
 }
 
-.tabs-on .kanban-items {
+html.touch-layout .kanban-column.today::after {
+    content: 'Today';
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--tint-soft);
+    font: 600 0.706rem/1.3 var(--ios-font);
+    color: var(--accent-color);
+}
+
+html.touch-layout .kanban-items {
     min-height: 0;
-    gap: 6px;
+    gap: 0;
     padding: 0;
 }
 
-.tabs-on .kanban-card {
-    align-items: center;
-    gap: 10px;
-    min-height: 46px;
-    padding: 8px 10px 8px 12px;
-    border-radius: 10px;
-}
-
-.tabs-on .kanban-card-text {
-    font-size: 0.95rem;
-    line-height: 1.35;
+html.touch-layout .kanban-card-text {
+    font-size: 1rem;
+    line-height: 1.3;
     word-break: normal;
     overflow-wrap: break-word;
     -webkit-hyphens: auto;
     hyphens: auto;
 }
 
-.tabs-on .kanban-card .task-checkbox,
-.tabs-on .task-checkbox {
-    width: 22px;
-    height: 22px;
-    min-width: 22px;
-    margin: 0;
-    border-radius: 6px;
+/* Calendar entries in the week: dot in the calendar colour where the checkbox would be */
+html.touch-layout .kanban-card.from-calendar {
+    border-left: none;
+    padding-left: 0;
 }
 
-.tabs-on .task-checkbox:checked::after {
-    font-size: 13px;
+html.touch-layout .kanban-card-dot {
+    width: 10px;
+    height: 10px;
+    margin: 0 7px;
 }
 
-.tabs-on .kanban-add-btn {
-    min-height: var(--touch-target);
-    margin-top: 8px;
-    padding: 6px;
-    font-size: 0.9rem;
+/* Time above the title (Calendar week view), so narrow day columns keep whole words */
+html.touch-layout .kanban-card-time {
+    display: block;
+    margin: 0 0 1px;
+    font-size: 0.765rem;
+    font-weight: 600;
+    color: var(--text-secondary);
 }
 
-.tabs-on .kanban-add-btn::after {
-    content: ' Add task';
+/* Calendar: month grid selects a day, the agenda lists its entries */
+html.touch-layout .calendar-section-content .glass-panel {
+    padding: 14px 12px 8px;
 }
 
-/* Calendar: month grid selects a day, the agenda below lists its entries */
-.tabs-on .calendar-section {
-    margin-top: 8px;
+html.touch-layout .calendar-header {
+    padding: 0 4px;
 }
 
-.tabs-on .calendar-header {
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 0;
-    margin-bottom: 12px;
+html.touch-layout .calendar-header h3 {
+    white-space: normal;
 }
 
-.tabs-on .calendar-title-group {
-    position: static;
-    transform: none;
-    width: auto;
-    flex: 1 1 auto;
-    align-items: flex-start;
+html.touch-layout .calendars-btn {
+    margin-right: 0;
 }
 
-.tabs-on .calendar-header h3 {
-    font-size: 1.05rem;
-    white-space: nowrap;
-    text-align: left;
-}
-
-.tabs-on .calendar-header>div:last-child {
-    width: auto !important;
-    flex: 0 0 auto;
-    margin-left: auto;
-}
-
-.tabs-on .calendar-grid-header {
+html.touch-layout .calendar-grid-header {
     display: grid;
-    gap: 4px;
-    margin-bottom: 6px;
-    font-size: 0.72rem;
+    gap: 2px;
+    margin-bottom: 4px;
+    font: 600 min(0.706rem, 14px)/1.3 var(--ios-font);
+    color: var(--text-secondary);
 }
 
-.tabs-on .calendar-grid {
+html.touch-layout .calendar-grid {
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 4px;
+    gap: 2px;
 }
 
-.tabs-on .day-cell {
+html.touch-layout .day-cell {
+    position: relative;
     min-height: 0;
-    aspect-ratio: 1 / 1.05;
+    aspect-ratio: 1 / 1.08;
     padding: 0;
-    border-width: 1px;
-    border-radius: 10px;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     cursor: pointer;
     overflow: hidden;
+    transition: none;
 }
 
-.tabs-on .day-cell::before {
+html.touch-layout .day-cell::before {
     display: none;
 }
 
-.tabs-on .day-cell.empty {
+html.touch-layout .day-cell.empty {
     visibility: hidden;
 }
 
-.tabs-on .day-cell .tasks-list,
-.tabs-on .day-cell .add-task-btn,
-.tabs-on .day-cell .holiday-label {
+html.touch-layout .day-cell .holiday-label {
     display: none;
 }
 
-.tabs-on .day-number {
+html.touch-layout .day-number {
     position: static;
-    width: 30px;
-    height: 30px;
-    font-size: 0.9rem;
+    width: min(32px, 80%);
+    height: auto;
+    aspect-ratio: 1;
+    margin-top: 4px;
+    border-radius: 50%;
+    font: 400 min(1.059rem, 22px)/1 var(--ios-font);
     color: var(--text-primary);
-}
-
-.tabs-on .day-number.today {
     animation: none;
     box-shadow: none;
 }
 
-.tabs-on .day-cell.holiday .day-number:not(.today) {
-    color: #dc2626;
+/* Today: tinted number; selected: filled circle (today: tint, other days: label colour) */
+html.touch-layout .day-number.today {
+    background: transparent;
+    color: var(--accent-color);
+    font-weight: 600;
 }
 
-html.tabs-on body.dark .day-cell.holiday .day-number:not(.today) {
-    color: #f87171;
+html.touch-layout .day-cell.selected .day-number {
+    background: var(--text-primary);
+    color: var(--surface-color);
+    font-weight: 600;
 }
 
-.tabs-on .day-cell.has-tasks::after {
-    content: '';
-    position: absolute;
-    bottom: 4px;
-    left: 50%;
+html.touch-layout .day-cell.selected .day-number.today {
+    background: var(--tint-fill);
+    color: #ffffff;
+}
+
+html.touch-layout .day-cell.holiday .day-number:not(.today) {
+    color: var(--danger-color);
+}
+
+html.touch-layout .day-cell.holiday.selected .day-number:not(.today) {
+    background: var(--danger-color);
+    color: #ffffff;
+}
+
+html.touch-layout .day-dots {
+    display: flex;
+    gap: 3px;
+    margin-top: 4px;
+}
+
+html.touch-layout .day-dot {
     width: 6px;
     height: 6px;
-    margin-left: -3px;
-    border-radius: 50%;
-    background: var(--accent-color);
 }
 
-.tabs-on .day-cell.selected {
-    border-color: var(--accent-color);
-    border-width: 2px;
-    background: rgba(99, 102, 241, 0.12);
+html.touch-layout .day-cell:active {
+    background: var(--press);
 }
 
-.tabs-on .day-cell:focus-visible {
-    outline: 2px solid var(--accent-color);
-    outline-offset: 1px;
-}
-
-.tabs-on .calendar-agenda {
+html.touch-layout .calendar-agenda {
     display: block;
-    margin-top: 16px;
-    padding-top: 14px;
-    border-top: 1px solid var(--glass-border);
+    margin: 10px -12px 0;
+    padding: 12px 16px 0;
+    border-top: 0.5px solid var(--separator);
 }
 
 .calendar-agenda-head {
@@ -1284,139 +1558,216 @@ html.tabs-on body.dark .day-cell.holiday .day-number:not(.today) {
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 4px;
 }
 
 .calendar-agenda-title {
-    font-size: 1rem;
-    font-weight: 700;
+    margin: 0;
+    font: 600 1rem/1.3 var(--ios-font);
     color: var(--text-primary);
 }
 
 .calendar-agenda-holiday {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: #dc2626;
-    background: rgba(239, 68, 68, 0.12);
     padding: 2px 8px;
-    border-radius: 6px;
+    border-radius: 999px;
+    background: rgba(255, 56, 60, 0.12);
+    font-size: 0.765rem;
+    font-weight: 600;
+    color: var(--danger-color);
 }
 
-body.dark .calendar-agenda-holiday {
-    color: #f87171;
+.calendar-agenda-list {
+    display: flex;
+    flex-direction: column;
 }
 
-.tabs-on .calendar-agenda-list {
-    margin: 0 0 12px;
-    min-height: 0;
-    gap: 6px;
-    overflow: visible;
+.calendar-agenda-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+html.touch-layout .calendar-agenda-footer .calendar-agenda-add {
+    width: auto;
+}
+
+html.touch-layout .calendar-agenda-footer .calendars-btn {
+    flex-shrink: 0;
+    min-height: 36px;
+    padding: 0 14px;
 }
 
 .calendar-agenda-empty {
+    margin: 0;
+    padding: 12px 0;
     color: var(--text-secondary);
-    font-size: 0.9rem;
-    padding: 6px 2px;
+    font-size: 0.941rem;
 }
 
-.tabs-on .calendar-agenda .task-item {
-    min-height: 48px;
-    padding: 8px 10px 8px 14px;
-    font-size: 0.95rem;
-    border-radius: 10px;
-    border: 1px solid var(--glass-border);
-}
-
-.tabs-on .calendar-agenda .task-text {
-    font-size: 0.95rem;
-}
-
-.tabs-on .calendar-agenda-add {
-    width: 100%;
-    border-style: dashed;
-}
-
-/* ===================================================================
-   Health tab
-   =================================================================== */
-.tabs-on .gym-hub-section {
-    margin-top: 0;
-}
-
-.tabs-on .gym-hub-header {
-    padding: 4px 0 12px;
-}
-
-.tabs-on .gym-hub-header h2 {
-    font-size: 1.25rem;
-}
-
-.tabs-on .gym-hub-toggle {
-    width: var(--touch-target);
-    height: var(--touch-target);
+/* Agenda row (Calendar list view): times, calendar dot, title and calendar name */
+.agenda-row {
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    padding: 8px 0;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
 }
 
-.tabs-on .gym-hero {
-    padding: 12px;
-    margin-bottom: 16px;
+.agenda-row+.agenda-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 84px;
+    right: 0;
+    border-top: 0.5px solid var(--separator);
 }
 
-.tabs-on .hero-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
+.agenda-row:active {
+    background: var(--press);
 }
 
-.tabs-on .hero-stat,
-.tabs-on .hero-donut {
-    width: auto;
-    min-width: 0;
-    padding: 10px 12px !important;
-    gap: 10px;
+.agenda-time {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    width: 54px;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
 }
 
-.tabs-on .hero-stat:not(.hero-supps-quick):not(.hero-quick-add) {
-    justify-content: flex-start;
+.agenda-start {
+    font-size: 0.882rem;
+    font-weight: 600;
 }
 
-.tabs-on .hero-stat-content {
+.agenda-end,
+.agenda-time.all-day {
+    font-size: 0.765rem;
+    color: var(--text-secondary);
+}
+
+.agenda-dot {
+    width: 10px;
+    height: 10px;
+}
+
+.agenda-main {
+    display: flex;
+    flex-direction: column;
     flex: 1;
     min-width: 0;
 }
 
-.tabs-on .hero-stat .hero-btn:not(.icon-only) {
-    min-height: var(--touch-target);
-    padding: 0 16px;
-    font-size: 0.9rem;
+.agenda-title {
+    font-size: 1rem;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
 }
 
-.tabs-on .hero-water-btns-vertical {
+.agenda-calendar {
+    font-size: 0.765rem;
+    color: var(--text-secondary);
+}
+
+.agenda-priority {
+    font-weight: 700;
+    color: var(--accent-color);
+}
+
+.agenda-priority.priority-mark-high {
+    color: var(--danger-color);
+}
+
+.agenda-row.past .agenda-title,
+.agenda-row.done .agenda-title {
+    color: var(--text-secondary);
+}
+
+.agenda-row.done .agenda-title {
+    text-decoration: line-through;
+}
+
+/* ===================================================================
+   Health
+   =================================================================== */
+html.touch-layout .gym-hub-section {
+    margin-top: 0;
+}
+
+html.touch-layout .gym-hero {
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+html.touch-layout .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+}
+
+html.touch-layout .hero-stat,
+html.touch-layout .hero-donut {
+    width: auto;
+    min-width: 0;
+    padding: 10px 12px !important;
+    gap: 10px;
+    border-radius: var(--radius-inner);
+    background: var(--surface-2);
+}
+
+html.touch-layout .hero-stat:not(.hero-supps-quick):not(.hero-quick-add) {
+    justify-content: flex-start;
+}
+
+html.touch-layout .hero-stat-content {
+    flex: 1;
+    min-width: 0;
+}
+
+html.touch-layout .hero-stat .hero-btn:not(.icon-only) {
+    min-height: var(--touch-target);
+    padding: 0 16px;
+}
+
+html.touch-layout .hero-stat.water {
+    flex-wrap: wrap;
+}
+
+html.touch-layout .hero-water-btns-vertical {
     flex-direction: row;
+    flex-wrap: wrap;
     gap: 6px;
 }
 
-.tabs-on .hero-water-btns-vertical .btn {
+html.touch-layout .hero-water-btns-vertical .btn {
     min-height: var(--touch-target);
     padding: 0 10px;
-    font-size: 0.85rem;
+    font-size: 0.882rem;
 }
 
-.tabs-on .water-mini-bar {
+html.touch-layout .water-mini-bar {
     width: 100%;
     max-width: 120px;
 }
 
-.tabs-on .hero-supps-quick,
-.tabs-on .hero-quick-add {
+html.touch-layout .hero-supps-quick,
+html.touch-layout .hero-quick-add {
     flex-direction: column;
     align-items: stretch !important;
 }
 
-.tabs-on .hero-supps-btns,
-.tabs-on .hero-quick-add .hero-quick-btns {
+html.touch-layout .hero-supps-btns,
+html.touch-layout .hero-quick-add .hero-quick-btns {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
     gap: 8px;
@@ -1424,396 +1775,1005 @@ body.dark .calendar-agenda-holiday {
     justify-items: center;
 }
 
-.tabs-on .hero-btn.icon-only {
+html.touch-layout .hero-btn.icon-only {
     width: var(--touch-target);
     height: var(--touch-target);
+    padding: 0;
     font-size: 1.25rem;
+    background: var(--surface-color);
 }
 
-.tabs-on .hero-supps-quick .hero-stat-label,
-.tabs-on .hero-quick-add .hero-stat-label {
-    font-size: 0.72rem;
+html.touch-layout .hero-supps-quick .hero-stat-label,
+html.touch-layout .hero-quick-add .hero-stat-label {
     margin-bottom: 8px !important;
     text-align: left !important;
+    font-size: 0.765rem;
+    font-weight: 600;
+    color: var(--text-secondary);
 }
 
-.tabs-on .hero-donut {
+html.touch-layout .hero-donut {
     flex-wrap: wrap;
     justify-content: flex-start;
     row-gap: 8px;
 }
 
-.tabs-on .hero-donut-chart {
+html.touch-layout .hero-donut-chart {
     width: 72px;
     height: 72px;
 }
 
-.tabs-on .hero-donut-value {
-    font-size: 1rem;
-}
-
-.tabs-on .hero-donut-label {
-    font-size: 0.7rem;
-}
-
-.tabs-on .mini-legend-item {
-    font-size: 0.85rem;
-}
-
-.tabs-on .hero-status-group {
+html.touch-layout .hero-status-group {
     margin-left: auto;
 }
 
-.tabs-on .status-badge,
-.tabs-on .status-detail {
-    font-size: 0.85rem;
-}
-
-.tabs-on .streak-history {
+html.touch-layout .streak-history {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
 
-.tabs-on .gym-hub-grid,
-.tabs-on .gym-hub-grid.pro {
+html.touch-layout .gym-hub-grid,
+html.touch-layout .gym-hub-grid.pro {
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
 }
 
-.tabs-on .gym-card {
+html.touch-layout .gym-card {
     padding: 16px;
 }
 
-.tabs-on .gym-date-nav-compact .btn {
-    width: var(--touch-target);
-    height: var(--touch-target);
-    font-size: 0.85rem;
+html.touch-layout .gym-card-header {
+    gap: 8px;
 }
 
-.tabs-on .gym-date-nav-compact .gym-today-btn {
+html.touch-layout .gym-date-nav-compact .btn {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    padding: 0;
+}
+
+html.touch-layout .gym-date-nav-compact .gym-today-btn {
+    width: auto;
     padding: 0 14px !important;
 }
 
-.tabs-on .gym-date-label {
-    font-size: 0.9rem;
+html.touch-layout .gym-date-label {
+    font-size: 0.941rem;
+    font-weight: 600;
 }
 
-.tabs-on .split-day-compact {
+html.touch-layout .split-day-compact {
     min-width: 36px;
     min-height: 36px;
 }
 
-.tabs-on .split-input-clean,
-.tabs-on .add-row input {
+html.touch-layout .split-input-clean,
+html.touch-layout .add-row input,
+html.touch-layout .ring-input,
+html.touch-layout .step-date-input {
     min-height: var(--touch-target);
 }
 
-.tabs-on .add-row .btn {
+html.touch-layout .add-row .btn {
     min-width: var(--touch-target);
 }
 
-.tabs-on .checklist-container {
+html.touch-layout .checklist-container {
     max-height: none;
     overflow: visible;
 }
 
-.tabs-on .weekly-goal-item {
+html.touch-layout .weekly-goal-item {
     min-height: 48px;
 }
 
-.tabs-on .ring-input {
-    min-height: var(--touch-target);
-}
-
-/* Step Challenge controls (built for 36-40px) get the full touch size on phones */
-.tabs-on .step-icon-btn,
-.tabs-on .step-nav-btn {
+/* Step Challenge controls (built for 36-40px) get the full touch size */
+html.touch-layout .step-icon-btn,
+html.touch-layout .step-nav-btn {
     min-width: var(--touch-target);
     min-height: var(--touch-target);
 }
 
-.tabs-on .step-date-input {
-    min-height: var(--touch-target);
+html.touch-layout .step-card {
+    --step-button: var(--tint-fill);
+    --step-accent: var(--accent-color);
 }
 
-.tabs-on .ring-label,
-.tabs-on .donut-label {
-    font-size: 0.7rem;
-}
-
-.tabs-on .settings-icon-btn {
+html.touch-layout .settings-icon-btn {
     min-width: var(--touch-target);
     min-height: var(--touch-target);
     margin-right: -10px;
 }
 
-.tabs-on .quick-add-btn {
-    min-height: var(--touch-target);
-    padding: 0 12px;
-    font-size: 0.9rem;
-}
-
-.tabs-on .water-btns-row .btn {
+html.touch-layout .quick-add-btn,
+html.touch-layout .water-btns-row .btn {
     min-height: var(--touch-target);
     min-width: var(--touch-target);
 }
 
 /* Supplement tracker: name on its own line, 7 day circles across the full width */
-.tabs-on .supp-tracker-header {
+html.touch-layout .supp-tracker-header {
     padding: 0 6px 4px;
 }
 
-.tabs-on .supp-header-spacer {
+html.touch-layout .supp-header-spacer {
     display: none;
 }
 
-.tabs-on .supp-header-days,
-.tabs-on .supp-days-grid {
+html.touch-layout .supp-header-days,
+html.touch-layout .supp-days-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 4px;
     width: 100%;
 }
 
-.tabs-on .supp-header-day {
+html.touch-layout .supp-header-day {
     width: auto;
-    font-size: 0.72rem;
+    font-size: 0.706rem;
 }
 
-.tabs-on .supp-row {
+html.touch-layout .supp-row {
     flex-wrap: wrap;
     gap: 6px;
     padding: 8px 6px;
     margin-bottom: 6px;
+    border: none;
+    border-radius: var(--radius-inner);
+    background: var(--surface-2);
 }
 
-.tabs-on .supp-row>div:first-child {
+html.touch-layout .supp-row>div:first-child {
     flex-basis: 100% !important;
 }
 
-.tabs-on .day-circle {
+html.touch-layout .day-circle {
     width: 34px;
     height: 34px;
     justify-self: center;
+    border: 1.5px solid var(--control-border);
+    background: transparent;
+}
+
+html.touch-layout .day-circle.active {
+    border-color: var(--tint-fill);
+    background: var(--tint-fill);
+    box-shadow: none;
 }
 
 /* ===================================================================
-   Habits tab: habits + weekly review
+   Habits and weekly review
    =================================================================== */
-.tabs-on .habits-section {
+html.touch-layout .habits-section,
+html.touch-layout .weekly-review-section {
     margin-top: 0;
-    padding-top: 4px;
+    padding-top: 0;
     border-top: none;
 }
 
-.tabs-on .habits-header,
-.tabs-on .weekly-review-header,
-.tabs-on .calendar-section-header {
-    min-height: var(--touch-target);
-    margin-bottom: 8px;
+html.touch-layout .weekly-review-section {
+    margin-top: 28px;
 }
 
-.tabs-on .habits-header h2,
-.tabs-on .weekly-review-header h2,
-.tabs-on .calendar-section-header h2 {
-    margin-bottom: 0;
+html.touch-layout .habits-toolbar {
+    margin: 4px 0 18px;
 }
 
-.tabs-on .habit-check {
-    max-width: var(--touch-target);
+html.touch-layout .habits-grid {
+    gap: 0;
 }
 
-.tabs-on .habit-check.done::after {
-    font-size: 1rem;
+html.touch-layout .habit-header-row {
+    gap: 2px;
+    padding: 0 0 6px;
 }
 
-.tabs-on .habit-name-text {
+html.touch-layout .habit-header-row>div {
+    font: 600 min(0.706rem, 14px)/1.3 var(--ios-font);
+    color: var(--text-secondary);
+}
+
+html.touch-layout .habit-header-row>div.today {
+    color: var(--accent-color);
+}
+
+html.touch-layout .habit-row {
+    position: relative;
+    gap: 10px 2px;
+    padding: 12px 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+}
+
+html.touch-layout .habit-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    border-top: 0.5px solid var(--separator);
+}
+
+html.touch-layout .habit-name {
+    font: 600 1rem/1.3 var(--ios-font);
+    cursor: default;
+}
+
+html.touch-layout .habit-name-text {
     overflow-wrap: anywhere;
 }
 
-.tabs-on .weekly-review {
-    min-height: 180px;
-    font-size: 1rem;
+/* Day checks: outlined circles, filled with a checkmark when done */
+html.touch-layout .habit-check {
+    width: 100%;
+    max-width: var(--touch-target);
+    border: 1.5px solid var(--control-border);
+    background: transparent;
+    box-shadow: none;
+    transform: none;
 }
 
-.tabs-on .habit-stats-grid {
+html.touch-layout .habit-check.today {
+    border-color: var(--accent-color);
+    border-width: 2px;
+    background: var(--tint-soft);
+    box-shadow: none;
+}
+
+html.touch-layout .habit-check.done {
+    border-color: var(--tint-fill);
+    background: var(--tint-fill);
+    transform: none;
+    box-shadow: none;
+}
+
+html.touch-layout .habit-check.done::after {
+    content: '';
+    width: 45%;
+    height: 45%;
+    background: #ffffff;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.3l2.6 2.6L10 3.4' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.3l2.6 2.6L10 3.4' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+html.touch-layout .habit-stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+html.touch-layout .habit-stat-card {
+    border: none;
+    background: var(--surface-2);
+}
+
+html.touch-layout .weekly-review {
+    min-height: 180px;
+    padding: 12px;
+    border: none;
+    border-radius: var(--radius-inner);
+    background: var(--surface-2);
+    font-size: 1rem;
+    line-height: 1.35;
+}
+
 /* ===================================================================
-   Lists tab
+   Lists
    =================================================================== */
-.tabs-on .lists-grid {
+html.touch-layout .lists-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
     margin-bottom: 8px;
 }
 
-.tabs-on .list-panel {
-    padding: 14px 14px 16px;
+html.touch-layout .list-panel {
+    padding: 14px 16px 6px;
 }
 
-.tabs-on .list-panel h3 {
-    padding: 10px 48px !important;
-    margin-bottom: 8px;
-    font-size: 1.05rem;
+html.touch-layout .list-panel h3 {
+    padding: 8px 48px 8px 0 !important;
+    margin-bottom: 4px;
+    border-bottom: none !important;
 }
 
-.tabs-on .simple-list {
+html.touch-layout .simple-list {
     min-height: 0;
     max-height: none;
+    gap: 0;
+    padding-bottom: 0;
     overflow: visible;
-    padding-bottom: 8px;
 }
 
-.tabs-on .simple-list-item {
+html.touch-layout .simple-list-item span {
+    display: flex;
     align-items: center;
-    min-height: 48px;
-    padding: 8px 10px 8px 14px;
-    font-size: 0.98rem;
+    gap: 12px;
+    font-size: 1rem;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
 }
 
-.tabs-on .list-add-item-btn::after {
-    content: ' Add item';
+/* Done state as a Reminders circle (the text itself toggles, as before) */
+html.touch-layout .simple-list-item span::before {
+    content: '';
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border: 1.5px solid var(--control-border);
+    border-radius: 50%;
+    box-sizing: border-box;
 }
 
-.tabs-on .create-list-btn {
+html.touch-layout .simple-list-item.done span::before {
+    border-color: var(--tint-fill);
+    background: var(--tint-fill) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.3l2.6 2.6L10 3.4' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 11px no-repeat;
+}
+
+html.touch-layout .create-list-btn {
     margin: 8px auto 16px !important;
+    border: none !important;
+    opacity: 1 !important;
+    background: var(--fill-3) !important;
+}
+
+/* ===================================================================
+   Menus (js/mobile.js): glass panel anchored to its button
+   =================================================================== */
+.menu-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+}
+
+.menu-backdrop {
+    position: absolute;
+    inset: 0;
+    touch-action: none;
+}
+
+.menu {
+    position: absolute;
+    min-width: 230px;
+    max-width: min(300px, calc(100vw - 16px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 6px 0;
+    border-radius: 24px;
+    background: var(--glass-bg, rgba(250, 250, 250, 0.9));
+    color: var(--text-primary);
+    opacity: 0;
+    transform: scale(0.82);
+    transition: opacity 0.16s ease, transform 0.3s var(--spring, ease-out);
+}
+
+.menu-layer.open .menu {
+    opacity: 1;
+    transform: none;
+}
+
+.menu-title {
+    padding: 8px 16px 6px;
+    font: 400 0.765rem/1.3 var(--ios-font, system-ui);
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font: 400 1rem/1.25 var(--ios-font, system-ui);
+    text-align: left;
+    cursor: pointer;
+}
+
+.menu-item:active:not(:disabled),
+.menu-item:focus-visible {
+    background: var(--press, rgba(120, 120, 128, 0.16));
+    outline: none;
+}
+
+.menu-item:disabled {
+    color: var(--text-tertiary, #999);
+    cursor: default;
+}
+
+.menu-item.destructive {
+    color: var(--danger-color);
+}
+
+.menu-icon,
+.menu-chevron {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+}
+
+.menu-icon svg,
+.menu-chevron svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.menu-chevron {
+    margin-left: auto;
+    color: var(--text-secondary);
+}
+
+.menu-chevron svg {
+    width: 16px;
+    height: 16px;
+    stroke-width: 2.2;
+}
+
+.menu-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.menu-label {
+    overflow-wrap: anywhere;
+}
+
+.menu-subtitle {
+    font-size: 0.765rem;
+    color: var(--text-secondary);
+}
+
+.menu-back {
+    font-weight: 600;
+}
+
+.menu-separator {
+    height: 0;
+    margin: 6px 16px;
+    border-top: 0.5px solid var(--separator, rgba(60, 60, 67, 0.29));
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .menu,
+    .tabbar-indicator,
+    .mobile-tab,
+    html.touch-layout .sheet-dialog {
+        transition: none;
+    }
+}
+
+/* ===================================================================
+   Alerts (confirm, text input) and other dialogs in the touch layout
+   =================================================================== */
+html.touch-layout .input-modal,
+html.touch-layout .confirm-modal,
+html.touch-layout .shortcuts-modal {
+    /* Centred in the part of the screen the keyboard leaves free (js/mobile.js) */
+    top: var(--vv-top, 0px);
+    bottom: auto;
+    height: var(--vv-height, 100dvh);
+    padding: calc(var(--safe-top) + 12px) calc(var(--safe-right) + 24px) 12px calc(var(--safe-left) + 24px);
+    background: rgba(0, 0, 0, 0.3);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+html.touch-layout .input-modal-content,
+html.touch-layout .confirm-modal-content,
+html.touch-layout .shortcuts-content {
+    width: min(100%, 320px);
+    max-height: calc(var(--vv-height, 100dvh) - var(--safe-top) - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 20px 16px 16px;
+    border: none;
+    border-radius: 32px;
+    background: var(--surface-color);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+/* Dark mode: alerts are raised (elevated background), as in iOS */
+html.touch-layout body.dark .input-modal-content,
+html.touch-layout body.dark .confirm-modal-content,
+html.touch-layout body.dark .shortcuts-content {
+    background: #2c2c2e;
+}
+
+html.touch-layout body.dark .input-modal-field {
+    background: rgba(118, 118, 128, 0.3);
+}
+
+html.touch-layout .sync-modal-content,
+html.touch-layout #nutritionSettingsModal .input-modal-content {
+    width: min(100%, 420px);
+    text-align: left;
+}
+
+html.touch-layout .input-modal-content h3,
+html.touch-layout .confirm-modal-content h3 {
+    margin: 0 0 6px;
+    font: 600 1rem/1.3 var(--ios-font);
+    letter-spacing: 0;
+}
+
+html.touch-layout .confirm-modal-content p {
+    margin: 0 0 16px;
+    font-size: 0.765rem;
+    line-height: 1.38;
+    color: var(--text-primary);
+}
+
+html.touch-layout .input-modal-field {
+    margin: 10px 0 16px;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 12px;
+    background: var(--fill-3);
+    color: var(--text-primary);
+    box-shadow: none;
+}
+
+html.touch-layout .input-modal-field:focus {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 0;
+    box-shadow: none;
+}
+
+html.touch-layout .input-modal-actions,
+html.touch-layout .confirm-modal-actions {
+    display: flex;
+    gap: 10px;
+    margin: 0;
+}
+
+html.touch-layout .input-modal-actions .btn,
+html.touch-layout .confirm-modal-actions .btn {
+    flex: 1 1 0;
     min-height: 48px;
+    border: none;
+    font-size: 1rem;
+}
+
+html.touch-layout .input-modal-cancel,
+html.touch-layout .confirm-modal-cancel {
+    background: var(--fill-2);
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+html.touch-layout .confirm-modal-confirm {
+    background: var(--fill-2);
+    color: var(--danger-color);
+    font-weight: 600;
+}
+
+html.touch-layout .sync-modal-actions {
+    flex-direction: column;
+}
+
+html.touch-layout .sync-modal-actions .btn {
+    width: 100%;
+}
+
+html.touch-layout .focus-overlay {
+    padding: calc(var(--safe-top) + 24px) calc(var(--safe-right) + 20px) calc(var(--safe-bottom) + 24px) calc(var(--safe-left) + 20px);
+}
+
+html.touch-layout .focus-exit-btn {
+    top: calc(var(--safe-top) + 12px);
+    right: calc(var(--safe-right) + 16px);
+    min-height: var(--touch-target);
+    border: none;
+    border-radius: 999px;
+    background: var(--fill-3);
+    color: var(--text-primary);
+}
+
+html.touch-layout .focus-timer {
+    width: min(300px, 70vw, 48dvh);
+    height: min(300px, 70vw, 48dvh);
+    margin-bottom: 28px;
+}
+
+html.touch-layout .focus-timer .pomo-time {
+    /* scales with the ring, so "25:00" fits on short landscape screens too */
+    font-size: calc(min(300px, 70vw, 48dvh) * 0.21);
+}
+
+/* Floating mini timer and banners: above the section bar, inside the safe area */
+html.touch-layout .pip-timer {
+    right: auto;
+    left: calc(var(--safe-left) + var(--gutter));
+    bottom: calc(var(--tabbar-height) + var(--tabbar-bottom) + 12px);
+    border-radius: 24px;
+}
+
+html.touch-layout .notification-container {
+    top: calc(var(--safe-top) + 8px);
+    width: calc(100% - 2 * var(--gutter) - var(--safe-left) - var(--safe-right));
+}
+
+html.touch-layout .notification-banner {
+    border-radius: 24px;
+    color: var(--text-primary);
+}
+
+/* ===================================================================
+   Entry editor and calendar list as iOS sheets (js/calendar-ui.js)
+   =================================================================== */
+html.touch-layout .sheet-dialog {
+    inset: auto 0 0 0;
+    margin: 0 auto;
+    width: min(100%, 640px);
+    max-width: none;
+    height: calc(100dvh - var(--safe-top) - 10px);
+    max-height: none;
+    border: none;
+    border-radius: 34px 34px 0 0;
+    background: var(--bg-color);
+    color: var(--text-primary);
+    box-shadow: 0 -2px 30px rgba(0, 0, 0, 0.18);
+    transform: translateY(100%);
+    transition: transform 0.32s cubic-bezier(0.2, 0.9, 0.25, 1);
+    overscroll-behavior: contain;
+}
+
+html.touch-layout .sheet-dialog.open {
+    transform: none;
+}
+
+html.touch-layout .sheet-dialog.dragging {
+    transition: none;
+}
+
+html.touch-layout .sheet-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.32);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+html.touch-layout.dialog-open {
+    overflow: hidden;
+}
+
+html.touch-layout .sheet {
+    height: 100%;
+    max-height: none;
+}
+
+html.touch-layout .sheet-grabber {
+    display: block;
+    flex-shrink: 0;
+    width: 36px;
+    height: 5px;
+    margin: 6px auto 0;
+    border-radius: 3px;
+    background: var(--fill-1);
+}
+
+html.touch-layout .sheet-header {
+    padding: 6px 12px 10px;
+    touch-action: none;
+}
+
+html.touch-layout .sheet-title {
+    font: 600 1rem/1.3 var(--ios-font);
+}
+
+/* Header buttons: glass circles with a symbol (xmark, checkmark, chevron) */
+html.touch-layout .sheet-btn {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    min-height: 0;
+    padding: 0;
+    border: 0.5px solid var(--glass-edge);
+    border-radius: 50%;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-shadow), var(--glass-highlight);
+    color: var(--text-primary);
+}
+
+html.touch-layout .sheet-btn svg {
+    display: block;
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+html.touch-layout .sheet-btn .sheet-btn-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+}
+
+html.touch-layout .sheet-btn.prominent {
+    border-color: transparent;
+    background: var(--tint-fill);
+    color: #ffffff;
+}
+
+html.touch-layout .sheet-btn:disabled {
+    opacity: 1;
+    background: var(--fill-3);
+    color: var(--text-tertiary);
+    box-shadow: none;
+}
+
+html.touch-layout .sheet-body {
+    flex: 1;
+    padding: 8px calc(var(--safe-right) + var(--gutter)) calc(var(--safe-bottom) + 24px) calc(var(--safe-left) + var(--gutter));
+}
+
+/* Inset grouped form rows */
+html.touch-layout .form-group {
+    margin: 0 0 24px;
+    border: none;
+    border-radius: var(--radius-card);
+    background: var(--surface-color);
+}
+
+html.touch-layout .form-group-title {
+    margin: 0 16px 6px;
+    font: 400 0.765rem/1.3 var(--ios-font);
+    color: var(--text-secondary);
+}
+
+html.touch-layout .form-row {
+    position: relative;
+    min-height: 52px;
+    padding: 6px 16px;
+    border-top: none;
+    font: 400 1rem/1.3 var(--ios-font);
+}
+
+html.touch-layout .form-group>.form-row~.form-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 16px;
+    right: 0;
+    border-top: 0.5px solid var(--separator);
+}
+
+html.touch-layout .form-input {
+    font-size: max(16px, 1rem);
+}
+
+html.touch-layout .form-control {
+    /* Safari draws its own compact date/time picker (the native iOS control) */
+    font: 400 1rem/1.2 var(--ios-font);
+    font-size: max(16px, 1rem);
+    border: none;
+    border-radius: 8px;
+    padding: 6px 10px;
+    background: var(--fill-3);
+    color: var(--text-primary);
+}
+
+html.touch-layout .form-select {
+    font-size: max(16px, 1rem);
+}
+
+html.touch-layout .form-message {
+    margin: -16px 16px 20px;
+    font-size: 0.765rem;
+}
+
+html.touch-layout .form-row-button {
+    justify-content: center;
+    font-weight: 400;
+}
+
+html.touch-layout .form-row-button.tinted {
+    justify-content: flex-start;
+    gap: 10px;
+}
+
+html.touch-layout .form-row-button:active,
+html.touch-layout .calendar-row:active,
+html.touch-layout .color-row:active {
+    background: var(--press);
+}
+
+html.touch-layout .calendar-row .calendar-dot,
+html.touch-layout .color-row .calendar-dot {
+    width: 14px;
+    height: 14px;
+}
+
+html.touch-layout .row-check {
+    color: var(--accent-color);
+}
+
+html.touch-layout .sheet-confirm {
+    padding: 12px calc(var(--safe-right) + 10px) calc(var(--safe-bottom) + 10px) calc(var(--safe-left) + 10px);
+    background: rgba(0, 0, 0, 0.3);
+}
+
+html.touch-layout .sheet-confirm-group,
+html.touch-layout .sheet-confirm-cancel {
+    border-radius: 28px;
+    background: var(--surface-color);
+}
+
+html.touch-layout .sheet-confirm-message {
+    font-size: 0.765rem;
+    border-bottom: 0.5px solid var(--separator);
+}
+
+html.touch-layout .sheet-confirm-btn {
+    min-height: 56px;
+    background: var(--surface-color);
+    font: 400 1.059rem/1.2 var(--ios-font);
+}
+
+html.touch-layout .sheet-confirm-btn.destructive {
+    font-weight: 400;
+}
+
+html.touch-layout .sheet-confirm-cancel {
+    font-weight: 600;
 }
 
 /* ===================================================================
    Medium widths: iPhone Duo unfolded (~890 x 626), iPad mini/iPad portrait
    =================================================================== */
 @media (min-width: 700px) {
-    html.tabs-on body {
-        padding-left: calc(var(--safe-left) + 20px);
-        padding-right: calc(var(--safe-right) + 20px);
+    html.touch-layout {
+        --gutter: 24px;
     }
 
-    .tabs-on .mobile-tab {
+    html.touch-layout .mobile-tab {
         flex-direction: row;
         gap: 8px;
-        font-size: 0.85rem;
-        min-height: 44px;
+        font-size: 13px;
     }
 
-    .tabs-on .mobile-tab svg {
+    html.touch-layout .mobile-tab svg {
         width: 22px;
         height: 22px;
     }
 
-    .tabs-on .dashboard-main-layout {
+    html.touch-layout .mobile-tabbar {
+        --tabbar-height: 54px;
+        height: 54px;
+    }
+
+    html.touch-layout .dashboard-main-layout {
         flex-direction: row;
         align-items: flex-start;
+        gap: 16px;
     }
 
-    .tabs-on .combined-glass-panel {
+    html.touch-layout .combined-glass-panel {
         width: auto;
-        flex: 0 0 300px;
+        flex: 0 0 320px;
     }
 
-    .tabs-on .pomodoro-section {
+    html.touch-layout .pomodoro-section {
         display: block;
         text-align: center;
     }
 
-    .tabs-on .pip-btn {
+    html.touch-layout .pip-btn {
         margin: 16px auto 0;
     }
 
-    .tabs-on .pomodoro-modes {
-        justify-content: center;
-    }
-
-    .tabs-on .pomodoro-display {
+    html.touch-layout .pomodoro-display {
         width: 168px;
         height: 168px;
         margin: 0 auto 16px;
     }
 
-    .tabs-on .pomo-time {
-        font-size: 2.6rem;
+    html.touch-layout .pomo-time {
+        font-size: min(2.6rem, 46px);
     }
 
-    .tabs-on .pomodoro-controls {
+    html.touch-layout .pomodoro-controls {
         flex-direction: row;
         margin-bottom: 10px;
     }
 
-    .tabs-on .dashboard-sidebar {
+    html.touch-layout .dashboard-sidebar {
         flex: 1;
     }
 
-    .tabs-on .week-kanban {
+    html.touch-layout .week-kanban {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
         align-items: start;
     }
 
-    .tabs-on .lists-grid {
+    html.touch-layout .lists-grid {
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     }
 
     /* Hero tiles: streak + water, supplements + quick add, calories */
-    .tabs-on .hero-grid {
+    html.touch-layout .hero-grid {
         grid-template-columns: repeat(6, minmax(0, 1fr));
     }
 
-    .tabs-on .hero-grid>.hero-stat:nth-child(1) {
+    html.touch-layout .hero-grid>.hero-stat:nth-child(1) {
         grid-column: span 2;
     }
 
-    .tabs-on .hero-grid>.hero-stat.water {
+    html.touch-layout .hero-grid>.hero-stat.water {
         grid-column: span 4;
     }
 
-    .tabs-on .hero-grid>.hero-supps-quick,
-    .tabs-on .hero-grid>.hero-quick-add {
+    html.touch-layout .hero-grid>.hero-supps-quick,
+    html.touch-layout .hero-grid>.hero-quick-add {
         grid-column: span 3;
     }
 
-    .tabs-on .hero-grid>.hero-donut {
+    html.touch-layout .hero-grid>.hero-donut {
         grid-column: 1 / -1;
     }
 
-    .tabs-on .gym-hub-grid,
-    .tabs-on .gym-hub-grid.pro {
+    html.touch-layout .gym-hub-grid,
+    html.touch-layout .gym-hub-grid.pro {
         grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     }
 
-    .tabs-on .day-cell {
+    html.touch-layout .day-cell {
         aspect-ratio: auto;
-        min-height: 64px;
+        min-height: 60px;
     }
 
-    /* Habits and the weekly review side by side would be too narrow; keep them stacked,
-       but give the habit rows the desktop look with the name on the left */
-    .tabs-on .habit-row {
+    /* Habit rows like the desktop table: name on the left, the 7 days beside it */
+    html.touch-layout .habit-row,
+    html.touch-layout .habit-header-row {
         grid-template-columns: minmax(140px, 1.6fr) repeat(7, minmax(0, 1fr));
         gap: 6px;
     }
 
-    .tabs-on .habit-name {
+    html.touch-layout .habit-name {
         grid-column: auto;
     }
 
-    .tabs-on .habit-header-row {
-        grid-template-columns: minmax(140px, 1.6fr) repeat(7, minmax(0, 1fr));
-        gap: 6px;
+    html.touch-layout .habit-header-row>div:first-child {
+        display: block;
     }
 
-    .tabs-on .habit-header-row>div:first-child {
-        display: block;
+    html.touch-layout .sheet-dialog {
+        /* Wider screens: the sheet floats with a gap below, like on iPad */
+        bottom: max(16px, var(--safe-bottom));
+        height: min(720px, calc(100dvh - var(--safe-top) - 48px));
+        border-radius: 34px;
     }
 }
 
 /* Wide medium (iPhone Duo unfolded in landscape, iPad landscape below 1100px):
    two panes where content allows it */
 @media (min-width: 820px) {
-    .tabs-on .calendar-section-content .glass-panel {
+    html.touch-layout .calendar-section-content .glass-panel {
         display: grid;
-        grid-template-columns: minmax(0, 1.45fr) minmax(250px, 1fr);
+        grid-template-columns: minmax(0, 1.45fr) minmax(260px, 1fr);
         grid-template-areas:
             "header header"
             "weekdays agenda"
@@ -1822,87 +2782,109 @@ body.dark .calendar-agenda-holiday {
         column-gap: 20px;
     }
 
-    .tabs-on .calendar-section-content .calendar-header {
+    html.touch-layout .calendar-section-content .calendar-header {
         grid-area: header;
     }
 
-    .tabs-on .calendar-section-content .calendar-grid-header {
+    html.touch-layout .calendar-section-content .calendar-grid-header {
         grid-area: weekdays;
     }
 
-    .tabs-on .calendar-section-content .calendar-grid {
+    html.touch-layout .calendar-section-content .calendar-grid {
         grid-area: grid;
         align-self: start;
     }
 
-    .tabs-on .calendar-section-content .calendar-agenda {
+    html.touch-layout .calendar-section-content .calendar-agenda {
         grid-area: agenda;
-        margin-top: 0;
+        margin: 0;
         padding: 0 0 0 20px;
         border-top: none;
-        border-left: 1px solid var(--glass-border);
+        border-left: 0.5px solid var(--separator);
         min-width: 0;
     }
 
-    .tabs-on .day-cell {
+    html.touch-layout .day-cell {
         min-height: 56px;
     }
-
 }
 
 /* ===================================================================
    Short screens: phones in landscape (height below 500px)
    =================================================================== */
 @media (max-height: 500px) {
-    .tabs-on {
-        --tabbar-height: 46px;
+    html.touch-layout {
+        --tabbar-height: 48px;
+        --app-bar-height: 44px;
     }
 
-    .tabs-on .mobile-tab {
+    html.touch-layout .mobile-tabbar {
+        height: 48px;
+    }
+
+    html.touch-layout .mobile-tab {
         flex-direction: row;
         gap: 6px;
-        min-height: 36px;
-        font-size: 0.8rem;
+        font-size: 12px;
     }
 
-    .tabs-on .mobile-tab svg {
+    html.touch-layout .mobile-tab svg {
         width: 20px;
         height: 20px;
     }
 
-    .tabs-on .quick-capture-btn {
-        width: 48px;
-        height: 48px;
-        font-size: 1.6rem;
+    html.touch-layout .sheet-dialog {
+        height: calc(100dvh - var(--safe-top) - 8px);
+        bottom: 0;
+        border-radius: 24px 24px 0 0;
     }
 
-    .tabs-on .brand-header {
-        min-height: 44px;
-        margin-bottom: 6px;
+    /* Timer card: ring beside the buttons again, the card fits the short screen */
+    html.touch-layout .pomodoro-section {
+        display: grid;
+        text-align: left;
+    }
+
+    html.touch-layout .pomodoro-display {
+        width: 120px;
+        height: 120px;
+        margin: 0;
+    }
+
+    html.touch-layout .pomo-time {
+        font-size: min(2rem, 33px);
+    }
+
+    html.touch-layout .pomodoro-controls {
+        flex-direction: column;
+        margin: 0;
+    }
+
+    html.touch-layout .pip-btn {
+        margin: 0 52px 0 0;
     }
 }
 
 /* Very narrow phones (iPhone SE, mini; iPhone Duo in a narrow split view) */
 @media (max-width: 380px) {
-    html.tabs-on body {
-        padding-left: calc(var(--safe-left) + 8px);
-        padding-right: calc(var(--safe-right) + 8px);
+    html.touch-layout {
+        --gutter: 12px;
     }
 
-    .tabs-on .pomodoro-display {
+    html.touch-layout .pomodoro-display {
         width: 112px;
         height: 112px;
     }
 
-    .tabs-on .pomo-time {
-        font-size: 1.8rem;
+    html.touch-layout .pomo-time {
+        font-size: min(1.8rem, 30px);
     }
 
-    .tabs-on .glass-panel {
+    html.touch-layout .glass-panel {
         padding: 12px;
     }
 
-    .tabs-on .hero-water-btns-vertical .btn {
+    html.touch-layout .hero-water-btns-vertical .btn {
         padding: 0 8px;
     }
 }

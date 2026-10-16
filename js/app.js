@@ -284,8 +284,9 @@ function showInputModal(title, placeholder = '', defaultValue = '', options = {}
   });
 }
 
-// Custom confirm modal (replaces native confirm())
-function showConfirmModal(title, message = 'Are you sure?') {
+// Custom confirm modal (replaces native confirm()). options.confirmLabel names the action
+// ("Delete" rather than "Confirm", as in iOS alerts); every use replaces or deletes data.
+function showConfirmModal(title, message = 'Are you sure?', options = {}) {
   return new Promise((resolve) => {
     const modal = document.getElementById('confirmModal');
     const titleEl = document.getElementById('confirmModalTitle');
@@ -295,6 +296,7 @@ function showConfirmModal(title, message = 'Are you sure?') {
 
     titleEl.textContent = title;
     messageEl.textContent = message;
+    confirmBtn.textContent = options.confirmLabel || 'Confirm';
     modal.classList.add('active');
 
     const cleanup = () => {
@@ -349,7 +351,9 @@ function isSupabaseAvailable() {
 const DataUtils = window.DataUtils || {
   escapeHtml: (s) => String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])),
   keyKind: () => null,
-  isSyncableKey: (key) => /^(goals-|cal-|notes-|review-|week-|list-)/.test(key) || ['backlog', 'habits', 'habitChecks', 'customListsMeta', 'gymHubData'].includes(key),
+  isSyncableKey: (key) => /^(goals-|cal-|notes-|review-|week-|list-)/.test(key) || ['backlog', 'habits', 'habitChecks', 'customListsMeta', 'gymHubData', 'calendars'].includes(key),
+  normalizeTime: (v) => (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d/.test(v) ? v.slice(0, 5) : null),
+  goalIdentity: (g) => (typeof g === 'string' ? g + '|||' : [g.text, g.start || '', g.end || '', g.calendarId || ''].join('|')),
   fingerprint: () => null,
   isEmptyCloudValue: () => false
 };
@@ -624,6 +628,14 @@ const db = {
     // 3. Sync to Cloud
     db.pushKey('habitChecks', () => window.supabaseDB.setSetting('habitChecks', checks));
   },
+  // Own calendars (name, colour): settings key "calendars", default calendar first
+  getCalendars: () => CalendarCore.normalizeCalendars(db.get('calendars', null)),
+  setCalendars: (calendars) => {
+    const list = CalendarCore.normalizeCalendars(calendars);
+    db.set('calendars', list);
+    db.lastLocalChange = Date.now();
+    db.pushKey('calendars', () => window.supabaseDB.setSetting('calendars', list));
+  },
   getCalendarTasks: (date) => db.get(db.calKey(date), []),
   setCalendarTasks: (date, tasks) => {
     const key = db.calKey(date);
@@ -746,6 +758,14 @@ const db = {
     } else if (!db.isDirty('habitChecks')) {
       db.set('habitChecks', habitChecks, true);
       db.loadHabitChecks(habitChecks);
+    }
+
+    // Own calendars: the cloud version unless this device has an unsent change
+    const calendarsSetting = await window.supabaseDB.fetchSetting('calendars');
+    if (!calendarsSetting.ok) {
+      noteError('calendars', 'download failed');
+    } else if (calendarsSetting.exists && !db.isDirty('calendars')) {
+      db.set('calendars', calendarsSetting.value, true);
     }
 
     // List Metadata: ALWAYS merge cloud lists into local (even if dirty)
@@ -979,7 +999,7 @@ const db = {
           err = await window.supabaseDB.setHabits(val);
           if (!err) db.storeHabitIds(val);
         }
-        else if (key === 'habitChecks' || key === 'customListsMeta' || key === 'gymHubData') err = await window.supabaseDB.setSetting(key, val);
+        else if (key === 'habitChecks' || key === 'customListsMeta' || key === 'gymHubData' || key === 'calendars') err = await window.supabaseDB.setSetting(key, val);
         else if (key === 'backlog') err = await window.supabaseDB.setBacklog(val);
         else if (key.startsWith('week-')) err = await window.supabaseDB.setKanban(key, val);
         else if (key.startsWith('list-')) {
@@ -1065,8 +1085,8 @@ const db = {
       });
     }
 
-    // 4. Settings blobs (habit checks, list metadata, health hub)
-    for (const key of ['habitChecks', 'customListsMeta', 'gymHubData']) {
+    // 4. Settings blobs (habit checks, list metadata, health hub, own calendars)
+    for (const key of ['habitChecks', 'customListsMeta', 'gymHubData', 'calendars']) {
       if (localStorage.getItem(key) !== null) await upload(key, key, val => api.setSetting(key, val));
     }
 
@@ -1193,7 +1213,7 @@ window.forceDownload = async (button) => {
   const confirmed = await showConfirmModal('Replace local data?',
     pending.length > 0
       ? `${pending.length} change(s) on this device have not been uploaded. They will be replaced by the cloud version (a backup copy is kept on this device).`
-      : 'Reload all data from the cloud?');
+      : 'Reload all data from the cloud?', { confirmLabel: 'Replace' });
   if (!confirmed) return;
   return runSyncAction(button, 'Downloading…', async () => {
     pending.forEach(key => {
@@ -1209,7 +1229,7 @@ window.forceDownload = async (button) => {
 // Device wins: upload everything stored on this device
 window.forceUpload = async (button) => {
   const confirmed = await showConfirmModal('Overwrite cloud data?',
-    'This uploads all data stored on this device and replaces the cloud version. Use it on the device that has the correct data.');
+    'This uploads all data stored on this device and replaces the cloud version. Use it on the device that has the correct data.', { confirmLabel: 'Overwrite' });
   if (!confirmed) return;
   return runSyncAction(button, 'Uploading…', async () => {
     const result = await db.pushToCloud();
@@ -1369,6 +1389,9 @@ async function init() {
 
   // Step challenge (js/steps.js) needs the logged-in user
   if (window.stepCounter && window.currentUserId) window.stepCounter.start();
+
+  // Sections are filled: deep links may jump now (js/mobile.js)
+  window.dispatchEvent(new CustomEvent('dashboard:rendered'));
 }
 
 // ===== REALTIME SYNC =====
@@ -1572,23 +1595,9 @@ window.closeShortcuts = () => {
 };
 
 // ===== QUICK CAPTURE =====
-async function quickCapture() {
-  const text = await showInputModal('Quick Add', 'Add a task, idea, or note...');
-  if (!text || !text.trim()) return;
-
-  sounds.click();
-
-  // Add to today's calendar
-  const today = new Date();
-  const tasks = db.getCalendarTasks(today);
-  tasks.push({ text: text.trim(), done: false, priority: null });
-  db.setCalendarTasks(today, tasks);
-
-  // Re-render if viewing current month
-  if (currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear()) {
-    renderCalendar();
-  }
-  renderKanban(); // Weekly overview shows calendar tasks too
+// New calendar entry for today (title first; time and calendar are optional)
+function quickCapture() {
+  openCalendarEditor({ date: new Date() });
 }
 
 // ===== FOCUS MODE =====
@@ -2172,11 +2181,91 @@ function getHoliday(date) {
   return holidays.get(key);
 }
 
-// Day whose tasks the phone/tablet agenda below the month grid shows (calKey)
+// Entries can have a start/end time and belong to one of the user's calendars
+// (rules: js/calendar-core.js, editor and calendar list: js/calendar-ui.js).
+
+// Day whose entries the phone/tablet agenda below the month grid shows (calKey)
 let calendarSelectedKey = null;
 
-function isTabLayout() {
-  return !!(window.MobileUI && window.MobileUI.isTabMode());
+function isTouchLayout() {
+  return !!(window.MobileUI && window.MobileUI.isTouchLayout());
+}
+
+const CALENDAR_DAY_FORMAT = { weekday: 'long', day: 'numeric', month: 'long' };
+
+// CSS colour of a calendar (values per theme and contrast setting in css/calendar.css)
+function calendarColor(color) {
+  return `var(--cal-${CalendarCore.COLORS.includes(color) ? color : CalendarCore.DEFAULT_CALENDAR.color})`;
+}
+
+function calendarDot(calendar, className) {
+  const dot = document.createElement('span');
+  dot.className = className || 'calendar-dot';
+  dot.style.setProperty('--dot', calendarColor(calendar.color));
+  dot.setAttribute('aria-hidden', 'true');
+  return dot;
+}
+
+// The entry may have moved in the day's list since it was rendered (a sync can re-render
+// the calendar while the editor is open): find it again by text, time and calendar.
+function findCalendarEntry(tasks, index, original) {
+  if (!original) return tasks[index] ? index : -1;
+  const identity = DataUtils.goalIdentity(original);
+  if (tasks[index] && DataUtils.goalIdentity(tasks[index]) === identity) return index;
+  return tasks.findIndex(t => t && typeof t === 'object' && DataUtils.goalIdentity(t) === identity);
+}
+
+// Shows a day in the calendar (and its month), e.g. after an entry was moved there
+function showCalendarDay(dateObj) {
+  calendarSelectedKey = db.calKey(dateObj);
+  if (dateObj.getMonth() !== currentDate.getMonth() || dateObj.getFullYear() !== currentDate.getFullYear()) {
+    currentDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
+  }
+}
+
+/**
+ * Saves an entry from the editor. fromDate/index/original identify the edited entry
+ * (null for a new one); a changed date moves the entry to the end of the new day.
+ */
+function saveCalendarEntry({ fromDate, index, original, date, entry }) {
+  const isNew = index === null || index === undefined;
+  const toKey = db.calKey(date);
+  if (!isNew && db.calKey(fromDate) === toKey) {
+    const tasks = db.getCalendarTasks(date);
+    const at = findCalendarEntry(tasks, index, original);
+    if (at === -1) tasks.push(entry); // deleted meanwhile (other device): keep the edit
+    else tasks[at] = entry;
+    db.setCalendarTasks(date, tasks);
+  } else {
+    if (!isNew) {
+      const fromTasks = db.getCalendarTasks(fromDate);
+      const at = findCalendarEntry(fromTasks, index, original);
+      if (at !== -1) {
+        fromTasks.splice(at, 1);
+        db.setCalendarTasks(fromDate, fromTasks);
+      }
+    }
+    const toTasks = db.getCalendarTasks(date);
+    toTasks.push(entry);
+    db.setCalendarTasks(date, toTasks);
+  }
+  showCalendarDay(date);
+  renderCalendar();
+  renderKanban(); // the weekly overview shows calendar entries too
+}
+
+function deleteCalendarEntry(dateObj, index, original) {
+  const tasks = db.getCalendarTasks(dateObj);
+  const at = findCalendarEntry(tasks, index, original);
+  if (at === -1) return;
+  tasks.splice(at, 1);
+  db.setCalendarTasks(dateObj, tasks);
+  renderCalendar();
+  renderKanban();
+}
+
+function openCalendarEditor(opts) {
+  if (window.CalendarUI) window.CalendarUI.openEditor(opts);
 }
 
 // Selected day if it is in the shown month, else today (current month) or the 1st
@@ -2204,20 +2293,86 @@ function selectCalendarDay(dateObj) {
   renderCalendarAgenda();
 }
 
+function isPastDay(dateObj) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const day = new Date(dateObj);
+  day.setHours(0, 0, 0, 0);
+  return day < today;
+}
+
+// "!!!" before the title, as Apple Reminders shows priorities
+const PRIORITY_MARKS = { high: '!!!', medium: '!!', low: '!' };
+
+/** Phone/tablet: one row of the day agenda; tapping it opens the entry in the editor. */
+function createAgendaRow(task, dateObj, index, calendars, showCalendarName) {
+  const calendar = CalendarCore.calendarOf(calendars, task);
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'agenda-row';
+  row.dataset.index = index;
+  if (task.done) row.classList.add('done');
+  if (isPastDay(dateObj)) row.classList.add('past');
+
+  const time = document.createElement('span');
+  time.className = 'agenda-time';
+  if (CalendarCore.isTimed(task)) {
+    const start = document.createElement('span');
+    start.className = 'agenda-start';
+    start.textContent = CalendarCore.normalizeTime(task.start);
+    time.appendChild(start);
+    const endValue = CalendarCore.normalizeTime(task.end);
+    if (endValue && endValue !== start.textContent) {
+      const end = document.createElement('span');
+      end.className = 'agenda-end';
+      end.textContent = endValue;
+      time.appendChild(end);
+    }
+  } else {
+    time.classList.add('all-day');
+    time.textContent = 'all-day';
+  }
+
+  const main = document.createElement('span');
+  main.className = 'agenda-main';
+  const title = document.createElement('span');
+  title.className = 'agenda-title';
+  if (task.priority && PRIORITY_MARKS[task.priority]) {
+    const mark = document.createElement('span');
+    mark.className = `agenda-priority priority-mark-${task.priority}`;
+    mark.textContent = PRIORITY_MARKS[task.priority] + ' ';
+    mark.setAttribute('aria-label', `${MobileUI.PRIORITY_LABELS[task.priority]} priority, `);
+    title.appendChild(mark);
+  }
+  title.appendChild(document.createTextNode(task.text));
+  main.appendChild(title);
+  if (showCalendarName) {
+    const name = document.createElement('span');
+    name.className = 'agenda-calendar';
+    name.textContent = calendar.name;
+    main.appendChild(name);
+  }
+
+  row.append(time, calendarDot(calendar, 'agenda-dot'), main);
+  row.addEventListener('click', () => openCalendarEditor({ date: dateObj, index, entry: task }));
+  return row;
+}
+
 function renderCalendarAgenda() {
   const box = document.getElementById('calendarAgenda');
   if (!box) return;
   box.textContent = '';
-  if (!isTabLayout()) return;
+  if (!isTouchLayout()) return;
 
   const dateObj = calendarAgendaDate();
   const tasks = db.getCalendarTasks(dateObj);
+  const calendars = db.getCalendars();
 
   const head = document.createElement('div');
   head.className = 'calendar-agenda-head';
   const title = document.createElement('h4');
   title.className = 'calendar-agenda-title';
-  title.textContent = dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+  title.textContent = dateObj.toLocaleDateString('de-DE', CALENDAR_DAY_FORMAT);
   head.appendChild(title);
   const holiday = getHoliday(dateObj);
   if (holiday) {
@@ -2229,31 +2384,36 @@ function renderCalendarAgenda() {
   box.appendChild(head);
 
   const list = document.createElement('div');
-  list.className = 'tasks-list calendar-agenda-list';
+  list.className = 'calendar-agenda-list';
   if (tasks.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'calendar-agenda-empty';
-    empty.textContent = 'No entries for this day.';
+    empty.textContent = 'No Events';
     list.appendChild(empty);
   }
-  tasks.forEach((t, idx) => list.appendChild(createTaskEl(t, dateObj, idx)));
+  // The calendar name is shown as text once there is more than one calendar (not colour alone)
+  const showNames = calendars.length > 1;
+  CalendarCore.displayOrder(tasks).forEach(idx => {
+    const task = typeof tasks[idx] === 'string' ? { text: tasks[idx], done: false, priority: null } : tasks[idx];
+    list.appendChild(createAgendaRow(task, dateObj, idx, calendars, showNames));
+  });
   box.appendChild(list);
 
+  // Below the agenda, as in Apple Calendar's toolbar: new event and the calendar list
+  const footer = document.createElement('div');
+  footer.className = 'calendar-agenda-footer';
   const add = document.createElement('button');
   add.type = 'button';
   add.className = 'btn calendar-agenda-add';
-  add.textContent = '+ Add entry';
-  add.onclick = async () => {
-    const text = await showInputModal('New Task', 'What needs to be done?');
-    if (text && text.trim()) {
-      const current = db.getCalendarTasks(dateObj);
-      current.push({ text: text.trim(), done: false, priority: null });
-      db.setCalendarTasks(dateObj, current);
-      renderCalendar();
-      renderKanban(); // Update weekly overview
-    }
-  };
-  box.appendChild(add);
+  add.textContent = 'New Event';
+  add.onclick = () => openCalendarEditor({ date: dateObj, returnFocus: add });
+  const calendarsBtn = document.createElement('button');
+  calendarsBtn.type = 'button';
+  calendarsBtn.className = 'btn calendars-btn';
+  calendarsBtn.textContent = 'Calendars';
+  calendarsBtn.onclick = () => window.CalendarUI && window.CalendarUI.openCalendars({ returnFocus: calendarsBtn });
+  footer.append(add, calendarsBtn);
+  box.appendChild(footer);
 }
 
 function renderCalendar() {
@@ -2265,8 +2425,9 @@ function renderCalendar() {
   const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = new Date();
-  const tabMode = isTabLayout();
-  const agendaKey = tabMode ? db.calKey(calendarAgendaDate()) : null;
+  const touchLayout = isTouchLayout();
+  const agendaKey = touchLayout ? db.calKey(calendarAgendaDate()) : null;
+  const calendars = db.getCalendars();
 
   for (let i = 0; i < firstDay; i++) {
     const empty = document.createElement("div");
@@ -2300,25 +2461,29 @@ function renderCalendar() {
       box.appendChild(holidayLabel);
     }
 
-    const tasksContainer = document.createElement("div");
-    tasksContainer.className = "tasks-list";
     const tasks = db.get(db.calKey(dateObj), []);
-    tasks.forEach((t, idx) => tasksContainer.appendChild(createTaskEl(t, dateObj, idx)));
 
-    // Phone/tablet: the month grid only selects a day; its tasks are listed below (renderCalendarAgenda)
-    if (tabMode) {
-      if (tasks.length) {
-        box.classList.add('has-tasks');
-        box.dataset.count = tasks.length;
-      }
+    // Phone/tablet: the month grid only selects a day; its entries are listed below
+    // (renderCalendarAgenda). Dots in the colours of the day's calendars, as in Apple Calendar.
+    if (touchLayout) {
       const key = db.calKey(dateObj);
       const selected = key === agendaKey;
       box.classList.toggle('selected', selected);
       box.tabIndex = 0;
       box.setAttribute('role', 'button');
       box.setAttribute('aria-pressed', String(selected));
-      const label = dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
-      box.setAttribute('aria-label', `${label}${holiday ? ', ' + holiday : ''}, ${tasks.length} ${tasks.length === 1 ? 'entry' : 'entries'}`);
+      const label = dateObj.toLocaleDateString('de-DE', CALENDAR_DAY_FORMAT);
+      box.setAttribute('aria-label', `${label}${holiday ? ', ' + holiday : ''}, ${tasks.length} ${tasks.length === 1 ? 'event' : 'events'}`);
+      box.append(num);
+      if (tasks.length) {
+        box.classList.add('has-tasks');
+        box.dataset.count = tasks.length;
+        const dots = document.createElement('span');
+        dots.className = 'day-dots';
+        dots.setAttribute('aria-hidden', 'true');
+        CalendarCore.dayColors(tasks, calendars).forEach(color => dots.appendChild(calendarDot({ color }, 'day-dot')));
+        box.appendChild(dots);
+      }
       const select = () => selectCalendarDay(dateObj);
       box.addEventListener('click', select);
       box.addEventListener('keydown', (e) => {
@@ -2327,7 +2492,16 @@ function renderCalendar() {
           select();
         }
       });
+      els.calList.appendChild(box);
+      continue;
     }
+
+    const tasksContainer = document.createElement("div");
+    tasksContainer.className = "tasks-list";
+    CalendarCore.displayOrder(tasks).forEach(idx => {
+      const t = typeof tasks[idx] === 'string' ? { text: tasks[idx], done: false, priority: null } : tasks[idx];
+      tasksContainer.appendChild(createTaskEl(t, dateObj, idx, calendars));
+    });
 
     // Drag drop
     box.ondragover = (e) => {
@@ -2342,15 +2516,10 @@ function renderCalendar() {
     const addBtn = document.createElement("button");
     addBtn.className = "add-task-btn";
     addBtn.textContent = "+";
-    addBtn.onclick = async (e) => {
+    addBtn.setAttribute('aria-label', `New event on ${dateObj.toLocaleDateString('de-DE', CALENDAR_DAY_FORMAT)}`);
+    addBtn.onclick = (e) => {
       e.stopPropagation();
-      const text = await showInputModal('New Task', 'What needs to be done?');
-      if (text && text.trim()) {
-        tasks.push({ text: text.trim(), done: false, priority: null });
-        db.setCalendarTasks(dateObj, tasks);
-        renderCalendar();
-        renderKanban(); // Update weekly overview
-      }
+      openCalendarEditor({ date: dateObj });
     };
 
     box.append(num, tasksContainer, addBtn);
@@ -2360,20 +2529,16 @@ function renderCalendar() {
   renderCalendarAgenda();
 }
 
-function createTaskEl(task, dateObj, index) {
+// Desktop month cell entry: dot in the calendar's colour, time, title. Double-click opens
+// the editor, right-click cycles the priority, drag & drop moves it to another day.
+function createTaskEl(task, dateObj, index, calendars) {
+  const calendar = CalendarCore.calendarOf(calendars || db.getCalendars(), task);
   const el = document.createElement("div");
   el.className = `task-item ${task.done ? 'done' : ''}`;
   if (task.priority) el.classList.add(`priority-${task.priority}`);
   el.dataset.index = index;
-
-  // Add 'past' class for dates before today
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const taskDate = new Date(dateObj);
-  taskDate.setHours(0, 0, 0, 0);
-  if (taskDate < today) {
-    el.classList.add('past');
-  }
+  if (isPastDay(dateObj)) el.classList.add('past');
+  el.title = calendar.name;
 
   el.draggable = true;
 
@@ -2391,29 +2556,29 @@ function createTaskEl(task, dateObj, index) {
 
   const span = document.createElement("span");
   span.className = "task-text";
-  span.textContent = task.text;
-
-  const editEvent = async () => {
-    const newText = await showInputModal('Edit Event', 'Update your event...', task.text);
-    if (newText && newText.trim() && newText.trim() !== task.text) {
-      task.text = newText.trim();
-      updateTask(dateObj, index, task);
-      renderCalendar();
-      renderKanban(); // Update weekly overview
-    }
-  };
+  const range = CalendarCore.formatRange(task);
+  if (range) {
+    const time = document.createElement('span');
+    time.className = 'task-time';
+    time.textContent = range;
+    span.appendChild(time);
+  }
+  span.appendChild(document.createTextNode(task.text));
 
   const setPriority = (priority) => {
-    task.priority = priority;
-    updateTask(dateObj, index, task);
+    const tasks = db.getCalendarTasks(dateObj);
+    const at = findCalendarEntry(tasks, index, task);
+    if (at === -1) return;
+    tasks[at] = Object.assign({}, tasks[at], { priority });
+    db.setCalendarTasks(dateObj, tasks);
     renderCalendar();
     renderKanban(); // Update weekly overview
   };
 
-  // Double-click to edit task
+  // Double-click opens the editor (title, time, calendar, priority)
   span.ondblclick = (e) => {
     e.stopPropagation();
-    editEvent();
+    openCalendarEditor({ date: dateObj, index, entry: task });
   };
 
   // Right-click to set priority
@@ -2428,59 +2593,26 @@ function createTaskEl(task, dateObj, index) {
   const del = document.createElement("button");
   del.className = "task-delete";
   del.innerHTML = "&times;";
+  del.setAttribute('aria-label', `Delete ${task.text}`);
   del.onclick = (e) => {
     e.stopPropagation();
-    deleteTask(dateObj, index);
+    deleteCalendarEntry(dateObj, index, task);
   };
 
-  el.append(span, del);
+  el.append(calendarDot(calendar, 'task-dot'), span, del);
 
-  // Touch screens: edit / priority / move / delete in a sheet
+  // Touch screens wider than the phone layout (iPad in landscape): "⋯" menu
   if (window.MobileUI) {
     el.appendChild(MobileUI.moreButton(`Actions for ${task.text}`, () => ({
       title: task.text,
-      message: dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }),
-      actions: [
-        { id: 'edit', label: 'Edit', icon: '✏️', onSelect: editEvent },
-        {
-          id: 'priority', label: 'Priority', icon: '🚩', hint: MobileUI.PRIORITY_LABELS[task.priority] || 'None',
-          onSelect: () => MobileUI.showActionSheet(MobileUI.prioritySheet('Priority', task.priority, setPriority))
-        },
-        { id: 'move', label: 'Move to another date', icon: '📆', onSelect: () => moveCalendarTaskToDate(task, dateObj, index) },
-        { id: 'delete', label: 'Delete', icon: '🗑️', destructive: true, onSelect: () => deleteTask(dateObj, index) }
+      items: [
+        { id: 'edit', label: 'Edit…', icon: 'pencil', onSelect: () => openCalendarEditor({ date: dateObj, index, entry: task }) },
+        MobileUI.priorityMenu(task.priority, setPriority),
+        { id: 'delete', label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteCalendarEntry(dateObj, index, task) }
       ]
     })));
   }
   return el;
-}
-
-function toDateInputValue(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-// Touch alternative to dragging a calendar entry onto another day (native date picker)
-async function moveCalendarTaskToDate(task, fromDate, fromIndex) {
-  const value = await showInputModal('Move to date', '', toDateInputValue(fromDate), { type: 'date' });
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
-  if (!match) return;
-  const target = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  if (isNaN(target.getTime()) || db.calKey(target) === db.calKey(fromDate)) return;
-
-  const fromTasks = db.getCalendarTasks(fromDate);
-  fromTasks.splice(fromIndex, 1);
-  db.setCalendarTasks(fromDate, fromTasks);
-
-  const toTasks = db.getCalendarTasks(target);
-  toTasks.push(task);
-  db.setCalendarTasks(target, toTasks);
-
-  // Follow the entry: show its new day (and month) in the calendar
-  calendarSelectedKey = db.calKey(target);
-  if (target.getMonth() !== currentDate.getMonth() || target.getFullYear() !== currentDate.getFullYear()) {
-    currentDate = new Date(target.getFullYear(), target.getMonth(), 1);
-  }
-  renderCalendar();
-  renderKanban(); // Update weekly overview
 }
 
 function handleCalendarDrop(e, targetDate, box) {
@@ -2533,20 +2665,6 @@ function handleCalendarDrop(e, targetDate, box) {
   toTasks.push(task);
   db.setCalendarTasks(targetDate, toTasks);
 
-  renderCalendar();
-  renderKanban(); // Update weekly overview
-}
-
-function updateTask(dateObj, index, newTask) {
-  const tasks = db.getCalendarTasks(dateObj);
-  tasks[index] = newTask;
-  db.setCalendarTasks(dateObj, tasks);
-}
-
-function deleteTask(dateObj, index) {
-  const tasks = db.getCalendarTasks(dateObj);
-  tasks.splice(index, 1);
-  db.setCalendarTasks(dateObj, tasks);
   renderCalendar();
   renderKanban(); // Update weekly overview
 }
@@ -2648,13 +2766,13 @@ function renderHabits() {
     };
     nameEl.ondblclick = renameHabit;
 
-    // Touch screens: rename / delete in a sheet (no double-click or hover there)
+    // Touch screens: rename / delete in a menu (no double-click or hover there)
     if (window.MobileUI) {
       nameEl.appendChild(MobileUI.moreButton(`Actions for habit ${habitName}`, () => ({
         title: habitName,
-        actions: [
-          { id: 'rename', label: 'Rename', icon: '✏️', onSelect: renameHabit },
-          { id: 'delete', label: 'Delete habit', icon: '🗑️', destructive: true, onSelect: () => deleteHabit(hIdx) }
+        items: [
+          { id: 'rename', label: 'Rename…', icon: 'pencil', onSelect: renameHabit },
+          { id: 'delete', label: 'Delete Habit', icon: 'trash', destructive: true, onSelect: () => deleteHabit(hIdx) }
         ]
       })));
     }
@@ -2736,7 +2854,7 @@ function renderHabits() {
 }
 
 async function deleteHabit(index) {
-  const confirmed = await showConfirmModal('Delete Habit', 'Are you sure you want to delete this habit? This action cannot be undone.');
+  const confirmed = await showConfirmModal('Delete Habit', 'Are you sure you want to delete this habit? This action cannot be undone.', { confirmLabel: 'Delete' });
   if (!confirmed) return;
   const habits = db.getAllHabits();
   habits.splice(index, 1);
@@ -3144,7 +3262,7 @@ function renderGoals() {
     const textDiv = document.createElement("div");
     textDiv.className = "focus-text";
     textDiv.textContent = typeof goal === 'string' ? goal : goal.text;
-    // Touch screens: tapping the text ticks the goal (editing is in the "⋯" sheet)
+    // Touch screens: tapping the text ticks the goal (editing is in the "⋯" menu)
     textDiv.onclick = () => {
       if (window.MobileUI && MobileUI.isTouch()) cb.click();
     };
@@ -3188,18 +3306,15 @@ function renderGoals() {
 
     item.append(cb, textDiv, deleteBtn);
 
-    // Touch screens: the same actions in a sheet (no hover, double-click or right-click there)
+    // Touch screens: the same actions in a menu (no hover, double-click or right-click there)
     if (window.MobileUI) {
       const label = textDiv.textContent;
       item.appendChild(MobileUI.moreButton(`Actions for goal ${label}`, () => ({
         title: label,
-        actions: [
-          { id: 'edit', label: 'Edit', icon: '✏️', onSelect: editGoal },
-          {
-            id: 'urgency', label: 'Urgency', icon: '🚩', hint: MobileUI.PRIORITY_LABELS[goal.urgency] || 'None',
-            onSelect: () => MobileUI.showActionSheet(MobileUI.prioritySheet('Urgency', goal.urgency, setUrgency))
-          },
-          { id: 'delete', label: 'Delete goal', icon: '🗑️', destructive: true, onSelect: () => deleteGoal(idx) }
+        items: [
+          { id: 'edit', label: 'Edit…', icon: 'pencil', onSelect: editGoal },
+          MobileUI.priorityMenu(goal.urgency, setUrgency, 'Urgency'),
+          { id: 'delete', label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteGoal(idx) }
         ]
       })));
     }
@@ -3378,10 +3493,23 @@ function renderSimpleList(listName) {
 
     const span = document.createElement('span');
     span.textContent = item.text;
+    // The text is the toggle (drawn as a round checkbox in the touch layout): checkbox
+    // semantics for VoiceOver and the keyboard
+    span.setAttribute('role', 'checkbox');
+    span.setAttribute('aria-checked', String(!!item.done));
+    span.tabIndex = 0;
+    span.onkeydown = (e) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation(); // Space must not also start/pause the focus timer
+        span.click();
+      }
+    };
 
     // Click to toggle done state
     span.onclick = () => {
       item.done = !item.done;
+      span.setAttribute('aria-checked', String(item.done));
       setListItems(listName, items);
 
       if (item.done) {
@@ -3423,34 +3551,31 @@ function renderSimpleList(listName) {
 
     div.append(span, del);
 
-    // Touch screens: edit / reorder / move / delete in a sheet
+    // Touch screens: edit / reorder / move / delete in a menu
     if (window.MobileUI) {
       div.appendChild(MobileUI.moreButton(`Actions for ${item.text}`, () => {
         const otherLists = db.get('customListsMeta', []).filter(m => m.id !== listName);
-        const actions = [
-          { id: 'edit', label: 'Edit', icon: '✏️', onSelect: () => editListItem(listName, idx, item.text) },
-          { id: 'up', label: 'Move up', icon: '⬆️', disabled: idx === 0, onSelect: () => moveListItem(listName, idx, idx - 1, item.text) },
-          { id: 'down', label: 'Move down', icon: '⬇️', disabled: idx === items.length - 1, onSelect: () => moveListItem(listName, idx, idx + 1, item.text) }
+        const menuItems = [
+          { id: 'edit', label: 'Edit…', icon: 'pencil', onSelect: () => editListItem(listName, idx, item.text) },
+          { id: 'up', label: 'Move Up', icon: 'arrowUp', disabled: idx === 0, onSelect: () => moveListItem(listName, idx, idx - 1, item.text) },
+          { id: 'down', label: 'Move Down', icon: 'arrowDown', disabled: idx === items.length - 1, onSelect: () => moveListItem(listName, idx, idx + 1, item.text) }
         ];
         if (otherLists.length) {
-          actions.push({
-            id: 'move', label: 'Move to another list', icon: '📋',
-            onSelect: () => MobileUI.showActionSheet({
-              title: 'Move to',
-              actions: otherLists.map(m => ({ id: 'list-' + m.id, label: m.title, onSelect: () => moveListItemToList(listName, idx, m.id, item.text) }))
-            })
+          menuItems.push({
+            id: 'move', label: 'Move to List', icon: 'list',
+            submenu: { items: otherLists.map(m => ({ id: 'list-' + m.id, label: m.title, onSelect: () => moveListItemToList(listName, idx, m.id, item.text) })) }
           });
         }
-        actions.push({ id: 'delete', label: 'Delete', icon: '🗑️', destructive: true, onSelect: () => deleteListItem(listName, idx, item.text) });
-        return { title: item.text, actions };
+        menuItems.push('-', { id: 'delete', label: 'Delete', icon: 'trash', destructive: true, onSelect: () => deleteListItem(listName, idx, item.text) });
+        return { title: item.text, items: menuItems };
       }));
     }
     container.appendChild(div);
   });
 }
 
-// The sheet actions re-read the list and check the item is still where it was:
-// a sync from another device may have changed the list while the sheet was open.
+// The menu actions re-read the list and check the item is still where it was:
+// a sync from another device may have changed the list while the menu was open.
 function listItemAt(items, idx, text) {
   return items[idx] && items[idx].text === text ? items[idx] : null;
 }
@@ -3572,15 +3697,16 @@ window.renderUnifiedLists = () => {
     div.querySelector('.simple-list').id = `${list.id}List`;
     div.querySelector('.list-add-item-btn').onclick = () => addListItem(list.id);
 
-    // Touch screens: rename / reorder / delete in a sheet (hover buttons and dragging do not work there)
+    // Touch screens: rename / reorder / delete in a menu (hover buttons and dragging do not work there)
     if (window.MobileUI) {
       const more = MobileUI.moreButton(`Actions for list ${list.title}`, () => ({
         title: list.title,
-        actions: [
-          { id: 'rename', label: 'Rename', icon: '✏️', onSelect: () => renameList(list.id) },
-          { id: 'up', label: 'Move up', icon: '⬆️', disabled: index === 0, onSelect: () => moveList(list.id, -1) },
-          { id: 'down', label: 'Move down', icon: '⬇️', disabled: index === meta.length - 1, onSelect: () => moveList(list.id, 1) },
-          { id: 'delete', label: 'Delete list', icon: '🗑️', destructive: true, onSelect: () => deleteList(list.id) }
+        items: [
+          { id: 'rename', label: 'Rename…', icon: 'pencil', onSelect: () => renameList(list.id) },
+          { id: 'up', label: 'Move Up', icon: 'arrowUp', disabled: index === 0, onSelect: () => moveList(list.id, -1) },
+          { id: 'down', label: 'Move Down', icon: 'arrowDown', disabled: index === meta.length - 1, onSelect: () => moveList(list.id, 1) },
+          '-',
+          { id: 'delete', label: 'Delete List', icon: 'trash', destructive: true, onSelect: () => deleteList(list.id) }
         ]
       }));
       more.classList.add('list-more-btn');
@@ -3726,7 +3852,7 @@ window.deleteList = async (id) => {
   const list = meta.find(m => m.id === id);
   const listName = list ? list.title : 'this list';
 
-  const confirmed = await showConfirmModal('Delete List', `Are you sure you want to delete "${listName}"? This action cannot be undone.`);
+  const confirmed = await showConfirmModal('Delete List', `Are you sure you want to delete "${listName}"? This action cannot be undone.`, { confirmLabel: 'Delete' });
   if (!confirmed) return;
 
   const newMeta = meta.filter(m => m.id !== id);
@@ -3911,8 +4037,9 @@ function renderKanbanBoard(container, columns, isWeekBased) {
       const dayDate = getDateForWeekday(colIndex);
       const calendarTasks = getCalendarTasksForDate(dayDate);
 
-      calendarTasks.forEach((task, idx) => {
-        if (!task) return;
+      // Same order as in the calendar: all-day entries, then by time
+      CalendarCore.displayOrder(calendarTasks).forEach(idx => {
+        const task = calendarTasks[idx];
         const taskObj = typeof task === 'string' ? { text: task, done: false, priority: null } : task;
         itemsDiv.appendChild(createKanbanCard(taskObj, colName, idx, isWeekBased, true, dayDate));
       });
@@ -3966,6 +4093,21 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
   textSpan.className = "kanban-card-text";
   textSpan.textContent = task.text;
 
+  // Calendar entries: dot in the calendar's colour and the time, as in the calendar
+  if (isFromCalendar) {
+    const calendar = CalendarCore.calendarOf(db.getCalendars(), task);
+    div.style.setProperty('--dot', calendarColor(calendar.color));
+    div.title = calendar.name;
+    const range = CalendarCore.formatRange(task);
+    if (range) {
+      const time = document.createElement('span');
+      time.className = 'kanban-card-time';
+      time.textContent = range;
+      textSpan.prepend(time);
+    }
+    div.appendChild(calendarDot(calendar, 'kanban-card-dot'));
+  }
+
   // Only show checkbox for tasks added in weekly overview, not calendar events
   if (!isFromCalendar) {
     const cb = document.createElement("input");
@@ -3985,7 +4127,7 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
       div.classList.toggle('done', task.done);
     };
     div.appendChild(cb);
-    // Touch screens: tapping the text ticks the task (editing is in the "⋯" sheet)
+    // Touch screens: tapping the text ticks the task (editing is in the "⋯" menu)
     textSpan.onclick = () => {
       if (window.MobileUI && MobileUI.isTouch()) cb.click();
     };
@@ -3993,44 +4135,38 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
 
   div.appendChild(textSpan);
 
-  // Saves the changed task where it lives (calendar day or weekly board)
-  const saveTask = () => {
+  const setPriority = (priority) => {
     if (isFromCalendar && sourceDate) {
+      // The entry lives in the calendar: change it there (found again by text/time/calendar)
       const tasks = db.getCalendarTasks(sourceDate);
-      if (tasks[index]) {
-        tasks[index] = task;
-        db.setCalendarTasks(sourceDate, tasks);
-        renderCalendar();
-      }
+      const at = findCalendarEntry(tasks, index, task);
+      if (at === -1) return;
+      tasks[at] = Object.assign({}, tasks[at], { priority });
+      db.setCalendarTasks(sourceDate, tasks);
+      renderCalendar();
     } else {
+      task.priority = priority;
       updateKanbanItem(colName, index, task, isWeekBased);
     }
     renderKanban();
   };
 
-  const setPriority = (priority) => {
-    task.priority = priority;
-    saveTask();
-  };
-
   const removeTask = () => {
-    if (isFromCalendar && sourceDate) {
-      // Delete from calendar
-      const tasks = db.getCalendarTasks(sourceDate);
-      tasks.splice(index, 1);
-      db.setCalendarTasks(sourceDate, tasks);
-      renderCalendar();
-      renderKanban();
-    } else {
-      deleteKanbanItem(colName, index, isWeekBased);
-    }
+    if (isFromCalendar && sourceDate) deleteCalendarEntry(sourceDate, index, task);
+    else deleteKanbanItem(colName, index, isWeekBased);
   };
 
   const editTask = async () => {
+    // Calendar entries open in the calendar editor (title, time, calendar)
+    if (isFromCalendar && sourceDate) {
+      openCalendarEditor({ date: sourceDate, index, entry: task });
+      return;
+    }
     const newText = await showInputModal('Edit Card', 'Update your card...', task.text);
     if (newText && newText.trim() && newText.trim() !== task.text) {
       task.text = newText.trim();
-      saveTask();
+      updateKanbanItem(colName, index, task, isWeekBased);
+      renderKanban();
     }
   };
 
@@ -4053,34 +4189,29 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
 
   div.appendChild(deleteBtn);
 
-  // Touch screens: edit / priority / move / delete in a sheet instead of
+  // Touch screens: edit / priority / move / delete in a menu instead of
   // double-click, right-click, hover and drag & drop
   if (window.MobileUI) {
     div.appendChild(MobileUI.moreButton(`Actions for ${task.text}`, () => {
-      const actions = [
-        { id: 'edit', label: 'Edit', icon: '✏️', onSelect: editTask },
-        {
-          id: 'priority', label: 'Priority', icon: '🚩', hint: MobileUI.PRIORITY_LABELS[task.priority] || 'None',
-          onSelect: () => MobileUI.showActionSheet(MobileUI.prioritySheet('Priority', task.priority, setPriority))
-        }
+      const menuItems = [
+        { id: 'edit', label: 'Edit…', icon: 'pencil', onSelect: editTask },
+        MobileUI.priorityMenu(task.priority, setPriority)
       ];
       if (isWeekBased) {
-        actions.push({
-          id: 'move', label: 'Move to another day', icon: '📆',
-          onSelect: () => MobileUI.showActionSheet({
-            title: 'Move to',
-            actions: weekdays.map((day, dayIdx) => ({
+        menuItems.push({
+          id: 'move', label: 'Move to Day', icon: 'calendar',
+          submenu: {
+            items: weekdays.map((day, dayIdx) => ({
               id: 'day-' + day,
-              label: `${day} ${getDateForWeekday(dayIdx).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}`,
+              label: getDateForWeekday(dayIdx).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'numeric' }),
               checked: day === colName,
-              disabled: day === colName,
               onSelect: () => moveKanbanCardToDay({ task, colName, index, isWeekBased, isFromCalendar, sourceDate }, day)
             }))
-          })
+          }
         });
       }
-      actions.push({ id: 'delete', label: 'Delete', icon: '🗑️', destructive: true, onSelect: removeTask });
-      return { title: task.text, actions };
+      menuItems.push('-', { id: 'delete', label: 'Delete', icon: 'trash', destructive: true, onSelect: removeTask });
+      return { title: task.text, items: menuItems };
     }));
   }
 
@@ -4119,11 +4250,13 @@ function moveKanbanCardToDay(card, targetCol) {
     const targetDate = getDateForWeekday(targetColIndex);
 
     const sourceTasks = db.getCalendarTasks(sourceDate);
-    sourceTasks.splice(index, 1);
+    const at = findCalendarEntry(sourceTasks, index, task);
+    if (at === -1) return;
+    const [moved] = sourceTasks.splice(at, 1);
     db.setCalendarTasks(sourceDate, sourceTasks);
 
     const targetTasks = db.getCalendarTasks(targetDate);
-    targetTasks.push(task);
+    targetTasks.push(moved);
     db.setCalendarTasks(targetDate, targetTasks);
 
     renderCalendar();
@@ -4346,7 +4479,7 @@ window.importData = async (event) => {
   const uploads = isSupabaseAvailable();
   const confirmed = await showConfirmModal('Import backup?',
     `All dashboard data on this device will be replaced by the ${entries.length} entries from "${file.name}"` +
-    (uploads ? ' and then uploaded to the cloud.' : '.'));
+    (uploads ? ' and then uploaded to the cloud.' : '.'), { confirmLabel: 'Import' });
   if (!confirmed) return;
 
   // Keep the login session, replace everything else
