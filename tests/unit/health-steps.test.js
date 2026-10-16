@@ -36,7 +36,8 @@ test('parseSteps: numbers and the texts a Shortcut can produce', async () => {
   assert.equal(parseSteps('12.345'), 12345);   // German thousands separator
   assert.equal(parseSteps('12,345'), 12345);
   assert.equal(parseSteps('12 345'), 12345);
-  assert.equal(parseSteps('12 345'), 12345);
+  assert.equal(parseSteps('12\u00a0345'), 12345); // no-break space (number formatting)
+  assert.equal(parseSteps('12\u202f345'), 12345); // narrow no-break space (iOS, de-AT/fr)
   assert.equal(parseSteps('1.234.567'), 1234567);
   assert.equal(parseSteps('12345,7'), 12346);  // decimal comma
   assert.equal(parseSteps('12.345 Schritte'), 12345);
