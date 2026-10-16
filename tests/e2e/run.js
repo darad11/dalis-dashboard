@@ -1257,6 +1257,45 @@ scenario('habits: "+ New Habit" keeps a gap to the weekday labels (desktop and p
   await phone.context.close();
 });
 
+// Phones and tablets: the Step Challenge first in the Health Hub (moved in the DOM, so the
+// reading and focus order match the screen); the desktop keeps it below the hero row
+scenario('health hub: Step Challenge first on phones and tablets, below the hero row on the desktop', async (env) => {
+  seedDemo(env.store);
+  const order = (page) => page.evaluate(() => {
+    const card = document.getElementById('stepChallenge');
+    const top = (sel) => document.querySelector(sel).getBoundingClientRect().top;
+    return {
+      after: card.previousElementSibling.id || card.previousElementSibling.className.split(' ')[0],
+      above: top('#stepChallenge') < top('.gym-hero')
+    };
+  });
+
+  const desktop = await open(env, { viewport: { width: 1440, height: 900 } });
+  await waitFor(() => desktop.page.locator('#stepChallenge .step-hero-value').count(), 'desktop step card');
+  assert.deepEqual(await order(desktop.page), { after: 'streakHistory', above: false }, 'desktop: unchanged, below the hero row');
+  await desktop.context.close();
+
+  const { page, errors, context } = await open(env, PHONE);
+  await waitFor(() => page.locator('#stepChallenge .step-hero-value').count(), 'phone step card');
+  assert.deepEqual(await order(page), { after: 'gym-hub-header', above: true }, 'phone: first in the Health Hub');
+
+  // Tablet turned to landscape (desktop layout) and back; the focus stays in the card
+  await page.setViewportSize({ width: 820, height: 1180 });
+  await settle(page, 300);
+  assert.deepEqual(await order(page), { after: 'gym-hub-header', above: true }, 'tablet portrait: first');
+  await page.focus('#step-entry-input');
+  await page.setViewportSize({ width: 1180, height: 820 });
+  await waitFor(async () => !(await touchLayoutOn(page)), 'desktop layout');
+  assert.deepEqual(await order(page), { after: 'streakHistory', above: false }, 'tablet landscape: below the hero row');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'step-entry-input', 'focus kept after the move');
+  await page.setViewportSize({ width: 820, height: 1180 });
+  await waitFor(() => touchLayoutOn(page), 'touch layout again');
+  assert.deepEqual(await order(page), { after: 'gym-hub-header', above: true }, 'tablet portrait again: first');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'step-entry-input', 'focus kept after moving back');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 scenario('desktop with mouse: no section bar, no touch buttons, hover effects unchanged', async (env) => {
   seedDemo(env.store, { steps: false });
   const { page, errors, context } = await open(env, { viewport: { width: 1440, height: 900 } });

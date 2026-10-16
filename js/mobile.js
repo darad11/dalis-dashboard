@@ -85,9 +85,28 @@
 
   // ======================================================== Touch layout
 
+  // On phones and tablets the Step Challenge comes first in the Health Hub, above the hero
+  // row; on the desktop it stays below it. The card is moved in the DOM rather than reordered
+  // with CSS `order`, so VoiceOver and the keyboard follow the order on screen.
+  function placeStepCard() {
+    const card = document.getElementById('stepChallenge');
+    const header = document.querySelector('#section-health .gym-hub-header');
+    const content = document.getElementById('gymHubContent');
+    if (!card || !header || !content) return;
+    const focused = card.contains(document.activeElement) ? document.activeElement : null;
+    if (isTouchLayout()) {
+      if (header.nextElementSibling !== card) header.after(card);
+    } else if (content.previousElementSibling !== card) {
+      content.before(card);
+    }
+    // Moving a node takes the focus out of it
+    if (focused && document.activeElement !== focused) focusWithoutScroll(focused);
+  }
+
   function applyTouchLayout() {
     const was = isTouchLayout();
     root.classList.toggle('touch-layout', layoutMedia.matches);
+    placeStepCard();
     if (was !== layoutMedia.matches) {
       syncThemeColor();
       window.dispatchEvent(new CustomEvent('dashboard:layoutchange', { detail: { touch: layoutMedia.matches } }));

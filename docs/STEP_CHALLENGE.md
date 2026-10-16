@@ -1,6 +1,7 @@
 # Step Challenge
 
-Karte im Health Hub (immer sichtbar, unter der Hero-Zeile). Ziel: den Vorjahresrekord
+Karte im Health Hub (immer sichtbar): auf Handy und Tablet ganz oben, am Desktop unter der
+Hero-Zeile mit Streak, Wasser und Supplements. Ziel: den Vorjahresrekord
 bis 31.12. übertreffen und jeden Tag sehen, ob man im Plan liegt.
 
 ## Einrichtung

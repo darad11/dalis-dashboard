@@ -18,10 +18,15 @@ iPhone quer):
   |---|---|
   | Today | Focus-Timer, Today's Goals |
   | Week | Weekly Overview & Tasks, Kalender |
-  | Health | Health Hub inkl. Step Challenge |
+  | Health | Health Hub, Step Challenge ganz oben |
   | Habits | Habits, Weekly Review |
   | Lists | eigene Listen |
 
+- **Health Hub:** Die Step Challenge steht auf Handy und Tablet ganz oben, vor Streak, Wasser
+  und Supplements; am Desktop bleibt sie darunter. Die Karte wird im DOM verschoben
+  (`placeStepCard` in `js/mobile.js`), nicht per CSS `order` umsortiert – so entsprechen
+  VoiceOver- und Tab-Reihenfolge dem Bildschirm, und der Fokus bleibt beim Wechsel der Ansicht
+  (Drehen, Aufklappen) erhalten.
 - **Leiste oben** (bleibt stehen, Inhalt läuft weich darunter aus): Logo und Name, rechts eine
   Glas-Kapsel mit **+** (neuer Kalendereintrag für heute) und **⋯** (Dark Mode, Focus Mode,
   Sync & Backup, Abmelden). Ein Punkt am ⋯ zeigt ausstehende Uploads (orange) oder einen

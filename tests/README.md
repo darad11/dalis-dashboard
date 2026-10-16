@@ -47,6 +47,7 @@ Szenarien für Apple Health, Handy/Tablet und Kalender (`tests/e2e/run.js`):
 | `calendar on phones: …` | farbige Punkte, Tagesliste mit Zeiten, neuer Eintrag mit Uhrzeit in eigenem Kalender (Upload `16:30:00`), Dauer bleibt beim Verschieben des Beginns, Ende vor Beginn gesperrt, „Discard Changes“, Monatswechsel am 31. |
 | `calendar: own calendars … (desktop)` | Kalender anlegen, Eintrag mit Zeit/Kalender/Priorität, Sortierung, Woche, Datum ändern = verschieben, Kalender löschen → Standardkalender, Löschen mit Rückfrage |
 | `calendar: without the database migration…` | Eintrag mit Uhrzeit bleibt lokal (Fehler sichtbar), Tage ohne Uhrzeit laufen weiter, nach Migration hochgeladen |
+| `health hub: Step Challenge first…` | Handy/Tablet: Step Challenge direkt unter „Health Hub“, über der Hero-Zeile; Desktop unverändert darunter; iPad hochkant ↔ quer verschiebt die Karte hin und zurück, der Fokus im Eingabefeld bleibt |
 | `habits: "+ New Habit" keeps a gap…` | ≥ 16 px Abstand zu den Wochentagen (Desktop und Handy) |
 
 Gegenproben (Fehler absichtlich eingebaut, Test muss rot werden): Schließen des Editors am
@@ -56,6 +57,7 @@ Ziehen, ohne Prüfung „schon gewählt“, ohne Tipp-Ersatz an den Enden, Leist
 „Bewegung reduzieren“, ohne Abbruch-Behandlung (`pointercancel` und `lostpointercapture`);
 Today's Goals ohne Fokus-Erhalt beim Neuaufbau der Liste.
 Schritte-Karte: Cursor nach dem Neuaufbau wieder ans Ende (alte Logik) → `setup: a rebuild while typing…` rot.
+Health Hub: ohne Verschieben der Karte bzw. ohne Fokus-Erhalt → `health hub: Step Challenge first…` rot.
 `openDashboard` nimmt dafür zusätzlich `reducedMotion` an.
 Apple Health: Klartext-Schlüssel statt Hash gespeichert, Schlüssel nach „Done“ noch sichtbar,
 keine Aktualisierung von „last upload“ nach einem Upload (E2E); „niedriger ersetzt nie
