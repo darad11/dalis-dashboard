@@ -22,6 +22,15 @@ iPhone quer):
   | Habits | Habits, Weekly Review |
   | Lists | eigene Listen |
 
+- **Woche (Handy, unter 700 px):** Oben im Kopf der Woche eine **Tagesleiste** wie in Apple
+  Kalender – Wochentag, Datum, heute in der Akzentfarbe, der gezeigte Tag gefüllt, darunter bis
+  zu drei Punkte (Farben der Kalender des Tages, grau für offene Aufgaben). Darunter die Tage als
+  **Karten nebeneinander**: ein Wisch = ein Tag (Scroll-Snap, also das Scrollen von iOS selbst),
+  die Nachbartage schauen am Rand herein; ein Tipp auf einen Tag in der Leiste springt dorthin.
+  Die Zeile ist so hoch wie der gezeigte Tag – ein voller Tag macht die Seite nicht für alle
+  anderen länger. Beim Wochenwechsel bleibt der Wochentag, „Today“ springt zu heute. Ab 700 px
+  (aufgeklappt, iPad) und am Desktop wie bisher alle Tage als Spalten. Für VoiceOver nennt jeder
+  Tag der Leiste Datum, „today“ und die Zahl der Termine und offenen Aufgaben.
 - **Health Hub:** Die Step Challenge steht auf Handy und Tablet ganz oben, vor Streak, Wasser
   und Supplements; am Desktop bleibt sie darunter. Die Karte wird im DOM verschoben
   (`placeStepCard` in `js/mobile.js`), nicht per CSS `order` umsortiert – so entsprechen
@@ -115,11 +124,12 @@ Safari meldet nicht, ob das Gerät auf- oder zugeklappt ist – das Layout häng
 
 | Zustand (geschätzt) | Layout |
 |---|---|
-| zugeklappt ~466 px, Split View ~445 px | eine Spalte wie auf dem iPhone |
+| zugeklappt ~466 px, Split View ~445 px | eine Spalte wie auf dem iPhone (Woche: Tagesleiste + ein Tag pro Wisch) |
 | aufgeklappt quer ~890 px | Focus neben den Zielen, Woche in 3 Spalten, Kalender neben der Tagesliste, Habits als Tabelle, Leiste mit Symbol neben Text |
 | aufgeklappt hochkant ~626 px | eine Spalte, Listen zweispaltig |
 
-Beim Auf-/Zuklappen bleibt die Stelle, die oben auf dem Bildschirm war, dort; offene Menüs
+Beim Auf-/Zuklappen bleibt die Stelle, die oben auf dem Bildschirm war, dort (seitlich
+weggewischte Tageskarten zählen dabei nicht – es bleibt der Tag, der zu sehen war); offene Menüs
 bleiben im sichtbaren Bereich. Safe Areas (Dynamic Island, Home-Indikator, Ränder) werden
 an allen vier Seiten berücksichtigt.
 

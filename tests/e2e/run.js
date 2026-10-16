@@ -794,7 +794,7 @@ scenario('scroll: phones show one continuous page; the section bar follows and j
 
   // Touch targets of the main controls: at least 44 x 44 pt (HIG)
   const small = await page.evaluate(() => [...document.querySelectorAll(
-    '.mobile-tab, .app-bar-btn, .week-nav-panel .btn, .calendar-header .btn, .kanban-add-btn, .item-more-btn, .habit-check, .day-cell:not(.empty), .pomo-mode-btn, .goals-container .btn')]
+    '.mobile-tab, .app-bar-btn, .week-nav-panel .btn, .week-strip-day, .calendar-header .btn, .kanban-add-btn, .item-more-btn, .habit-check, .day-cell:not(.empty), .pomo-mode-btn, .goals-container .btn')]
     .filter(el => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
     .map(el => { const r = el.getBoundingClientRect(); return [el.className || el.id, Math.round(r.width), Math.round(r.height)]; })
     .filter(([, w, h]) => w < 44 || h < 36));
@@ -1047,7 +1047,10 @@ scenario('foldable: unfolding and folding keeps the reading position and open me
   seedDemo(env.store, { steps: false });
   const { page, errors, context } = await open(env, { viewport: DUO_FOLDED, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
   await goToSection(page, 'week');
-  const saturday = '.kanban-column:nth-child(6)';
+  // Folded = phone width: one day card at a time; Saturday chosen in the day strip
+  const saturday = '#week-day-5';
+  await page.locator('#weekStrip .week-strip-day').nth(5).tap();
+  await waitFor(() => page.evaluate(sel => { const r = document.querySelector(sel).getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }, saturday), 'Saturday on screen');
   const topOf = () => page.evaluate(sel => Math.round(document.querySelector(sel).getBoundingClientRect().top), saturday);
   await page.evaluate(sel => { const el = document.querySelector(sel); window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 120); }, saturday);
   await settle(page, 300);
@@ -1062,6 +1065,7 @@ scenario('foldable: unfolding and folding keeps the reading position and open me
   assert.equal(await horizontalOverflow(page), 0);
   const columns = await page.evaluate(() => new Set([...document.querySelectorAll('.kanban-column')].map(c => Math.round(c.getBoundingClientRect().left))).size);
   assert.ok(columns >= 3, `unfolded week uses ${columns} columns`);
+  assert.equal(await page.locator('#weekStrip').count(), 0, 'no day strip when the days fit side by side');
   assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.calendar-section-content .glass-panel')).display), 'grid', 'calendar and agenda side by side');
 
   // A menu opened while unfolded is still fully on screen after folding
@@ -1071,6 +1075,9 @@ scenario('foldable: unfolding and folding keeps the reading position and open me
   const box = await page.locator('.menu').boundingBox();
   assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.width <= DUO_FOLDED.width + 1 && box.y + box.height <= DUO_FOLDED.height + 1, `menu off screen: ${JSON.stringify(box)}`);
   await page.keyboard.press('Escape');
+  // Folded again: the day strip is back and Saturday is still the day on screen
+  assert.equal(await page.getAttribute('#weekStrip .week-strip-day:nth-child(6)', 'aria-current'), 'true');
+  assert.equal(await page.evaluate(sel => { const r = document.querySelector(sel).getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }, saturday), true, 'Saturday on screen after folding');
 
   // iPad rotated to landscape (1180px): the desktop layout, then back
   await page.setViewportSize({ width: 1180, height: 820 });
@@ -1255,6 +1262,86 @@ scenario('habits: "+ New Habit" keeps a gap to the weekday labels (desktop and p
   assert.ok(await gap(phone.page) >= 16, `phone gap ${await gap(phone.page)}px`);
   assert.deepEqual(phone.errors, []);
   await phone.context.close();
+});
+
+// Phones: the week as a strip of days (Apple Calendar) and one day card per swipe; the row
+// takes the height of the day on screen, so the page no longer grows with every task
+scenario('week on phones: day strip and one day card per swipe; wide screens keep the columns', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await open(env, PHONE);
+  await goToSection(page, 'week');
+  await waitFor(() => page.locator('#weekStrip .week-strip-day').count(), 'day strip');
+  const strip = page.locator('#weekStrip .week-strip-day');
+  const state = () => page.evaluate(() => {
+    const pager = document.getElementById('weekKanban');
+    const cards = [...pager.children].filter(c => c.classList.contains('kanban-column'));
+    const current = [...document.querySelectorAll('#weekStrip .week-strip-day')].findIndex(b => b.getAttribute('aria-current') === 'true');
+    return {
+      shown: cards.filter(c => { const r = c.getBoundingClientRect(); return r.left >= -1 && r.right <= innerWidth + 1; }).map(c => c.id),
+      current,
+      pagerHeight: pager.offsetHeight,
+      cardHeight: current >= 0 ? cards[current].offsetHeight : -1,
+      allCards: cards.reduce((sum, c) => sum + c.offsetHeight, 0),
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth
+    };
+  });
+  const settled = async (day) => {
+    await waitFor(async () => {
+      const s = await state();
+      return s.current === day && s.shown.length === 1 && s.shown[0] === `week-day-${day}` && s.pagerHeight === s.cardHeight;
+    }, `day ${day} on screen, row as high as its card`);
+    return state();
+  };
+
+  // Today (Friday, 16 October) on screen and filled in the strip; far shorter than all days
+  let s = await settled(4);
+  assert.ok(s.pagerHeight < s.allCards / 2, `row ${s.pagerHeight}px, all days ${s.allCards}px`);
+  assert.equal(s.overflow, 0);
+  assert.equal(await strip.count(), 7);
+  assert.equal(await strip.nth(4).getAttribute('aria-label'), 'Freitag, 16. Oktober, today, 2 events, 2 open tasks');
+  assert.equal(await strip.nth(0).getAttribute('aria-label'), 'Montag, 12. Oktober, nothing planned');
+  assert.equal(await strip.nth(4).getAttribute('aria-controls'), 'week-day-4');
+  assert.deepEqual(await strip.nth(4).locator('.week-strip-dot').evaluateAll(dots => dots.map(d => d.classList.contains('is-task') ? 'task' : d.style.getPropertyValue('--dot'))),
+    ['var(--cal-blue)', 'task'], 'calendar colour, then a dot for open tasks');
+  assert.equal(await strip.nth(0).locator('.week-strip-dot').count(), 0);
+  assert.equal(await text(page, '#week-day-4 .kanban-day-long'), 'Freitag, 16. Oktober');
+  assert.equal(await displayed(page, '#week-day-4 .kanban-date'), false, 'short date replaced by the whole date');
+
+  // Swipe to the next day (Safari: native scroll snapping; here a scroll of 60% of a card)
+  await page.evaluate(() => { const p = document.getElementById('weekKanban'); p.scrollBy({ left: p.clientWidth * 0.6 }); });
+  s = await settled(5);
+  assert.match(await text(page, '#week-day-5'), /Samstag, 17\. Oktober[\s\S]*Bauernmarkt/);
+
+  // A tap in the strip jumps to that day; a new task there makes the row grow with it
+  await strip.nth(0).tap();
+  await settled(0);
+  const before = (await state()).pagerHeight;
+  await page.locator('#week-day-0 .kanban-add-btn').tap();
+  await page.waitForSelector('#inputModal.active');
+  await page.fill('#inputModalField', 'Wäsche waschen');
+  await page.click('#inputModalSubmit');
+  await waitFor(() => env.store.rows('kanban_tasks').some(r => r.column_name === 'MO' && /Wäsche waschen/.test(r.text)), 'task uploaded on Monday');
+  s = await settled(0);
+  assert.ok(s.pagerHeight > before, 'row grew with the new task');
+  assert.equal(await strip.nth(0).getAttribute('aria-label'), 'Montag, 12. Oktober, 1 open task');
+
+  // Next week: the same weekday stays on screen; Today: back to today's card
+  await page.locator('.week-nav-panel .chevron-next').tap();
+  await settled(0);
+  assert.equal(await strip.nth(0).getAttribute('aria-label'), 'Montag, 19. Oktober, nothing planned');
+  await page.locator('.week-nav-panel .btn', { hasText: 'Today' }).tap();
+  await settled(4);
+
+  // Unfolded / tablet width: all days as columns again, no strip; back: strip and today's card
+  await page.setViewportSize(DUO_UNFOLDED);
+  await waitFor(async () => (await page.locator('#weekStrip').count()) === 0, 'strip removed on the wide layout');
+  assert.equal(await page.evaluate(() => document.getElementById('weekKanban').style.height), '', 'no fixed height on the wide layout');
+  const columns = await page.evaluate(() => new Set([...document.querySelectorAll('.kanban-column')].map(c => Math.round(c.getBoundingClientRect().left))).size);
+  assert.ok(columns >= 3, `wide layout uses ${columns} columns`);
+  await page.setViewportSize(PHONE.viewport);
+  await settled(4);
+  assert.deepEqual(errors, []);
+  await context.close();
 });
 
 // Phones and tablets: the Step Challenge first in the Health Hub (moved in the DOM, so the

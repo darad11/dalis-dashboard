@@ -996,6 +996,9 @@
       const node = candidates[i];
       const r = node.getBoundingClientRect();
       if (r.height === 0 || r.bottom <= top + 8) continue;
+      // Not the cards scrolled out sideways (the week's day cards on phones): the eye
+      // follows the day on screen
+      if (r.right <= 0 || r.left >= window.innerWidth) continue;
       if (r.top >= top && r.top < viewHeight) {
         anchor = { el: node, top: r.top };
         return;

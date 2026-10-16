@@ -1690,6 +1690,152 @@ html.touch-layout .kanban-card-time {
     color: var(--text-secondary);
 }
 
+/* Phones: the week as a strip of days and day cards side by side, one per swipe
+   (js/app.js, syncWeekPager). The strip and the long date exist only there. */
+.week-strip,
+.kanban-day-long {
+    display: none;
+}
+
+html.touch-layout .week-overview-section.week-pager .week-strip {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    margin: 10px -4px 0 -8px;
+}
+
+html.touch-layout .week-strip-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+    min-height: 62px;
+    margin: 0;
+    padding: 4px 0 6px;
+    border: none;
+    border-radius: var(--radius-inner);
+    background: transparent;
+    color: var(--text-primary);
+    font-family: var(--ios-font);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+html.touch-layout .week-strip-day:active {
+    background: var(--press);
+}
+
+html.touch-layout .week-strip-day:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: -2px;
+}
+
+/* Weekday as in Apple Calendar: small, secondary; red on public holidays */
+html.touch-layout .week-strip-weekday {
+    font: 600 0.706rem/1.2 var(--ios-font);
+    color: var(--text-secondary);
+}
+
+html.touch-layout .week-strip-day.holiday .week-strip-weekday {
+    color: var(--danger-color);
+}
+
+/* Date in a circle: today in the tint colour; the day on screen filled (label colour,
+   today in the tint colour) */
+html.touch-layout .week-strip-date {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    font: 500 1.06rem/1 var(--ios-font-display);
+    font-variant-numeric: tabular-nums;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.touch-layout .week-strip-day.today .week-strip-date {
+    color: var(--accent-color);
+    font-weight: 700;
+}
+
+html.touch-layout .week-strip-day[aria-current="true"] .week-strip-date {
+    background: var(--text-primary);
+    color: var(--surface-color);
+    font-weight: 700;
+}
+
+html.touch-layout .week-strip-day.today[aria-current="true"] .week-strip-date {
+    background: var(--tint-fill);
+    color: #ffffff;
+}
+
+html.touch-layout .week-strip-dots {
+    display: flex;
+    justify-content: center;
+    gap: 3px;
+    height: 6px;
+}
+
+html.touch-layout .week-strip-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--dot);
+}
+
+html.touch-layout .week-strip-dot.is-task {
+    background: var(--text-tertiary);
+}
+
+/* Day cards in a row: the row reaches the screen edges, each card snaps to the page margin
+   and the next one peeks in, so the row can be swiped. One day per swipe. */
+html.touch-layout .week-kanban.is-pager {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 calc(-1 * (var(--safe-right) + var(--gutter))) 8px calc(-1 * (var(--safe-left) + var(--gutter)));
+    padding: 0 calc(var(--safe-right) + var(--gutter)) 0 calc(var(--safe-left) + var(--gutter));
+    scroll-padding: 0 calc(var(--safe-right) + var(--gutter)) 0 calc(var(--safe-left) + var(--gutter));
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    transition: height 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html.touch-layout .week-kanban.is-pager::-webkit-scrollbar {
+    display: none;
+}
+
+html.touch-layout .week-kanban.is-pager>.kanban-column {
+    flex: 0 0 calc(100% - 12px);
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+}
+
+html.touch-layout .week-kanban.is-pager .kanban-day-long {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-right: 64px; /* room for the "Today" badge */
+}
+
+html.touch-layout .week-kanban.is-pager .kanban-weekday,
+html.touch-layout .week-kanban.is-pager .kanban-date {
+    display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html.touch-layout .week-kanban.is-pager,
+    html.touch-layout .week-strip-date {
+        transition: none;
+    }
+}
+
 /* Calendar: month grid selects a day, the agenda lists its entries */
 html.touch-layout .calendar-section-content .glass-panel {
     padding: 14px 12px 8px;

@@ -43,10 +43,11 @@ Szenarien für Apple Health, Handy/Tablet und Kalender (`tests/e2e/run.js`):
 | `section bar: a finger lifts the selection…` | Glas-Linse: hebt sich beim Berühren (größer als die Leiste, Leiste wächst), nur Dekoration (`aria-hidden`, keine zusätzlichen Links), folgt beim Ziehen dem Finger, wählt erst beim Loslassen (Sprung + Fokus), fällt in die Markierung zurück; kurzes Ziehen auf dem gewählten Abschnitt springt nicht (auch nicht durch den Klick, den Chromium danach schickt); Abbruch durch das System wählt nichts; Tipp ans runde Ende wählt den nächsten; Tastatur ohne Linse |
 | `section bar: with Reduce Motion…` | Linse hebt sich weiter, aber Leiste wächst nicht, kein Nachschwingen/Dehnen |
 | `touch: menus replace hover…` | Menü am Knopf, Untermenüs, Escape/Tipp daneben schließt ohne Aktion, Fokus zurück (und bleibt dort, wenn die Liste neu aufgebaut wird), Verschieben (Tag, Liste), Editor aus der Tagesliste, Rückfrage mit „Delete“ |
-| `foldable: …` | Leseposition beim Auf-/Zuklappen, offenes Menü bleibt im Bild, iPad quer = Desktop |
+| `foldable: …` | Leseposition beim Auf-/Zuklappen (der in der Tagesleiste gewählte Samstag bleibt an seiner Stelle und bleibt nach dem Zuklappen der gezeigte Tag), offenes Menü bleibt im Bild, iPad quer = Desktop |
 | `calendar on phones: …` | farbige Punkte, Tagesliste mit Zeiten, neuer Eintrag mit Uhrzeit in eigenem Kalender (Upload `16:30:00`), Dauer bleibt beim Verschieben des Beginns, Ende vor Beginn gesperrt, „Discard Changes“, Monatswechsel am 31. |
 | `calendar: own calendars … (desktop)` | Kalender anlegen, Eintrag mit Zeit/Kalender/Priorität, Sortierung, Woche, Datum ändern = verschieben, Kalender löschen → Standardkalender, Löschen mit Rückfrage |
 | `calendar: without the database migration…` | Eintrag mit Uhrzeit bleibt lokal (Fehler sichtbar), Tage ohne Uhrzeit laufen weiter, nach Migration hochgeladen |
+| `week on phones: day strip…` | Tagesleiste (7 Tage, heute markiert, Punkte in Kalenderfarben + grau für offene Aufgaben, VoiceOver-Texte), genau ein Tag auf dem Bildschirm, Zeile so hoch wie dieser Tag (weniger als halb so hoch wie alle Tage untereinander); Wischen → nächster Tag; Tipp in der Leiste → Montag; neue Aufgabe dort lässt die Zeile wachsen; nächste Woche behält den Wochentag, „Today“ springt zurück; aufgeklappt: Spalten ohne Leiste und ohne feste Höhe |
 | `health hub: Step Challenge first…` | Handy/Tablet: Step Challenge direkt unter „Health Hub“, über der Hero-Zeile; Desktop unverändert darunter; iPad hochkant ↔ quer verschiebt die Karte hin und zurück, der Fokus im Eingabefeld bleibt |
 | `habits: "+ New Habit" keeps a gap…` | ≥ 16 px Abstand zu den Wochentagen (Desktop und Handy) |
 
@@ -58,6 +59,8 @@ Ziehen, ohne Prüfung „schon gewählt“, ohne Tipp-Ersatz an den Enden, Leist
 Today's Goals ohne Fokus-Erhalt beim Neuaufbau der Liste.
 Schritte-Karte: Cursor nach dem Neuaufbau wieder ans Ende (alte Logik) → `setup: a rebuild while typing…` rot.
 Health Hub: ohne Verschieben der Karte bzw. ohne Fokus-Erhalt → `health hub: Step Challenge first…` rot.
+Woche auf dem Handy: ohne Höhenanpassung → `week on phones…` rot; Leseposition ohne die Regel für seitlich
+weggewischte Karten → `foldable…` rot (Samstag landet nach dem Aufklappen bei 336 px statt 120 px).
 `openDashboard` nimmt dafür zusätzlich `reducedMotion` an.
 Apple Health: Klartext-Schlüssel statt Hash gespeichert, Schlüssel nach „Done“ noch sichtbar,
 keine Aktualisierung von „last upload“ nach einem Upload (E2E); „niedriger ersetzt nie

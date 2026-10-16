@@ -1297,6 +1297,7 @@ let currentDate = new Date();
 let currentGoalDate = new Date(); // For Today's Goals navigation
 let currentNotesDate = new Date(); // For Quick Notes navigation
 let currentWeekDate = new Date(); // For Weekly Focus kanban navigation
+let weekPagerDay = null; // Phones: index into weekdays of the day card on screen (null = today, or Monday)
 let currentStatsWeekDate = new Date(); // For Stats section week navigation
 let currentHabitsWeekDate = new Date(); // For Habits section week navigation
 let currentReviewWeekDate = new Date(); // For Weekly Review section navigation
@@ -1514,6 +1515,7 @@ window.changeWeek = (delta) => {
 
 window.goToWeekToday = () => {
   currentWeekDate = new Date();
+  weekPagerDay = null; // phones: back to today's card
   updateTitles();
   try { renderKanban(); } catch (e) { console.error(e); }
   try { renderHabits(); } catch (e) { console.error(e); }
@@ -1527,6 +1529,7 @@ window.goToWeekToday = () => {
 window.addEventListener('dashboard:layoutchange', () => {
   if (!els.calList) return;
   try { renderCalendar(); } catch (e) { console.error(e); }
+  try { syncWeekPager(true); } catch (e) { console.error(e); }
 });
 
 function setupEventListeners() {
@@ -3970,6 +3973,7 @@ function renderKanbanBoard(container, columns, isWeekBased) {
   columns.forEach((colName, colIndex) => {
     const colDiv = document.createElement("div");
     colDiv.className = "kanban-column";
+    if (isWeekBased) colDiv.id = `week-day-${colIndex}`; // target of the day strip on phones
 
     // Highlight today's column in week kanban
     if (isWeekBased) {
@@ -4009,9 +4013,16 @@ function renderKanbanBoard(container, columns, isWeekBased) {
       dateDiv.className = "kanban-date";
       dateDiv.textContent = dateStr;
       header.appendChild(dateDiv);
+
+      // Phones (day cards): the whole date as the card's title, "Freitag, 16. Oktober"
+      const longDiv = document.createElement("div");
+      longDiv.className = "kanban-day-long";
+      longDiv.textContent = dayDate.toLocaleDateString('de-DE', CALENDAR_DAY_FORMAT);
+      header.appendChild(longDiv);
     }
 
     const titleSpan = document.createElement("div");
+    titleSpan.className = "kanban-weekday";
     titleSpan.textContent = colName;
     header.appendChild(titleSpan);
 
@@ -4076,6 +4087,218 @@ function renderKanbanBoard(container, columns, isWeekBased) {
     colDiv.append(header, itemsDiv, btn);
     container.appendChild(colDiv);
   });
+
+  if (isWeekBased && container === els.weekKanban) syncWeekPager(true);
+}
+
+// ===== WEEK ON PHONES: day strip + swipeable day cards =====
+// Phones (touch layout under 700px, css/mobile.css): the seven day columns sit side by side
+// in a horizontal scroll-snap pager - one day per swipe, with the system's own scrolling -
+// under a strip of the week as in Apple Calendar (weekday, date, dots for the day's
+// entries; a tap scrolls to that day). The pager takes the height of the day on screen, so
+// a busy day leaves no empty space under a quiet one, and the page stays short.
+const weekPagerMedia = window.matchMedia('(max-width: 699px)');
+const weekPagerMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+let weekPagerReady = false;
+let weekPagerFrame = 0;
+let weekPagerSettle = null;
+let weekPagerResize = null;
+
+function isWeekPager() {
+  return isTouchLayout() && weekPagerMedia.matches;
+}
+
+function weekPagerOn() {
+  return !!els.weekKanban && els.weekKanban.classList.contains('is-pager');
+}
+
+function mondayOf(date) {
+  const monday = new Date(date);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+function todayWeekdayIndex() {
+  return (new Date().getDay() + 6) % 7;
+}
+
+function weekPagerColumns() {
+  return els.weekKanban ? Array.from(els.weekKanban.children).filter(el => el.classList.contains('kanban-column')) : [];
+}
+
+// The day whose card is closest to the middle of the pager (also at the end of the row,
+// where the last card cannot reach the snap position)
+function visibleWeekPagerDay() {
+  const pager = els.weekKanban;
+  const mid = pager.scrollLeft + pager.clientWidth / 2;
+  let best = 0;
+  let bestDistance = Infinity;
+  weekPagerColumns().forEach((col, i) => {
+    const distance = Math.abs(col.offsetLeft + col.offsetWidth / 2 - mid);
+    if (distance < bestDistance) {
+      best = i;
+      bestDistance = distance;
+    }
+  });
+  return best;
+}
+
+function scrollWeekPagerTo(index, animate) {
+  const pager = els.weekKanban;
+  const col = weekPagerColumns()[index];
+  if (!col) return;
+  const pad = parseFloat(getComputedStyle(pager).paddingLeft) || 0;
+  pager.scrollTo({ left: col.offsetLeft - pad, behavior: animate && !weekPagerMotion.matches ? 'smooth' : 'auto' });
+}
+
+function updateWeekPagerHeight(animate) {
+  if (!weekPagerOn()) return; // a settle timer or resize can arrive after leaving the pager
+  const col = weekPagerColumns()[weekPagerDay];
+  if (!col) return;
+  const pager = els.weekKanban;
+  const height = `${col.offsetHeight}px`;
+  if (pager.style.height === height) return;
+  if (!animate) pager.style.transition = 'none';
+  pager.style.height = height;
+  if (!animate) {
+    void pager.offsetHeight; // apply without the transition, then allow it again
+    pager.style.transition = '';
+  }
+}
+
+function markWeekStrip() {
+  const strip = document.getElementById('weekStrip');
+  if (!strip) return;
+  strip.querySelectorAll('.week-strip-day').forEach((btn, i) => {
+    if (i === weekPagerDay) btn.setAttribute('aria-current', 'true');
+    else btn.removeAttribute('aria-current');
+  });
+}
+
+function countLabel(n, one, many) {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+function renderWeekStrip() {
+  const panel = els.weekKanban.closest('.week-overview-section').querySelector('.week-nav-panel');
+  let strip = document.getElementById('weekStrip');
+  if (!strip) {
+    strip = document.createElement('div');
+    strip.id = 'weekStrip';
+    strip.className = 'week-strip';
+    strip.setAttribute('role', 'group');
+    strip.setAttribute('aria-label', 'Days of the week');
+    panel.appendChild(strip);
+  }
+  const board = db.getKanban();
+  const calendars = db.getCalendars();
+  const currentWeek = mondayOf(currentWeekDate).getTime() === mondayOf(new Date()).getTime();
+  strip.replaceChildren(...weekdays.map((day, i) => {
+    const date = getDateForWeekday(i);
+    const entries = getCalendarTasksForDate(date);
+    const open = (board[day] || []).filter(t => t && !(typeof t === 'object' && t.done)).length;
+    const holiday = getHoliday(date);
+    const today = currentWeek && i === todayWeekdayIndex();
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'week-strip-day';
+    btn.classList.toggle('today', today);
+    btn.classList.toggle('holiday', !!holiday);
+    btn.setAttribute('aria-controls', `week-day-${i}`);
+    const parts = [date.toLocaleDateString('de-DE', CALENDAR_DAY_FORMAT)];
+    if (today) parts.push('today');
+    if (holiday) parts.push(holiday);
+    parts.push(entries.length || open
+      ? [entries.length ? countLabel(entries.length, 'event', 'events') : '', open ? countLabel(open, 'open task', 'open tasks') : ''].filter(Boolean).join(', ')
+      : 'nothing planned');
+    btn.setAttribute('aria-label', parts.join(', '));
+
+    const weekday = document.createElement('span');
+    weekday.className = 'week-strip-weekday';
+    weekday.textContent = day.charAt(0) + day.slice(1).toLowerCase();
+    const number = document.createElement('span');
+    number.className = 'week-strip-date';
+    number.textContent = date.getDate();
+    // Up to three dots: the colours of the day's calendars, then one for open tasks
+    const dots = document.createElement('span');
+    dots.className = 'week-strip-dots';
+    dots.setAttribute('aria-hidden', 'true');
+    CalendarCore.dayColors(entries, calendars, 3).forEach(color => dots.appendChild(calendarDot({ color }, 'week-strip-dot')));
+    if (open && dots.children.length < 3) {
+      const taskDot = document.createElement('span');
+      taskDot.className = 'week-strip-dot is-task';
+      dots.appendChild(taskDot);
+    }
+    btn.append(weekday, number, dots);
+    btn.addEventListener('click', () => {
+      weekPagerDay = i;
+      markWeekStrip();
+      scrollWeekPagerTo(i, true);
+    });
+    return btn;
+  }));
+  markWeekStrip();
+}
+
+function setupWeekPager() {
+  weekPagerReady = true;
+  els.weekKanban.addEventListener('scroll', () => {
+    if (!weekPagerOn()) return;
+    cancelAnimationFrame(weekPagerFrame);
+    weekPagerFrame = requestAnimationFrame(() => {
+      const day = visibleWeekPagerDay();
+      if (day !== weekPagerDay) {
+        weekPagerDay = day;
+        markWeekStrip();
+      }
+    });
+    // Height follows once the swipe has settled on a day
+    clearTimeout(weekPagerSettle);
+    weekPagerSettle = setTimeout(() => updateWeekPagerHeight(true), 90);
+  }, { passive: true });
+  if (typeof ResizeObserver === 'function') {
+    weekPagerResize = new ResizeObserver(() => {
+      if (weekPagerOn()) updateWeekPagerHeight(true);
+    });
+  }
+  // Switch between pager and columns in the resize event itself: js/mobile.js keeps the
+  // reading position in the next animation frame, which must already see the new layout
+  // (a media query "change" event can come after that frame)
+  const resync = () => {
+    if (isWeekPager() !== weekPagerOn()) syncWeekPager(true);
+  };
+  window.addEventListener('resize', resync);
+  if (weekPagerMedia.addEventListener) weekPagerMedia.addEventListener('change', resync);
+  else if (weekPagerMedia.addListener) weekPagerMedia.addListener(resync);
+}
+
+// After every render of the week and when the layout changes: pager + strip on phones,
+// columns (as before) on wider screens and the desktop
+function syncWeekPager(instant) {
+  if (!els.weekKanban) return;
+  if (!weekPagerReady) setupWeekPager();
+  const pager = isWeekPager();
+  const section = els.weekKanban.closest('.week-overview-section');
+  section.classList.toggle('week-pager', pager);
+  els.weekKanban.classList.toggle('is-pager', pager);
+  if (weekPagerResize) weekPagerResize.disconnect();
+  if (!pager) {
+    clearTimeout(weekPagerSettle);
+    cancelAnimationFrame(weekPagerFrame);
+    els.weekKanban.style.height = '';
+    const strip = document.getElementById('weekStrip');
+    if (strip) strip.remove();
+    return;
+  }
+  if (weekPagerDay === null) {
+    weekPagerDay = mondayOf(currentWeekDate).getTime() === mondayOf(new Date()).getTime() ? todayWeekdayIndex() : 0;
+  }
+  renderWeekStrip();
+  scrollWeekPagerTo(weekPagerDay, !instant);
+  updateWeekPagerHeight(!instant);
+  if (weekPagerResize) weekPagerColumns().forEach(col => weekPagerResize.observe(col));
 }
 
 function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = false, sourceDate = null) {
