@@ -45,9 +45,9 @@ export function parseDate(value) {
 export function parseSteps(value) {
   if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
   if (typeof value !== 'string') return null;
-  const m = /^\s*([0-9][0-9.,'\s  ]*)(?:\s*[^\d\s.,'][^\d]*)?$/.exec(value);
+  const m = /^\s*([0-9][0-9.,'\s\u00a0\u202f]*)(?:\s*[^\d\s.,'][^\d]*)?$/.exec(value);
   if (!m) return null;
-  const text = m[1].replace(/[\s  ]+/g, '');
+  const text = m[1].replace(/[\s\u00a0\u202f]+/g, '');
   if (/^\d+$/.test(text)) return Number(text);
   if (/^\d{1,3}([.,']\d{3})+$/.test(text)) return Number(text.replace(/[.,']/g, ''));
   if (/^\d+[.,]\d{1,2}$/.test(text)) return Math.round(Number(text.replace(',', '.')));
