@@ -942,7 +942,7 @@
         h('code', null, 'token'), ' (Text: your key), ', h('code', null, 'date'), ' (Text: Formatted Date), ',
         h('code', null, 'steps'), ' (Number: the Sum).'),
       h('li', null, 'Run it once: it answers “Saved: … steps”. Compare with the Health app: the same or slightly less is right; almost twice as much means the Source filter is missing.'),
-      h('li', null, 'Automation → + → Time of Day (e.g. 12:00, 18:00, 21:00, 23:45) → Run Immediately → your Shortcut. While the iPhone is locked, Health cannot be read; the next run catches up.'));
+      h('li', null, 'Automation → + → App → apps you open often (e.g. WhatsApp) → Is Opened → Run Immediately, Notify When Run off → your Shortcut: it then runs whenever you open them, with the iPhone unlocked (Health cannot be read while it is locked). Optionally also Time of Day, e.g. 23:30.'));
   }
 
   function renderHealthPanel(keys) {

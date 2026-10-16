@@ -141,10 +141,19 @@ Platzhalter – er muss angetippt und belegt werden.
 
 ### 3. Automation
 
-Kurzbefehle → **Automation** → **+** → **Tageszeit**, z. B. 12:00, täglich → **Sofort
-ausführen** → deinen Kurzbefehl wählen. Für mehrere Zeitpunkte je eine Automation anlegen
-(z. B. 12:00, 18:00, 21:00, 23:45). Zuverlässiger, weil das iPhone dabei entsperrt ist:
-zusätzlich eine Automation „App → wird geöffnet“ (z. B. Safari oder die Fitness-App).
+Es gibt keinen Auslöser „wenn sich die Schritte ändern“: Der Kurzbefehl läuft nur, wenn eine
+Automation ihn startet. Gesperrt kann das iPhone Health nicht lesen (siehe Grenzen) – deshalb
+ist der wichtigste Auslöser das Öffnen einer App, denn dann ist das iPhone entsperrt:
+
+1. **App-Automation (Haupt-Auslöser):** Kurzbefehle → **Automation** → **+** → **App** →
+   eine oder mehrere Apps, die du oft öffnest (z. B. WhatsApp, Safari) → **Wird geöffnet** →
+   **Sofort ausführen**, **Bei Ausführung benachrichtigen** aus → **Weiter** → deinen
+   Kurzbefehl wählen. Er läuft dann bei jedem Öffnen dieser Apps.
+2. **Tageszeit (Ergänzung):** **+** → **Tageszeit**, z. B. 23:30, **Täglich** → **Sofort
+   ausführen** → Kurzbefehl. Für jede Uhrzeit eine eigene Automation. Läuft sie bei gesperrtem
+   iPhone, ändert sich nichts; der nächste Lauf holt es nach.
+
+Vorher die Test-Aktion „Hinweis zeigen“ wieder löschen – ein Fenster hält die Automation an.
 
 ### Regeln
 
