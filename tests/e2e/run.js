@@ -10,6 +10,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { createEnv, openDashboard, settle } = require('./harness');
+const { seedDemo } = require('./demo-data');
 
 const USER = '00000000-0000-4000-8000-000000000001';
 const NOW = Date.parse('2026-10-16T10:00:00+02:00'); // Friday, Vienna
@@ -348,6 +349,8 @@ scenario('mobile: iPhone layout without horizontal overflow and with usable touc
   const { page, errors, context } = await open(env, {
     viewport: { width: 375, height: 667 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2, colorScheme: 'dark'
   });
+  // Phones show one section at a time: the Step Challenge is in the Health tab
+  await page.locator('.mobile-tab[data-tab="health"]').tap();
   await confirmSetup(page);
   await logSteps(page, '12.345');
   await page.click('#stepChallenge .step-details-toggle');
@@ -403,6 +406,8 @@ scenario('14 existing features keep working (goals, calendar, kanban, habits, li
   // Calendar quick capture (Q) + kanban card
   await page.evaluate(() => document.activeElement && document.activeElement.blur()); // shortcuts ignore inputs
   await page.keyboard.press('q');
+  await waitFor(() => page.locator('#inputModal.active').count(), 'quick capture dialog');
+  assert.equal(await page.inputValue('#inputModalField'), '', 'the shortcut key is not typed into the field');
   await modal('Call dentist');
   await waitFor(() => env.store.rows('goals').some(r => r.date === 'cal-2026-9-16' && r.text === 'Call dentist'), 'quick capture uploaded');
   assert.match(await page.locator('#weekKanban').innerText(), /Call dentist/);
@@ -532,6 +537,254 @@ scenario('week keys stay stable across New Year (ISO week-year)', async (env) =>
     'week-2026-W42', 'week-2026-W1',
     'habitsData-2027-W2-h0-d2', 'habitsData-2026-W42-h1-d4'
   ]);
+  await context.close();
+});
+
+// ---------------------------------------------------------------- Phones, tablets, iPhone Duo
+// Viewports: iPhone 15 (393x852), iPhone Duo folded (~466x678) and unfolded (~890x626,
+// landscape), iPad landscape (1180x820). The Duo sizes are third-party estimates; the layout
+// only depends on width ranges, so nearby sizes behave the same.
+
+const PHONE = { viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
+const DUO_FOLDED = { width: 466, height: 678 };
+const DUO_UNFOLDED = { width: 890, height: 626 };
+
+async function openPhone(env, extra = {}) {
+  return open(env, Object.assign({}, PHONE, extra));
+}
+
+const displayed = (page, selector) => page.evaluate(sel => {
+  const el = document.querySelector(sel);
+  return !!el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
+}, selector);
+
+async function tab(page, name) {
+  await page.locator(`.mobile-tab[data-tab="${name}"]`).tap();
+  await settle(page, 150);
+}
+
+async function sheetAction(page, id) {
+  await page.locator(`.action-sheet-layer.open .action-sheet-btn[data-action="${id}"]`).tap();
+  await settle(page, 300);
+}
+
+const tabsOn = (page) => page.evaluate(() => document.documentElement.classList.contains('tabs-on'));
+
+const horizontalOverflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+
+scenario('tabs: a phone shows one section at a time and remembers tab and position', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await openPhone(env);
+  assert.equal(await tabsOn(page), true);
+  assert.equal(await page.getAttribute('html', 'data-tab'), 'today');
+  const sections = {
+    today: '.dashboard-main-layout', week: '.week-overview-section', health: '.gym-hub-section',
+    habits: '.habits-section', lists: '.lists-section'
+  };
+  for (const name of Object.keys(sections)) {
+    await tab(page, name);
+    for (const [other, selector] of Object.entries(sections)) {
+      assert.equal(await displayed(page, selector), other === name, `${selector} on tab ${name}`);
+    }
+    assert.equal(await page.getAttribute(`.mobile-tab[data-tab="${name}"]`, 'aria-current'), 'page');
+    assert.equal(await horizontalOverflow(page), 0, `horizontal overflow on tab ${name}`);
+    // Quick Add puts tasks on today's calendar: only offered on Today and Week
+    assert.equal(await displayed(page, '#quickCapture'), name === 'today' || name === 'week', `quick add on ${name}`);
+  }
+  await tab(page, 'week');
+  assert.equal(await displayed(page, '.calendar-section'), true, 'calendar is on the week tab');
+  await tab(page, 'habits');
+  assert.equal(await displayed(page, '.weekly-review-section'), true, 'weekly review is on the habits tab');
+
+  // Each tab keeps its own scroll position; tapping the active tab goes back to the top
+  await tab(page, 'week');
+  await page.evaluate(() => window.scrollTo(0, 600));
+  await settle(page, 200);
+  await tab(page, 'lists');
+  assert.equal(await page.evaluate(() => window.scrollY), 0, 'lists start at the top');
+  await tab(page, 'week');
+  assert.equal(await page.evaluate(() => Math.round(window.scrollY)), 600, 'week tab scroll position restored');
+  await tab(page, 'week');
+  await waitFor(() => page.evaluate(() => window.scrollY < 2), 'active tab tap scrolls to top');
+
+  // The tab survives a reload
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector('#goalsList') !== null);
+  assert.equal(await page.getAttribute('html', 'data-tab'), 'week');
+  assert.equal(await displayed(page, '.week-overview-section'), true);
+
+  // Touch targets of the main controls are at least 44px (Apple HIG)
+  const small = await page.evaluate(() => [...document.querySelectorAll('.mobile-tab, .week-nav-panel .btn, .calendar-header .btn, .kanban-add-btn, #fabTrigger')]
+    .filter(el => el.getClientRects().length > 0) // rendered (not inside another tab)
+    .map(el => { const r = el.getBoundingClientRect(); return [el.className || el.id, Math.round(r.width), Math.round(r.height)]; })
+    .filter(([, w, h]) => w < 40 || h < 40));
+  assert.deepEqual(small, [], 'controls smaller than 40px');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+scenario('touch: sheets replace hover, double-click, right-click and drag & drop', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await openPhone(env);
+  const goal = page.locator('.focus-item', { hasText: 'Steuererklärung' });
+  // Hover-only delete buttons were invisible but tappable; on touch they are gone
+  assert.equal(await goal.locator('.focus-delete').evaluate(el => getComputedStyle(el).display), 'none');
+  assert.equal(await goal.locator('.item-more-btn').isVisible(), true);
+
+  // Urgency via the sheet (was right-click only)
+  await goal.locator('.item-more-btn').tap();
+  assert.equal(await page.getAttribute('.action-sheet', 'role'), 'dialog');
+  await sheetAction(page, 'urgency');
+  await sheetAction(page, 'priority-high');
+  await waitFor(() => env.store.rows('goals').some(r => r.text === 'Steuererklärung abschicken' && r.urgency === 'high'), 'urgency uploaded');
+  assert.equal(await page.locator('.focus-item.urgency-high', { hasText: 'Steuererklärung' }).count(), 1);
+
+  // Tapping the text ticks a goal
+  await page.locator('.focus-item .focus-text', { hasText: 'Wocheneinkauf' }).tap();
+  await waitFor(() => env.store.rows('goals').some(r => r.text === 'Wocheneinkauf planen' && r.done === true), 'goal ticked by tapping its text');
+
+  // Escape and Cancel close a sheet without doing anything; focus returns to the button
+  await goal.locator('.item-more-btn').tap();
+  await page.keyboard.press('Escape');
+  await waitFor(async () => (await page.locator('.action-sheet-layer').count()) === 0, 'sheet closed by Escape');
+  assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.classList.contains('item-more-btn')), true, 'focus back on the ⋯ button');
+
+  // Move a weekly task to another day (was drag & drop only)
+  await tab(page, 'week');
+  await page.locator('.kanban-card', { hasText: 'Laufen 5 km' }).locator('.item-more-btn').tap();
+  await sheetAction(page, 'move');
+  await sheetAction(page, 'day-SA');
+  await waitFor(() => env.store.rows('kanban_tasks').some(r => r.column_name === 'SA' && r.text.includes('Laufen 5 km')), 'task moved to Saturday in the cloud');
+  assert.match(await page.locator('.kanban-column').nth(5).innerText(), /Laufen 5 km/);
+
+  // Edit a calendar entry from the day agenda (was double-click only)
+  await page.locator('.day-cell[data-date="cal-2026-9-20"]').tap();
+  await page.locator('#calendarAgenda .task-item', { hasText: 'Geburtstag Mama' }).locator('.item-more-btn').tap();
+  await sheetAction(page, 'edit');
+  await page.fill('#inputModalField', 'Geburtstag Mama – Kuchen mitbringen');
+  await page.locator('#inputModalSubmit').tap();
+  await waitFor(() => env.store.rows('goals').some(r => r.date === 'cal-2026-9-20' && r.text === 'Geburtstag Mama – Kuchen mitbringen'), 'calendar entry edited');
+
+  // Move a list item to another list (was drag & drop only)
+  await tab(page, 'lists');
+  await page.locator('.simple-list-item', { hasText: 'Steuerunterlagen sortieren' }).locator('.item-more-btn').tap();
+  await sheetAction(page, 'move');
+  await sheetAction(page, 'list-custom-2');
+  await waitFor(() => {
+    const lists = Object.fromEntries(env.store.rows('lists').map(r => [r.name, r.items.map(i => i.text)]));
+    return lists['custom-2'] && lists['custom-2'].includes('Steuerunterlagen sortieren') && !lists['custom-3'].includes('Steuerunterlagen sortieren');
+  }, 'list item moved to another list in the cloud');
+
+  // Delete asks for confirmation where the desktop does (habits, lists)
+  await tab(page, 'habits');
+  await page.locator('.habit-name', { hasText: 'Lesen' }).locator('.item-more-btn').tap();
+  await sheetAction(page, 'delete');
+  assert.equal(await page.locator('#confirmModal.active').count(), 1, 'confirmation shown');
+  await page.locator('#confirmModalCancel').tap();
+  assert.equal(await page.locator('.habit-name', { hasText: 'Lesen' }).count(), 1, 'habit kept after cancel');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+scenario('foldable: unfolding and folding keeps tab, reading position and open sheets', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await open(env, { viewport: DUO_FOLDED, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
+  await tab(page, 'week');
+  const saturday = '.kanban-column:nth-child(6)';
+  const topOf = () => page.evaluate(sel => Math.round(document.querySelector(sel).getBoundingClientRect().top), saturday);
+  await page.evaluate(sel => { const el = document.querySelector(sel); window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 80); }, saturday);
+  await settle(page, 300);
+  assert.equal(await topOf(), 80);
+
+  // Unfold: wider layout (days in columns), same tab, Saturday stays where it was on screen
+  await page.setViewportSize(DUO_UNFOLDED);
+  await settle(page, 400);
+  assert.equal(await page.getAttribute('html', 'data-tab'), 'week');
+  assert.equal(await tabsOn(page), true);
+  assert.ok(Math.abs((await topOf()) - 80) <= 4, `Saturday moved to ${await topOf()}px after unfolding`);
+  assert.equal(await horizontalOverflow(page), 0);
+  const columns = await page.evaluate(() => new Set([...document.querySelectorAll('.kanban-column')].map(c => Math.round(c.getBoundingClientRect().left))).size);
+  assert.ok(columns >= 3, `unfolded week uses ${columns} columns`);
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.calendar-section-content .glass-panel')).display), 'grid', 'calendar and agenda side by side');
+
+  // A sheet opened while unfolded is still fully on screen after folding
+  await page.locator('.kanban-card', { hasText: 'Bauernmarkt' }).locator('.item-more-btn').tap();
+  await page.setViewportSize(DUO_FOLDED);
+  await settle(page, 400);
+  const box = await page.locator('.action-sheet').boundingBox();
+  assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.width <= DUO_FOLDED.width + 1 && box.y + box.height <= DUO_FOLDED.height + 1, `sheet off screen: ${JSON.stringify(box)}`);
+  await page.locator('.action-sheet-cancel').tap();
+
+  // iPad rotated to landscape (1180px): the desktop layout with every section, then back
+  await page.setViewportSize({ width: 1180, height: 820 });
+  await settle(page, 300);
+  assert.equal(await tabsOn(page), false);
+  assert.equal(await displayed(page, '#mobileTabbar'), false);
+  for (const sel of ['.dashboard-main-layout', '.week-overview-section', '.gym-hub-section', '.lists-section', '.calendar-section', '.habits-section']) {
+    assert.equal(await displayed(page, sel), true, `${sel} visible on the wide layout`);
+  }
+  await page.setViewportSize(DUO_FOLDED);
+  await settle(page, 300);
+  assert.equal(await tabsOn(page), true);
+  assert.equal(await page.getAttribute('html', 'data-tab'), 'week');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+scenario('calendar on phones: month grid selects a day, the agenda lists and adds entries', async (env) => {
+  seedDemo(env.store, { steps: false });
+  // 31 October: stepping a month forward must land in November (setMonth on the 31st skipped it)
+  const { page, errors, context } = await openPhone(env, { now: Date.parse('2026-10-31T10:00:00+01:00') });
+  await tab(page, 'week');
+  assert.match(await text(page, '#calendarAgenda .calendar-agenda-title'), /Samstag, 31\. Oktober/);
+  assert.equal(await page.getAttribute('.day-cell[data-date="cal-2026-9-31"]', 'aria-pressed'), 'true');
+  assert.equal(await page.locator('.day-cell.has-tasks').count(), 4, 'days with entries are marked');
+
+  await page.locator('.day-cell[data-date="cal-2026-9-14"]').tap();
+  assert.match(await text(page, '#calendarAgenda'), /Mittwoch, 14\. Oktober[\s\S]*Zahnarzt 14:30/);
+
+  await page.locator('#calendarAgenda .calendar-agenda-add').tap();
+  await page.fill('#inputModalField', 'Rezept abholen');
+  await page.locator('#inputModalSubmit').tap();
+  await waitFor(() => env.store.rows('goals').some(r => r.date === 'cal-2026-9-14' && r.text === 'Rezept abholen'), 'entry added for the selected day');
+  assert.match(await text(page, '#calendarAgenda'), /Rezept abholen/);
+
+  await page.locator('#nextMonth').tap();
+  assert.equal(await text(page, '#title'), 'November 2026');
+  await page.locator('#nextMonth').tap();
+  assert.equal(await text(page, '#title'), 'Dezember 2026');
+  await page.locator('#prevMonth').tap();
+  await page.locator('#prevMonth').tap();
+  await page.locator('#prevMonth').tap();
+  assert.equal(await text(page, '#title'), 'September 2026');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+scenario('desktop with mouse: no tab bar, no touch buttons, hover effects unchanged', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await open(env, { viewport: { width: 1440, height: 900 } });
+  assert.equal(await tabsOn(page), false);
+  assert.equal(await displayed(page, '#mobileTabbar'), false);
+  assert.equal(await page.locator('.item-more-btn').first().evaluate(el => getComputedStyle(el).display), 'none');
+  assert.equal(await displayed(page, '#calendarAgenda'), false);
+  for (const sel of ['.dashboard-main-layout', '.week-overview-section', '.gym-hub-section', '.lists-section', '.calendar-section', '.habits-section', '.weekly-review-section']) {
+    assert.equal(await displayed(page, sel), true, `${sel} visible`);
+  }
+  // Hover styles still apply with a mouse
+  const addGoal = page.locator('.goals-container > .btn');
+  const before = await addGoal.evaluate(el => getComputedStyle(el).backgroundColor);
+  await addGoal.hover();
+  await settle(page, 300);
+  const after = await addGoal.evaluate(el => getComputedStyle(el).backgroundColor);
+  assert.notEqual(after, before, 'button hover effect');
+  assert.equal(after, 'rgb(99, 102, 241)');
+  // Hidden delete button appears on hover, as before
+  const item = page.locator('.focus-item', { hasText: 'Steuererklärung' });
+  await item.hover();
+  await settle(page, 300);
+  assert.equal(await item.locator('.focus-delete').evaluate(el => getComputedStyle(el).opacity), '1');
+  assert.deepEqual(errors, []);
   await context.close();
 });
 

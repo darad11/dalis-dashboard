@@ -15,7 +15,8 @@ ein persönliches Dashboard gut gewählt. Die Sync-Logik hatte aber mehrere Pfad
 (offline, pausiertes Supabase, App im Hintergrund beendet). Diese P0-Fehler sind behoben und
 mit Tests abgesichert. Größte offene Punkte: Health-Hub-Daten synchronisieren nur in eine
 Richtung (P1-8), andere Wochen werden nicht aus der Cloud geladen (P1-9), Offline-Start nach
-Token-Ablauf (P1-12) und das mobile Layout älterer Bereiche (P2-6).
+Token-Ablauf (P1-12). Das mobile Layout (P2-6) ist inzwischen überarbeitet, siehe
+[`MOBILE.md`](MOBILE.md).
 
 ## Datenbereiche: Speicherung und Synchronisierung
 
@@ -79,22 +80,23 @@ Aufwand: S ≤ 1 h, M ≈ ½ Tag, L ≥ 1 Tag. Risiko = Risiko der Änderung.
 | P2-3 | Bleibt die App über Mitternacht offen, bleiben „Today's Goals“, Rollover und Heute-Markierungen auf dem Vortag. | Tageswechsel-Handler wie in der Step Challenge. | offen |
 | P2-4 | Uneinheitliche Datumsformate (0-basierter Monat ohne Nullen, ISO, UTC-`rolledFrom`). | Bei nächster Migration vereinheitlichen. | offen |
 | P2-5 | ~1.000 Zeilen toter Code + CSS (Sleep, PR, Maße, Weekly Goals, Rest-Timer, Quick Notes, Backlog, Monkey-Patching von `saveGymData`/`loadGymData`). | Entfernen in eigenem Schritt. | offen |
-| P2-6 | Mobil: Titel liegen unter den Navigationsbuttons (Weekly Overview, Kalender), FAB verdeckt Inhalte, Kalender als ~3.000 px lange Liste, Kanban-Schrift 0,55 rem, Touch-Ziele < 44 px. | Layout-Überarbeitung dieser Bereiche. | offen (Step Challenge erfüllt die Ziele) |
-| P2-7 | Barrierefreiheit: klickbare `div`s ohne Tastatur, Dialoge ohne `role="dialog"`/Fokusführung, Bearbeiten nur per Doppel-/Rechtsklick (auf Touch nicht erreichbar). | Buttons/Rollen, Fokusfalle, sichtbare Bearbeiten-Aktion. | offen |
+| P2-6 | Mobil: Titel liegen unter den Navigationsbuttons (Weekly Overview, Kalender), FAB verdeckt Inhalte, Kalender als ~3.000 px lange Liste, Kanban-Schrift 0,55 rem, Touch-Ziele < 44 px; Habits zwischen 769 und 900 px als bildschirmbreite Kreise (Seite > 20.000 px hoch, betrifft auch das aufgeklappte iPhone Duo). | Tab-Layout für Touch-Geräte < 1100 px, Monatsraster + Tagesliste, Touch-Ziele ≥ 44 px (siehe `MOBILE.md`). | **behoben** |
+| P2-7 | Barrierefreiheit: klickbare `div`s ohne Tastatur, Dialoge ohne `role="dialog"`/Fokusführung, Bearbeiten nur per Doppel-/Rechtsklick (auf Touch nicht erreichbar). | Touch: sichtbare „⋯“-Aktionen; Habit-Häkchen als Checkbox mit Tastatur; Dialog-Rollen; Aktionsmenü mit Fokusführung. Eingabedialoge noch ohne Fokusfalle. | teilweise |
 | P2-8 | Sync über `confirm`/`prompt` („download“ eintippen). | Sync-&-Backup-Panel. | **behoben** |
 | P2-9 | Pomodoro-Statistik nur lokal (`pomodoro_stats` ungenutzt). | Anbinden oder Tabelle entfernen. | offen |
 | P2-10 | Logout lässt alle Daten im Browser (geteilte Geräte). | Beim Logout ausstehende Änderungen prüfen, dann lokale Daten löschen. | offen (Step-Daten sind pro Nutzer getrennt) |
 | P2-11 | Performance: `console.trace` bei jedem Speichern, O(n²)-Statusberechnung beim Pull, jedes Realtime-Event lädt alle Ziele aller Zeiten. | Trace entfernt, Status gebündelt (**behoben**); inkrementelle Pulls offen. | teilweise |
 | P2-12 | Keep-Alive-Workflow erzeugt leere Commits, hält aber Supabase (Pause nach 7 Tagen) nicht wach; GitHub Pages wird nicht wegen Inaktivität abgeschaltet. | Workflow, der z. B. alle 3 Tage eine leichte Supabase-Abfrage macht. | offen (braucht `workflow`-Scope) |
 | P2-13 | `setGoals`/`setKanban` = delete + insert ohne Transaktion. | Bei Fehler zwischen den Schritten ist der Tag kurz leer (lokal bleibt er dirty und wird erneut gesendet). RPC mit Transaktion. | offen |
+| P2-14 | Kalender: ◀/▶ am 29.–31. eines Monats übersprang Monate (`setMonth` auf den 31.10. + 1 = 1.12.). | Monatswechsel vom 1. aus. | **behoben** (gefunden bei der Mobil-Überarbeitung) |
 
 ### P3 – Optional
 
 - Dark Mode folgt nicht `prefers-color-scheme`; Notification-Erlaubnis wird beim Laden ohne Nutzeraktion angefragt.
 - `Notification` existiert in iOS-Safari-Tabs nicht → Fehler am Pomodoro-Ende (**behoben**).
-- `.glass-panel:hover { scale(1.01) }` auf allen Panels (auf Touch „klebt“ der Zustand), kein `prefers-reduced-motion`.
+- `.glass-panel:hover { scale(1.01) }` auf allen Panels (auf Touch „klebt“ der Zustand) – **behoben**: alle Hover-Effekte gelten nur noch für Maus/Trackpad; `prefers-reduced-motion` fehlt in älteren Bereichen weiterhin.
 - CSS-Duplikate (Supplement-Styles in `index.html` und `style.css`), widersprüchliche Kanban-Media-Queries (900 px vs. 768 px).
-- Kein Web-App-Manifest / Apple-Touch-Icon; Buttons im Dark Mode (`#818cf8` + Weiß) unter 3:1 Kontrast.
+- Kein Web-App-Manifest / Apple-Touch-Icon (**behoben**); Buttons im Dark Mode (`#818cf8` + Weiß) unter 3:1 Kontrast.
 - `showNotification('Saved', 'success')` zeigte „success“ als Text (**behoben**).
 
 ## Was gut umgesetzt ist
