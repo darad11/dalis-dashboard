@@ -3389,19 +3389,36 @@ window.deleteList = async (id) => {
 
 // ===== WEEKLY REVIEW =====
 let reviewDebounceTimer = null;
+let reviewPendingWeek = null; // week the pending text was typed for
+
+// Save text typed during the debounce window to the week it belongs to
+function flushWeeklyReview() {
+  if (!reviewDebounceTimer) return;
+  clearTimeout(reviewDebounceTimer);
+  reviewDebounceTimer = null;
+  db.setWeeklyReview(els.weeklyReview.value, reviewPendingWeek);
+}
 
 function loadWeeklyReview() {
+  // Reloading the field (week change, second init after login) must not drop typed text
+  flushWeeklyReview();
   els.weeklyReview.value = db.getWeeklyReview(currentReviewWeekDate);
   updateReviewTitle();
 
   // Set up auto-save on input
   els.weeklyReview.oninput = () => {
     clearTimeout(reviewDebounceTimer);
+    reviewPendingWeek = new Date(currentReviewWeekDate);
     reviewDebounceTimer = setTimeout(() => {
-      db.setWeeklyReview(els.weeklyReview.value, currentReviewWeekDate);
+      reviewDebounceTimer = null;
+      db.setWeeklyReview(els.weeklyReview.value, reviewPendingWeek);
     }, 500);
   };
 }
+
+window.addEventListener('pagehide', () => {
+  if (els.weeklyReview) flushWeeklyReview();
+});
 
 window.saveWeeklyReview = () => {
   db.setWeeklyReview(els.weeklyReview.value, currentReviewWeekDate);

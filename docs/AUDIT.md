@@ -68,6 +68,7 @@ Aufwand: S ≤ 1 h, M ≈ ½ Tag, L ≥ 1 Tag. Risiko = Risiko der Änderung.
 | P1-12 | Offline-Start mit abgelaufenem Access-Token zeigt den Login statt der lokalen Daten. | Offline-first gilt nur, solange das Token (1 h) gültig ist. | Gespeicherte Session bei Netzfehler als Offline-Modus akzeptieren. | M / mittel | **offen** |
 | P1-13 | supabase-js ungepinnt (`@2` → aktuell 2.118.0 vom 15.10.). | Jede neue Version geht ungeprüft live. | Auf 2.117.2 gepinnt (explizite Datei). | S / niedrig | **behoben** |
 | P1-14 | Schema nicht versioniert (Tabellen-DDL fehlt), keine Unique-Constraints, `ENABLE ROW LEVEL SECURITY` nicht im Repo belegt. | Sicherheitsstatus nicht nachprüfbar. | `migrations/2026-10-16_health_check.sql` ausführen; ggf. Unique-Indizes. | S / niedrig | **zu prüfen** |
+| P1-15 | Weekly Review speichert 500 ms verzögert; ein Neuladen des Felds (Wochenwechsel, zweites `init()` nach Login, Schließen) verwarf den Text bzw. ordnete ihn der falschen Woche zu. | Gerade getippte Reflexion geht verloren. | Ausstehenden Text vor jedem Neuladen und bei `pagehide` der Woche zuordnen, in der er getippt wurde. | S / niedrig | **behoben** · E2E (gegen alten Stand rot) |
 
 ### P2 – Mittel
 

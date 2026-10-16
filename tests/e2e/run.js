@@ -429,6 +429,18 @@ scenario('14 existing features keep working (goals, calendar, kanban, habits, li
   await page.keyboard.press('Space');
   assert.equal(await page.textContent('#pomoStart'), '▶ Start');
 
+  // Health Hub: supplement quick toggle and water are uploaded and survive a reload
+  await page.click('.supp-quick-btn[data-supp="vitamin d"]');
+  await page.click('.hero-water-btns-vertical .btn >> nth=0');
+  await waitFor(() => {
+    const row = env.store.rows('settings').find(r => r.key === 'gymHubData');
+    const day = row && row.value['2026-10-16'];
+    return row && day && day.water === 250 && (row.value.supplementsTaken['2026-10-16'] || []).includes('vitamin d');
+  }, 'health hub data uploaded');
+  await page.reload();
+  await waitFor(async () => (await page.textContent('#waterAmount')) === '250', 'water after reload');
+  assert.ok(await page.locator('.supp-quick-btn[data-supp="vitamin d"].taken').count(), 'supplement still marked');
+
   // Weekly review autosave
   await page.fill('#weeklyReview', 'Good week');
   await waitFor(() => env.store.rows('notes').some(r => r.date === 'review-2026-W42' && r.content === 'Good week'), 'review uploaded');
@@ -487,6 +499,17 @@ scenario('sync fixes: offline edits survive reloads, failed downloads delete not
   await waitFor(async () => (await page.evaluate(() => db.getGoals().map(g => g.text))).includes('Edited on phone'), 'cloud version adopted');
   const backups = await page.evaluate(() => JSON.parse(localStorage.getItem('syncBackups') || '[]'));
   assert.ok(backups.some(b => b.key === 'goals-2026-9-16' && /Stale local edit/.test(b.value)), 'local copy backed up');
+  await context.close();
+});
+
+scenario('weekly review keeps text typed right before switching weeks', async (env) => {
+  const { page, errors, context } = await open(env);
+  await page.fill('#weeklyReview', 'Notes for week 42');
+  await page.click('button[onclick="changeReviewWeek(-1)"]'); // within the 500 ms autosave delay
+  await waitFor(() => env.store.rows('notes').some(r => r.date === 'review-2026-W42' && r.content === 'Notes for week 42'), 'text saved to week 42');
+  assert.equal(await page.inputValue('#weeklyReview'), '', 'week 41 shows its own (empty) review');
+  assert.ok(!env.store.rows('notes').some(r => r.date === 'review-2026-W41' && r.content === 'Notes for week 42'), 'not saved into week 41');
+  assert.deepEqual(errors, []);
   await context.close();
 });
 
