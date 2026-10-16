@@ -140,9 +140,11 @@ body:not(.dark) .ambient-select {
     border: 1px solid rgba(0, 0, 0, 0.15);
 }
 
-body:not(.dark) .ambient-select:hover {
-    background: rgba(255, 255, 255, 1);
-    border-color: rgba(0, 0, 0, 0.25);
+@media (hover: hover) {
+    body:not(.dark) .ambient-select:hover {
+        background: rgba(255, 255, 255, 1);
+        border-color: rgba(0, 0, 0, 0.25);
+    }
 }
 
 body:not(.dark) .ambient-volume {
@@ -269,8 +271,10 @@ h3 {
     transition: opacity 0.2s;
 }
 
-.notification-close:hover {
-    opacity: 1;
+@media (hover: hover) {
+    .notification-close:hover {
+        opacity: 1;
+    }
 }
 
 .notification-progress {
@@ -352,17 +356,21 @@ h3 {
     transition: transform 0.6s ease;
 }
 
-.brand-logo:hover {
-    transform: scale(1.08) rotate(-3deg);
-    border-radius: 18px;
-    box-shadow:
-        0 8px 30px rgba(0, 0, 0, 0.25),
-        inset 0 -2px 0 rgba(0, 0, 0, 0.1),
-        inset 0 2px 0 rgba(255, 255, 255, 0.15);
+@media (hover: hover) {
+    .brand-logo:hover {
+        transform: scale(1.08) rotate(-3deg);
+        border-radius: 18px;
+        box-shadow:
+            0 8px 30px rgba(0, 0, 0, 0.25),
+            inset 0 -2px 0 rgba(0, 0, 0, 0.1),
+            inset 0 2px 0 rgba(255, 255, 255, 0.15);
+    }
 }
 
-.brand-logo:hover::before {
-    transform: translateX(100%);
+@media (hover: hover) {
+    .brand-logo:hover::before {
+        transform: translateX(100%);
+    }
 }
 
 .brand-text {
@@ -422,20 +430,24 @@ h2 {
     font-size: 0.9rem;
 }
 
-.btn:hover {
-    transform: translateY(-2px);
-    background: var(--accent-color);
-    color: white;
-    border-color: transparent;
-    box-shadow: var(--shadow-md);
+@media (hover: hover) {
+    .btn:hover {
+        transform: translateY(-2px);
+        background: var(--accent-color);
+        color: white;
+        border-color: transparent;
+        box-shadow: var(--shadow-md);
+    }
 }
 
 .btn:active {
     transform: translateY(0);
 }
 
-.btn-danger:hover {
-    background: var(--danger-color);
+@media (hover: hover) {
+    .btn-danger:hover {
+        background: var(--danger-color);
+    }
 }
 
 .center-actions {
@@ -461,8 +473,10 @@ h2 {
     -webkit-backdrop-filter: blur(12px);
 }
 
-.icon-btn:hover {
-    transform: scale(1.1);
+@media (hover: hover) {
+    .icon-btn:hover {
+        transform: scale(1.1);
+    }
 }
 
 .divider {
@@ -499,9 +513,11 @@ h2 {
     transition: all var(--transition-fast);
 }
 
-.pomo-mode-btn:hover {
-    border-color: var(--accent-color);
-    color: var(--text-primary);
+@media (hover: hover) {
+    .pomo-mode-btn:hover {
+        border-color: var(--accent-color);
+        color: var(--text-primary);
+    }
 }
 
 .pomo-mode-btn.active {
@@ -614,9 +630,11 @@ h2 {
     transition: all 0.2s ease;
 }
 
-.ambient-select:hover {
-    background-color: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.2);
+@media (hover: hover) {
+    .ambient-select:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
 }
 
 .ambient-select:focus {
@@ -650,9 +668,11 @@ h2 {
     transition: all 0.2s;
 }
 
-.ambient-volume::-webkit-slider-thumb:hover {
-    background: var(--accent-color);
-    transform: scale(1.2);
+@media (hover: hover) {
+    .ambient-volume::-webkit-slider-thumb:hover {
+        background: var(--accent-color);
+        transform: scale(1.2);
+    }
 }
 
 /* PiP Button */
@@ -668,9 +688,11 @@ h2 {
     justify-content: center;
 }
 
-.pip-btn:hover {
-    opacity: 1;
-    transform: scale(1.1);
+@media (hover: hover) {
+    .pip-btn:hover {
+        opacity: 1;
+        transform: scale(1.1);
+    }
 }
 
 .pip-icon {
@@ -741,8 +763,10 @@ h2 {
     transition: color 0.2s;
 }
 
-.pip-close:hover {
-    color: var(--text-primary);
+@media (hover: hover) {
+    .pip-close:hover {
+        color: var(--text-primary);
+    }
 }
 
 .pip-time {
@@ -774,9 +798,11 @@ h2 {
     transition: all 0.2s;
 }
 
-.pip-control-btn:hover {
-    transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+@media (hover: hover) {
+    .pip-control-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    }
 }
 
 /* ===== GLASS PANEL ===== */
@@ -792,11 +818,13 @@ h2 {
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.glass-panel:hover {
-    transform: scale(1.01);
-    box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.15),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+@media (hover: hover) {
+    .glass-panel:hover {
+        transform: scale(1.01);
+        box-shadow:
+            0 8px 32px rgba(0, 0, 0, 0.15),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
 }
 
 /* ===== CALENDAR ===== */
@@ -842,10 +870,12 @@ h2 {
     font-family: var(--font-main);
 }
 
-.today-btn:hover {
-    background: var(--accent-hover);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-sm);
+@media (hover: hover) {
+    .today-btn:hover {
+        background: var(--accent-hover);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-sm);
+    }
 }
 
 .calendar-grid-header {
@@ -927,9 +957,11 @@ h2 {
     flex-direction: column;
 }
 
-.day-cell:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: var(--accent-color);
+@media (hover: hover) {
+    .day-cell:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: var(--accent-color);
+    }
 }
 
 .day-cell.drag-over {
@@ -981,9 +1013,11 @@ h2 {
 }
 
 /* Austrian Holiday Styling - day cell looks normal, turns red on hover */
-.day-cell.holiday:hover {
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.4);
+@media (hover: hover) {
+    .day-cell.holiday:hover {
+        background: rgba(239, 68, 68, 0.12);
+        border-color: rgba(239, 68, 68, 0.4);
+    }
 }
 
 .holiday-label {
@@ -1040,13 +1074,17 @@ body.dark .task-item {
     background: rgba(0, 0, 0, 0.25);
 }
 
-.task-item:hover {
-    background: rgba(255, 255, 255, 0.85);
-    border-color: var(--accent-color);
+@media (hover: hover) {
+    .task-item:hover {
+        background: rgba(255, 255, 255, 0.85);
+        border-color: var(--accent-color);
+    }
 }
 
-body.dark .task-item:hover {
-    background: rgba(0, 0, 0, 0.4);
+@media (hover: hover) {
+    body.dark .task-item:hover {
+        background: rgba(0, 0, 0, 0.4);
+    }
 }
 
 .task-item:active {
@@ -1122,13 +1160,17 @@ body.dark .task-item:hover {
     flex-shrink: 0;
 }
 
-.task-item:hover .task-delete {
-    opacity: 1;
+@media (hover: hover) {
+    .task-item:hover .task-delete {
+        opacity: 1;
+    }
 }
 
-.task-delete:hover {
-    color: white;
-    background: var(--danger-color);
+@media (hover: hover) {
+    .task-delete:hover {
+        color: white;
+        background: var(--danger-color);
+    }
 }
 
 .add-task-btn {
@@ -1145,10 +1187,12 @@ body.dark .task-item:hover {
     font-family: var(--font-main);
 }
 
-.add-task-btn:hover {
-    border-color: var(--accent-color);
-    color: var(--accent-color);
-    background: rgba(99, 102, 241, 0.1);
+@media (hover: hover) {
+    .add-task-btn:hover {
+        border-color: var(--accent-color);
+        color: var(--accent-color);
+        background: rgba(99, 102, 241, 0.1);
+    }
 }
 
 /* Checkbox for Kanban cards (weekly overview keeps checkboxes) */
@@ -1167,8 +1211,10 @@ body.dark .task-item:hover {
     flex-shrink: 0;
 }
 
-.task-checkbox:hover {
-    border-color: var(--accent-color);
+@media (hover: hover) {
+    .task-checkbox:hover {
+        border-color: var(--accent-color);
+    }
 }
 
 .task-checkbox:checked {
@@ -1224,8 +1270,10 @@ body.dark .task-item:hover {
     gap: 8px;
 }
 
-.habit-name:hover {
-    border-color: var(--accent-color);
+@media (hover: hover) {
+    .habit-name:hover {
+        border-color: var(--accent-color);
+    }
 }
 
 .habit-name-text {
@@ -1244,12 +1292,16 @@ body.dark .task-item:hover {
     border-radius: 4px;
 }
 
-.habit-name:hover .habit-delete-btn {
-    opacity: 1;
+@media (hover: hover) {
+    .habit-name:hover .habit-delete-btn {
+        opacity: 1;
+    }
 }
 
-.habit-delete-btn:hover {
-    color: var(--danger-color);
+@media (hover: hover) {
+    .habit-delete-btn:hover {
+        color: var(--danger-color);
+    }
 }
 
 .habit-check {
@@ -1267,9 +1319,11 @@ body.dark .task-item:hover {
     justify-content: center;
 }
 
-.habit-check:hover {
-    border-color: var(--accent-color);
-    transform: scale(1.1);
+@media (hover: hover) {
+    .habit-check:hover {
+        border-color: var(--accent-color);
+        transform: scale(1.1);
+    }
 }
 
 .habit-check.done {
@@ -1359,8 +1413,10 @@ body.dark .task-item:hover {
     transition: all 0.2s ease;
 }
 
-.analytics-header:hover {
-    opacity: 0.8;
+@media (hover: hover) {
+    .analytics-header:hover {
+        opacity: 0.8;
+    }
 }
 
 .analytics-toggle {
@@ -1407,9 +1463,11 @@ body.dark .task-item:hover {
     transition: all 0.3s ease;
 }
 
-.habit-stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+@media (hover: hover) {
+    .habit-stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
 }
 
 .habit-stat-value {
@@ -1581,9 +1639,11 @@ body.dark .task-item:hover {
     /* Space for date */
 }
 
-.kanban-column:hover {
-    transform: scale(1.02);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+@media (hover: hover) {
+    .kanban-column:hover {
+        transform: scale(1.02);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+    }
 }
 
 .kanban-header {
@@ -1640,8 +1700,10 @@ body.dark .task-item:hover {
     border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
-.kanban-column.holiday:hover {
-    background: rgba(239, 68, 68, 0.12);
+@media (hover: hover) {
+    .kanban-column.holiday:hover {
+        background: rgba(239, 68, 68, 0.12);
+    }
 }
 
 .kanban-holiday {
@@ -1711,19 +1773,25 @@ body.dark .task-item:hover {
     flex-shrink: 0;
 }
 
-.kanban-card:hover .kanban-card-delete {
-    opacity: 1;
+@media (hover: hover) {
+    .kanban-card:hover .kanban-card-delete {
+        opacity: 1;
+    }
 }
 
-.kanban-card-delete:hover {
-    color: white;
-    background: var(--danger-color);
+@media (hover: hover) {
+    .kanban-card-delete:hover {
+        color: white;
+        background: var(--danger-color);
+    }
 }
 
-.kanban-card:hover {
-    transform: translateY(-3px) scale(1.02);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-    border-color: var(--accent-color);
+@media (hover: hover) {
+    .kanban-card:hover {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+        border-color: var(--accent-color);
+    }
 }
 
 .kanban-card:active {
@@ -1763,8 +1831,10 @@ body.dark .task-item:hover {
     cursor: default;
 }
 
-.kanban-card.from-calendar:hover {
-    transform: translateY(-2px) scale(1.01);
+@media (hover: hover) {
+    .kanban-card.from-calendar:hover {
+        transform: translateY(-2px) scale(1.01);
+    }
 }
 
 .kanban-add-btn {
@@ -1781,10 +1851,12 @@ body.dark .task-item:hover {
     font-size: 0.9rem;
 }
 
-.kanban-add-btn:hover {
-    background: rgba(99, 102, 241, 0.1);
-    border-color: var(--accent-color);
-    color: var(--text-primary);
+@media (hover: hover) {
+    .kanban-add-btn:hover {
+        background: rgba(99, 102, 241, 0.1);
+        border-color: var(--accent-color);
+        color: var(--text-primary);
+    }
 }
 
 /* ===== RESPONSIVE ===== */
@@ -1909,8 +1981,10 @@ body.dark .task-item:hover {
     border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-    background: var(--text-secondary);
+@media (hover: hover) {
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--text-secondary);
+    }
 }
 
 /* ===== QUICK CAPTURE BUTTON ===== */
@@ -1934,9 +2008,11 @@ body.dark .task-item:hover {
     justify-content: center;
 }
 
-.quick-capture-btn:hover {
-    transform: scale(1.1) rotate(90deg);
-    box-shadow: 0 6px 30px rgba(99, 102, 241, 0.5);
+@media (hover: hover) {
+    .quick-capture-btn:hover {
+        transform: scale(1.1) rotate(90deg);
+        box-shadow: 0 6px 30px rgba(99, 102, 241, 0.5);
+    }
 }
 
 /* ===== FOCUS MODE ===== */
@@ -2150,9 +2226,11 @@ body.dark .task-item:hover {
     color: var(--text-secondary);
 }
 
-.input-modal-cancel:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-primary);
+@media (hover: hover) {
+    .input-modal-cancel:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-primary);
+    }
 }
 
 .input-modal-submit {
@@ -2162,8 +2240,10 @@ body.dark .task-item:hover {
     border: none;
 }
 
-.input-modal-submit:hover {
-    background: var(--accent-hover);
+@media (hover: hover) {
+    .input-modal-submit:hover {
+        background: var(--accent-hover);
+    }
 }
 
 /* ===== CONFIRM MODAL ===== */
@@ -2218,9 +2298,11 @@ body.dark .task-item:hover {
     color: var(--text-secondary);
 }
 
-.confirm-modal-cancel:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-primary);
+@media (hover: hover) {
+    .confirm-modal-cancel:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-primary);
+    }
 }
 
 .confirm-modal-confirm {
@@ -2230,8 +2312,10 @@ body.dark .task-item:hover {
     border: none;
 }
 
-.confirm-modal-confirm:hover {
-    background: #b91c1c;
+@media (hover: hover) {
+    .confirm-modal-confirm:hover {
+        background: #b91c1c;
+    }
 }
 
 /* ===== SYNC & BACKUP PANEL ===== */
@@ -2419,13 +2503,17 @@ body.dark .sync-modal-actions .sync-primary {
     /* Visual center adjustment */
 }
 
-.list-panel:hover .delete-list-btn {
-    opacity: 1;
+@media (hover: hover) {
+    .list-panel:hover .delete-list-btn {
+        opacity: 1;
+    }
 }
 
-.delete-list-btn:hover {
-    background: var(--danger-color);
-    color: white;
+@media (hover: hover) {
+    .delete-list-btn:hover {
+        background: var(--danger-color);
+        color: white;
+    }
 }
 
 /* List Drag Handle */
@@ -2445,15 +2533,19 @@ body.dark .sync-modal-actions .sync-primary {
     background: transparent;
 }
 
-.list-panel:hover .list-drag-handle {
-    opacity: 0.7;
+@media (hover: hover) {
+    .list-panel:hover .list-drag-handle {
+        opacity: 0.7;
+    }
 }
 
-.list-drag-handle:hover {
-    opacity: 1 !important;
-    color: white;
-    background: var(--accent-color);
-    transform: scale(1.1);
+@media (hover: hover) {
+    .list-drag-handle:hover {
+        opacity: 1 !important;
+        color: white;
+        background: var(--accent-color);
+        transform: scale(1.1);
+    }
 }
 
 .list-drag-handle:active {
@@ -2586,13 +2678,17 @@ body.dark .sync-modal-actions .sync-primary {
     transform: scale(1.02);
 }
 
-.simple-list-item:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: var(--accent-color);
+@media (hover: hover) {
+    .simple-list-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: var(--accent-color);
+    }
 }
 
-body.dark .simple-list-item:hover {
-    background: rgba(255, 255, 255, 0.08);
+@media (hover: hover) {
+    body.dark .simple-list-item:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
 }
 
 .simple-list-item.done {
@@ -2646,12 +2742,16 @@ body.dark .simple-list-item:hover {
     font-size: 14px;
 }
 
-.simple-list-item:hover .delete-btn {
-    opacity: 1;
+@media (hover: hover) {
+    .simple-list-item:hover .delete-btn {
+        opacity: 1;
+    }
 }
 
-.simple-list-item .delete-btn:hover {
-    color: var(--danger-color);
+@media (hover: hover) {
+    .simple-list-item .delete-btn:hover {
+        color: var(--danger-color);
+    }
 }
 
 .goals-subtitle {
@@ -2689,8 +2789,10 @@ body.dark .simple-list-item:hover {
     transform: scale(1.02);
 }
 
-.focus-item:hover {
-    border-color: var(--accent-color);
+@media (hover: hover) {
+    .focus-item:hover {
+        border-color: var(--accent-color);
+    }
 }
 
 /* Urgency colors for goals */
@@ -2755,8 +2857,10 @@ body.dark .simple-list-item:hover {
     flex-shrink: 0;
 }
 
-.focus-checkbox:hover {
-    border-color: var(--accent-color);
+@media (hover: hover) {
+    .focus-checkbox:hover {
+        border-color: var(--accent-color);
+    }
 }
 
 .focus-checkbox:checked {
@@ -2783,8 +2887,10 @@ body.dark .simple-list-item:hover {
     line-height: 1.4;
 }
 
-.focus-text:hover {
-    color: var(--accent-color);
+@media (hover: hover) {
+    .focus-text:hover {
+        color: var(--accent-color);
+    }
 }
 
 .focus-delete {
@@ -2799,13 +2905,17 @@ body.dark .simple-list-item:hover {
     border-radius: 4px;
 }
 
-.focus-item:hover .focus-delete {
-    opacity: 1;
+@media (hover: hover) {
+    .focus-item:hover .focus-delete {
+        opacity: 1;
+    }
 }
 
-.focus-delete:hover {
-    color: white;
-    background: var(--danger-color);
+@media (hover: hover) {
+    .focus-delete:hover {
+        color: white;
+        background: var(--danger-color);
+    }
 }
 
 /* ===== WEEKLY REVIEW ===== */
@@ -2863,8 +2973,10 @@ body.dark .simple-list-item:hover {
     border: 2px solid transparent;
 }
 
-.priority-dot:hover {
-    transform: scale(1.3);
+@media (hover: hover) {
+    .priority-dot:hover {
+        transform: scale(1.3);
+    }
 }
 
 .priority-dot.high {
@@ -3745,11 +3857,13 @@ body {
     z-index: 10;
 }
 
-.fab-trigger:hover {
-    transform: scale(1.1);
-    box-shadow:
-        0 8px 30px rgba(0, 0, 0, 0.2),
-        0 4px 12px rgba(0, 0, 0, 0.15);
+@media (hover: hover) {
+    .fab-trigger:hover {
+        transform: scale(1.1);
+        box-shadow:
+            0 8px 30px rgba(0, 0, 0, 0.2),
+            0 4px 12px rgba(0, 0, 0, 0.15);
+    }
 }
 
 .fab-trigger svg {
@@ -3826,17 +3940,21 @@ body {
     transition: transform 0.2s ease;
 }
 
-.fab-item:hover {
-    transform: scale(1.15) translateY(0);
-    background: var(--accent-color);
-    border-color: var(--accent-color);
-    box-shadow:
-        0 8px 25px rgba(99, 102, 241, 0.35),
-        0 4px 10px rgba(0, 0, 0, 0.15);
+@media (hover: hover) {
+    .fab-item:hover {
+        transform: scale(1.15) translateY(0);
+        background: var(--accent-color);
+        border-color: var(--accent-color);
+        box-shadow:
+            0 8px 25px rgba(99, 102, 241, 0.35),
+            0 4px 10px rgba(0, 0, 0, 0.15);
+    }
 }
 
-.fab-item:hover .fab-item-icon {
-    transform: scale(1.1);
+@media (hover: hover) {
+    .fab-item:hover .fab-item-icon {
+        transform: scale(1.1);
+    }
 }
 
 /* Tooltip on hover */
@@ -3871,19 +3989,23 @@ body {
     transition: all 0.2s ease;
 }
 
-.fab-item:hover::before,
-.fab-item:hover::after {
-    opacity: 1;
-    transform: translateY(-50%) translateX(0);
+@media (hover: hover) {
+    .fab-item:hover::before,
+    .fab-item:hover::after {
+        opacity: 1;
+        transform: translateY(-50%) translateX(0);
+    }
 }
 
 /* Logout button special styling */
-.fab-item-logout:hover {
-    background: var(--danger-color);
-    border-color: var(--danger-color);
-    box-shadow:
-        0 8px 25px rgba(239, 68, 68, 0.35),
-        0 4px 10px rgba(0, 0, 0, 0.15);
+@media (hover: hover) {
+    .fab-item-logout:hover {
+        background: var(--danger-color);
+        border-color: var(--danger-color);
+        box-shadow:
+            0 8px 25px rgba(239, 68, 68, 0.35),
+            0 4px 10px rgba(0, 0, 0, 0.15);
+    }
 }
 
 /* Menu open state with staggered animation */
@@ -4059,8 +4181,10 @@ body:not(.dark) .fab-backdrop {
     margin-bottom: 0;
 }
 
-.gym-hub-header:hover {
-    opacity: 0.8;
+@media (hover: hover) {
+    .gym-hub-header:hover {
+        opacity: 0.8;
+    }
 }
 
 .gym-hub-header h2 {
@@ -4262,9 +4386,11 @@ body.dark .hero-stat {
     opacity: 0.6;
 }
 
-.supp-quick-btn:hover {
-    opacity: 1;
-    transform: scale(1.1);
+@media (hover: hover) {
+    .supp-quick-btn:hover {
+        opacity: 1;
+        transform: scale(1.1);
+    }
 }
 
 .supp-quick-btn.taken {
@@ -4602,11 +4728,13 @@ body.dark .quick-add-btn {
     background: rgba(0, 0, 0, 0.2);
 }
 
-.quick-add-btn:hover {
-    background: var(--accent-color);
-    color: white;
-    border-color: var(--accent-color);
-    transform: translateY(-1px);
+@media (hover: hover) {
+    .quick-add-btn:hover {
+        background: var(--accent-color);
+        color: white;
+        border-color: var(--accent-color);
+        transform: translateY(-1px);
+    }
 }
 
 .quick-add-btn:active {
@@ -4717,12 +4845,16 @@ body.dark .split-input-row {
     background: rgba(0, 0, 0, 0.1);
 }
 
-.split-input-row:hover {
-    background: rgba(255, 255, 255, 0.3);
+@media (hover: hover) {
+    .split-input-row:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
 }
 
-body.dark .split-input-row:hover {
-    background: rgba(255, 255, 255, 0.05);
+@media (hover: hover) {
+    body.dark .split-input-row:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
 }
 
 .day-label {
@@ -5164,9 +5296,11 @@ body.dark .goal-sm {
     overflow: visible;
 }
 
-.gym-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(99, 102, 241, 0.2);
+@media (hover: hover) {
+    .gym-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(99, 102, 241, 0.2);
+    }
 }
 
 .card-compact {
@@ -5194,8 +5328,10 @@ body.dark .goal-sm {
     user-select: none;
 }
 
-.habits-header:hover h2 {
-    color: var(--accent-color);
+@media (hover: hover) {
+    .habits-header:hover h2 {
+        color: var(--accent-color);
+    }
 }
 
 .habits-toggle {
@@ -5232,8 +5368,10 @@ body.dark .goal-sm {
     user-select: none;
 }
 
-.weekly-review-header:hover h2 {
-    color: var(--accent-color);
+@media (hover: hover) {
+    .weekly-review-header:hover h2 {
+        color: var(--accent-color);
+    }
 }
 
 .weekly-review-toggle {
@@ -5268,8 +5406,10 @@ body.dark .goal-sm {
     user-select: none;
 }
 
-.calendar-section-header:hover h2 {
-    color: var(--accent-color);
+@media (hover: hover) {
+    .calendar-section-header:hover h2 {
+        color: var(--accent-color);
+    }
 }
 
 .calendar-section-toggle {
@@ -5737,8 +5877,10 @@ body.dark .quality-btn {
     background: rgba(0, 0, 0, 0.2);
 }
 
-.quality-btn:hover {
-    transform: scale(1.1);
+@media (hover: hover) {
+    .quality-btn:hover {
+        transform: scale(1.1);
+    }
 }
 
 .quality-btn.active {
@@ -5789,9 +5931,11 @@ body.dark .pr-item {
     padding: 4px;
 }
 
-.pr-item .pr-delete:hover {
-    opacity: 1;
-    color: var(--danger-color);
+@media (hover: hover) {
+    .pr-item .pr-delete:hover {
+        opacity: 1;
+        color: var(--danger-color);
+    }
 }
 
 .pr-add {
@@ -5870,8 +6014,10 @@ body.dark .supplement-item {
     background: rgba(0, 0, 0, 0.15);
 }
 
-.supplement-item:hover {
-    background: rgba(255, 255, 255, 0.5);
+@media (hover: hover) {
+    .supplement-item:hover {
+        background: rgba(255, 255, 255, 0.5);
+    }
 }
 
 .supplement-item.taken {
@@ -5914,13 +6060,17 @@ body.dark .supplement-item {
     padding: 4px;
 }
 
-.supplement-item:hover .supplement-delete {
-    opacity: 0.5;
+@media (hover: hover) {
+    .supplement-item:hover .supplement-delete {
+        opacity: 0.5;
+    }
 }
 
-.supplement-delete:hover {
-    opacity: 1;
-    color: var(--danger-color);
+@media (hover: hover) {
+    .supplement-delete:hover {
+        opacity: 1;
+        color: var(--danger-color);
+    }
 }
 
 .supplement-add {
@@ -6091,9 +6241,11 @@ body.dark .split-day input {
     transition: all 0.2s ease;
 }
 
-.day-circle:hover {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.4);
+@media (hover: hover) {
+    .day-circle:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.4);
+    }
 }
 
 .day-circle.active {
@@ -6182,8 +6334,10 @@ body.dark .split-day input {
     background: var(--success-color);
 }
 
-.timer-btn.start:hover {
-    background: #059669;
+@media (hover: hover) {
+    .timer-btn.start:hover {
+        background: #059669;
+    }
 }
 
 .timer-btn.start.running {
@@ -6240,8 +6394,10 @@ body.dark .weekly-goal-item {
     background: rgba(0, 0, 0, 0.15);
 }
 
-.weekly-goal-item:hover {
-    background: rgba(255, 255, 255, 0.5);
+@media (hover: hover) {
+    .weekly-goal-item:hover {
+        background: rgba(255, 255, 255, 0.5);
+    }
 }
 
 .weekly-goal-item.done {
@@ -6284,13 +6440,17 @@ body.dark .weekly-goal-item {
     padding: 4px;
 }
 
-.weekly-goal-item:hover .goal-delete {
-    opacity: 0.5;
+@media (hover: hover) {
+    .weekly-goal-item:hover .goal-delete {
+        opacity: 0.5;
+    }
 }
 
-.goal-delete:hover {
-    opacity: 1;
-    color: var(--danger-color);
+@media (hover: hover) {
+    .goal-delete:hover {
+        opacity: 1;
+        color: var(--danger-color);
+    }
 }
 
 .weekly-goal-add {
@@ -6361,8 +6521,10 @@ body.dark .step-card {
 }
 
 /* The card holds inputs: no hover zoom, no full-width buttons from the mobile rule */
-.step-card.glass-panel:hover {
-    transform: none;
+@media (hover: hover) {
+    .step-card.glass-panel:hover {
+        transform: none;
+    }
 }
 
 .step-card .btn {
@@ -6433,9 +6595,11 @@ body.dark .step-card {
     transition: background var(--transition-fast), color var(--transition-fast);
 }
 
-.step-icon-btn:hover {
-    background: var(--step-accent-soft);
-    color: var(--text-primary);
+@media (hover: hover) {
+    .step-icon-btn:hover {
+        background: var(--step-accent-soft);
+        color: var(--text-primary);
+    }
 }
 
 /* Hero figure + status */
@@ -6789,8 +6953,10 @@ body.dark .step-setup input[type="date"] {
     cursor: pointer;
 }
 
-.step-day:hover:not(:disabled) {
-    background: var(--step-accent-soft);
+@media (hover: hover) {
+    .step-day:hover:not(:disabled) {
+        background: var(--step-accent-soft);
+    }
 }
 
 .step-day:disabled {
@@ -6898,9 +7064,11 @@ body.dark .step-setup input[type="date"] {
     cursor: pointer;
 }
 
-.step-details-toggle:hover {
-    color: var(--text-primary);
-    background: var(--step-accent-soft);
+@media (hover: hover) {
+    .step-details-toggle:hover {
+        color: var(--text-primary);
+        background: var(--step-accent-soft);
+    }
 }
 
 /* Details */
@@ -6962,8 +7130,10 @@ body.dark .step-setup input[type="date"] {
     cursor: pointer;
 }
 
-.step-chip-btn:hover {
-    background: var(--step-accent-soft);
+@media (hover: hover) {
+    .step-chip-btn:hover {
+        background: var(--step-accent-soft);
+    }
 }
 
 .step-muted {
@@ -7057,8 +7227,10 @@ body.dark .step-setup input[type="date"] {
     box-shadow: 0 0 0 2px var(--step-accent);
 }
 
-.step-cal-cell:not(:disabled):hover {
-    filter: brightness(1.08);
+@media (hover: hover) {
+    .step-cal-cell:not(:disabled):hover {
+        filter: brightness(1.08);
+    }
 }
 
 .heat-1 { background: var(--heat-1); color: var(--heat-ink-dark); }
@@ -7142,9 +7314,14 @@ body.dark .heat-6 { color: var(--heat-ink-dark); }
     fill: var(--step-accent);
 }
 
-.step-bar-group:hover .step-bar,
 .step-bar-group:focus .step-bar {
     opacity: 0.8;
+}
+
+@media (hover: hover) {
+    .step-bar-group:hover .step-bar {
+        opacity: 0.8;
+    }
 }
 
 .step-bar-group:focus {
