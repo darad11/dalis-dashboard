@@ -1788,14 +1788,16 @@ html.touch-layout .week-strip-dot.is-task {
     background: var(--text-tertiary);
 }
 
-/* Day cards in a row: the row reaches the screen edges, each card snaps to the page margin
-   and the next one peeks in, so the row can be swiped. One day per swipe. */
+/* Day cards in a row, paged as in Apple Calendar: the row reaches the screen edges, the card
+   on screen snaps to the page margins - exactly as wide as the week panel above it - and the
+   neighbouring days wait just off screen (gap = margin + 2px), sliding in with a swipe.
+   One day per swipe. */
 html.touch-layout .week-kanban.is-pager {
     position: relative;
     display: flex;
     flex-direction: row;
     align-items: flex-start;
-    gap: 10px;
+    gap: calc(var(--gutter) + 2px);
     margin: 0 calc(-1 * (var(--safe-right) + var(--gutter))) 8px calc(-1 * (var(--safe-left) + var(--gutter)));
     padding: 0 calc(var(--safe-right) + var(--gutter)) 0 calc(var(--safe-left) + var(--gutter));
     scroll-padding: 0 calc(var(--safe-right) + var(--gutter)) 0 calc(var(--safe-left) + var(--gutter));
@@ -1811,8 +1813,15 @@ html.touch-layout .week-kanban.is-pager::-webkit-scrollbar {
     display: none;
 }
 
+/* Room after the last day, so Sunday can snap like the others even where a scroll
+   container's end padding does not count as scrollable */
+html.touch-layout .week-kanban.is-pager::after {
+    content: '';
+    flex: 0 0 0;
+}
+
 html.touch-layout .week-kanban.is-pager>.kanban-column {
-    flex: 0 0 calc(100% - 12px);
+    flex: 0 0 100%;
     scroll-snap-align: start;
     scroll-snap-stop: always;
 }

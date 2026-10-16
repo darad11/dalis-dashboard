@@ -26,7 +26,9 @@ iPhone quer):
   Kalender – Wochentag, Datum, heute in der Akzentfarbe, der gezeigte Tag gefüllt, darunter bis
   zu drei Punkte (Farben der Kalender des Tages, grau für offene Aufgaben). Darunter die Tage als
   **Karten nebeneinander**: ein Wisch = ein Tag (Scroll-Snap, also das Scrollen von iOS selbst),
-  die Nachbartage schauen am Rand herein; ein Tipp auf einen Tag in der Leiste springt dorthin.
+  geblättert wie in Apple Kalender – die Karte ist genau so breit wie das Panel darüber und
+  steht mittig, die Nachbartage warten knapp außerhalb des Bildschirms und gleiten beim Wischen
+  herein; ein Tipp auf einen Tag in der Leiste springt dorthin.
   Die Zeile ist so hoch wie der gezeigte Tag – ein voller Tag macht die Seite nicht für alle
   anderen länger. Beim Wochenwechsel bleibt der Wochentag, „Today“ springt zu heute. Ab 700 px
   (aufgeklappt, iPad) und am Desktop wie bisher alle Tage als Spalten. Für VoiceOver nennt jeder

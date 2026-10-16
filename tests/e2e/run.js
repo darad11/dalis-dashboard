@@ -1293,8 +1293,21 @@ scenario('week on phones: day strip and one day card per swipe; wide screens kee
     return state();
   };
 
+  // The card on screen lines up with the week panel above (centred, same width) and no
+  // neighbouring day peeks in at the screen edges
+  const alignment = () => page.evaluate(() => {
+    const panel = document.querySelector('.week-nav-panel').getBoundingClientRect();
+    const cards = [...document.querySelectorAll('#weekKanban > .kanban-column')].map(c => c.getBoundingClientRect());
+    const shown = cards.find(r => r.left >= -1 && r.right <= innerWidth + 1);
+    return {
+      left: Math.round(shown.left - panel.left), right: Math.round(shown.right - panel.right),
+      peeking: cards.filter(r => r !== shown && r.right > 0 && r.left < innerWidth).length
+    };
+  });
+
   // Today (Friday, 16 October) on screen and filled in the strip; far shorter than all days
   let s = await settled(4);
+  assert.deepEqual(await alignment(), { left: 0, right: 0, peeking: 0 }, 'day card aligned with the panel above');
   assert.ok(s.pagerHeight < s.allCards / 2, `row ${s.pagerHeight}px, all days ${s.allCards}px`);
   assert.equal(s.overflow, 0);
   assert.equal(await strip.count(), 7);
@@ -1311,6 +1324,7 @@ scenario('week on phones: day strip and one day card per swipe; wide screens kee
   await page.evaluate(() => { const p = document.getElementById('weekKanban'); p.scrollBy({ left: p.clientWidth * 0.6 }); });
   s = await settled(5);
   assert.match(await text(page, '#week-day-5'), /Samstag, 17\. Oktober[\s\S]*Bauernmarkt/);
+  assert.deepEqual(await alignment(), { left: 0, right: 0, peeking: 0 }, 'Saturday aligned too');
 
   // A tap in the strip jumps to that day; a new task there makes the row grow with it
   await strip.nth(0).tap();
@@ -1329,6 +1343,10 @@ scenario('week on phones: day strip and one day card per swipe; wide screens kee
   await page.locator('.week-nav-panel .chevron-next').tap();
   await settled(0);
   assert.equal(await strip.nth(0).getAttribute('aria-label'), 'Montag, 19. Oktober, nothing planned');
+  // Sunday (the last card) snaps like the others
+  await strip.nth(6).tap();
+  await settled(6);
+  assert.deepEqual(await alignment(), { left: 0, right: 0, peeking: 0 }, 'Sunday aligned too');
   await page.locator('.week-nav-panel .btn', { hasText: 'Today' }).tap();
   await settled(4);
 
