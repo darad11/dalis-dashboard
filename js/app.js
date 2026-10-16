@@ -198,20 +198,22 @@ function showNotification(title, body, variant = 'info', duration = 5000) {
 
   const banner = document.createElement('div');
   banner.className = `notification-banner ${variant}`;
+  banner.setAttribute('role', 'status');
 
-  // Extract emoji from title if present
-  const emojiMatch = title.match(/^(\p{Emoji})/u);
+  // Extract emoji from title if present (Extended_Pictographic: digits are not icons)
+  const emojiMatch = title.match(/^(\p{Extended_Pictographic}\uFE0F?)/u);
   const icon = emojiMatch ? emojiMatch[1] : '🔔';
   const titleText = emojiMatch ? title.replace(emojiMatch[0], '').trim() : title;
 
+  // Titles and bodies can contain user text (e.g. supplement names): always escape
   banner.innerHTML = `
-    <div class="notification-icon">${icon}</div>
+    <div class="notification-icon" aria-hidden="true">${escapeHtml(icon)}</div>
     <div class="notification-content">
-      <div class="notification-title">${titleText}</div>
-      <div class="notification-body">${body}</div>
+      <div class="notification-title">${escapeHtml(titleText)}</div>
+      ${body ? `<div class="notification-body">${escapeHtml(body)}</div>` : ''}
     </div>
     <button class="notification-close" aria-label="Close">×</button>
-    <div class="notification-progress"></div>
+    <div class="notification-progress" style="animation-duration: ${Number(duration) || 5000}ms"></div>
   `;
 
   // Close button action
@@ -337,16 +339,48 @@ function isSupabaseAvailable() {
   return typeof window.supabaseDB !== 'undefined' && !!window.currentUserId;
 }
 
+// js/data-utils.js; the fallback keeps the dashboard usable if that file is missing
+// (e.g. a cached index.html from before the update) and disables change verification.
+const DataUtils = window.DataUtils || {
+  escapeHtml: (s) => String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])),
+  keyKind: () => null,
+  isSyncableKey: (key) => /^(goals-|cal-|notes-|review-|week-|list-)/.test(key) || ['backlog', 'habits', 'habitChecks', 'customListsMeta', 'gymHubData'].includes(key),
+  fingerprint: () => null,
+  isEmptyCloudValue: () => false
+};
+if (!window.DataUtils) console.error('[App] js/data-utils.js not loaded - sync verification disabled');
+const escapeHtml = DataUtils.escapeHtml;
+
 // Sync Status Tracking
 let lastSyncError = null;
-function updateSyncStatus() {
-  const el = document.getElementById('syncStatus');
-  if (!el) return;
-  let dirtyCount = 0;
+let lastSyncAt = null;
+
+function describeError(err) {
+  if (!err) return 'Unknown error';
+  if (typeof err === 'string') return err;
+  return err.message || err.error || err.code || 'Unknown error';
+}
+
+// Keys with a pending upload. Local-only UI state is never uploaded, so it is not counted.
+function pendingSyncKeys() {
+  const keys = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k && k.startsWith('dirty_')) dirtyCount++;
+    if (k && k.startsWith('dirty_') && DataUtils.isSyncableKey(k.substring(6))) keys.push(k.substring(6));
   }
+  return keys;
+}
+
+function stepPendingCount() {
+  const steps = window.stepCounter;
+  return steps && typeof steps.pendingCount === 'function' ? steps.pendingCount() : 0;
+}
+
+function updateSyncStatus() {
+  if (db._quiet > 0) return;
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  const dirtyCount = pendingSyncKeys().length + stepPendingCount();
 
   if (lastSyncError) {
     el.textContent = '☁️❌';
@@ -361,22 +395,8 @@ function updateSyncStatus() {
     el.title = 'Synced';
     el.style.cssText = 'color: #44ff44 !important;';
   }
+  if (document.getElementById('syncModal')?.classList.contains('active')) renderSyncModalStatus();
 }
-
-window.showSyncDetails = () => {
-  let dirtyCount = 0;
-  for (let i = 0; i < localStorage.length; i++) {
-    if ((localStorage.key(i) || '').startsWith('dirty_')) dirtyCount++;
-  }
-
-  let msg = `Sync Status:\n`;
-  msg += `State: ${lastSyncError ? 'Error ❌' : (dirtyCount > 0 ? 'Pending Uploads ⏳' : 'Synced ✅')}\n`;
-  msg += `Pending Items: ${dirtyCount}\n`;
-  if (lastSyncError) msg += `Last Error: ${lastSyncError}\n`;
-  msg += `\nClick OK to Force Sync (Upload & Download).`;
-
-  if (confirm(msg)) forceSync();
-};
 
 const db = {
   // === Local storage (cache/fallback) ===
@@ -385,10 +405,12 @@ const db = {
     catch { return def; }
   },
 
-  // Update set to handle dirty flagging and timestamp tracking
+  // Local writes are flagged dirty + timestamped; cloud writes record what the cloud holds.
   set: (key, val, fromCloud = false) => {
     localStorage.setItem(key, JSON.stringify(val));
-    if (!fromCloud) {
+    if (fromCloud) {
+      db.markSynced(key, val);
+    } else {
       localStorage.setItem('dirty_' + key, '1');
       // Track when this data was last modified (for stale detection)
       localStorage.setItem('ts_' + key, Date.now().toString());
@@ -398,10 +420,10 @@ const db = {
 
   del: (key, fromCloud = false) => {
     localStorage.removeItem(key);
+    localStorage.removeItem('dirty_' + key);
     if (fromCloud) {
-      localStorage.removeItem('dirty_' + key);
-    } else {
-      localStorage.removeItem('dirty_' + key);
+      localStorage.removeItem('ts_' + key);
+      localStorage.removeItem('synced_' + key);
     }
     updateSyncStatus();
   },
@@ -413,61 +435,145 @@ const db = {
   },
   isDirty: (key) => localStorage.getItem('dirty_' + key) === '1',
 
+  // Fingerprint of what the cloud holds for a key (after a pull or a successful upload).
+  // Used to tell whether the cloud changed since this device last synced.
+  markSynced(key, value) {
+    if (!DataUtils.isSyncableKey(key)) return;
+    const fp = DataUtils.fingerprint(key, value);
+    if (fp) localStorage.setItem('synced_' + key, fp);
+    else localStorage.removeItem('synced_' + key);
+  },
+
+  // Bookkeeping after an upload. pushedRaw is the localStorage string that was uploaded.
+  afterPush(key, pushedRaw, err) {
+    if (err) {
+      db.reportSyncError(key, err);
+      return false;
+    }
+    let pushedValue = null;
+    try { pushedValue = JSON.parse(pushedRaw); } catch (e) { /* keep null */ }
+    db.markSynced(key, pushedValue);
+    if (lastSyncError && lastSyncError.startsWith(key + ':')) lastSyncError = null;
+    // A newer edit made during the upload stays pending
+    if (localStorage.getItem(key) === pushedRaw) db.clearDirty(key);
+    return true;
+  },
+
+  reportSyncError(key, err) {
+    lastSyncError = `${key}: ${describeError(err)}`;
+    console.error('[Sync] Upload failed:', key, err);
+    updateSyncStatus();
+  },
+
+  // Upload the current local value of key via pushFn (returns error or null).
+  pushKey(key, pushFn) {
+    if (!isSupabaseAvailable()) return Promise.resolve(false);
+    const pushedRaw = localStorage.getItem(key);
+    return Promise.resolve()
+      .then(pushFn)
+      .then(err => db.afterPush(key, pushedRaw, err))
+      .catch(e => db.afterPush(key, pushedRaw, e || 'Upload failed'));
+  },
+
+  // Local copy of a value before cloud data replaces it (Sync → Export backup).
+  backupLocalValue(key, reason) {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return;
+    try {
+      let backups = JSON.parse(localStorage.getItem('syncBackups') || '[]');
+      if (!Array.isArray(backups)) backups = [];
+      if (backups.some(b => b.key === key && b.value === raw)) return;
+      backups.push({
+        key,
+        value: raw,
+        reason,
+        modifiedAt: parseInt(localStorage.getItem('ts_' + key) || '0') || null,
+        savedAt: Date.now()
+      });
+      localStorage.setItem('syncBackups', JSON.stringify(backups.slice(-50)));
+    } catch (e) {
+      console.error('[Sync] Could not store backup for', key, e);
+    }
+  },
+
+  // Current cloud value for a key: { ok: true, value } or { ok: false } if unreachable
+  async fetchCloudValue(key) {
+    const api = window.supabaseDB;
+    let value;
+    switch (DataUtils.keyKind(key)) {
+      case 'goals': value = await api.getGoals(key); break;
+      case 'notes': value = await api.getNotes(key); break;
+      case 'board': value = key === 'backlog' ? await api.getBacklog() : await api.getKanban(key); break;
+      case 'habits': value = await api.getHabits(); break;
+      case 'list': {
+        const list = await api.getList(key.substring(5));
+        value = list ? list.items : null;
+        break;
+      }
+      case 'setting': {
+        const res = await api.fetchSetting(key);
+        return res.ok ? { ok: true, value: res.exists ? res.value : null } : { ok: false };
+      }
+      default: return { ok: false };
+    }
+    return value === null || value === undefined ? { ok: false } : { ok: true, value };
+  },
+
+  // Write ids assigned by the cloud back into the local habit list (no new upload needed)
+  storeHabitIds(pushedHabits) {
+    if (!Array.isArray(pushedHabits)) return;
+    const local = db.getAllHabits();
+    let changed = false;
+    local.forEach(h => {
+      if (!h || typeof h !== 'object' || h.id) return;
+      const match = pushedHabits.find(p => p && typeof p === 'object' && p.id && p.name === h.name);
+      if (match) {
+        h.id = match.id;
+        changed = true;
+      }
+    });
+    if (changed) localStorage.setItem('habits', JSON.stringify(local));
+  },
+
   // === Key generators ===
   calKey: (d) => `cal-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
   goalKey: (d) => `goals-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
   notesKey: (d) => `notes-${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`,
-  weekKey: (d) => `week-${d.getFullYear()}-W${getWeekNumber(d)}`,
-  reviewKey: (d) => `review-${d.getFullYear()}-W${getWeekNumber(d)}`,
-  habitsKey: (d) => `habitsData-${d.getFullYear()}-W${getWeekNumber(d)}`,
+  // Week keys use the ISO week-year, so a week spanning New Year keeps one key
+  // (28.12.2026-03.01.2027 is week-2026-W53 on every day of that week)
+  weekKey: (d) => `week-${getWeekYear(d)}-W${getWeekNumber(d)}`,
+  reviewKey: (d) => `review-${getWeekYear(d)}-W${getWeekNumber(d)}`,
+  habitsKey: (d) => `habitsData-${getWeekYear(d)}-W${getWeekNumber(d)}`,
 
   // === Local getters (sync, use cache) ===
   getAllHabits: () => db.get('habits', []),
   setHabits: (habits) => {
     db.set('habits', habits);
     db.lastLocalChange = Date.now();
-    if (isSupabaseAvailable()) {
-      window.supabaseDB.setHabits(habits)
-        .then(err => { if (!err) db.clearDirty('habits'); })
-        .catch(e => console.error('[Sync] setHabits failed:', e));
-    }
+    if (!isSupabaseAvailable()) return;
+    const pushedRaw = localStorage.getItem('habits');
+    window.supabaseDB.setHabits(habits)
+      .then(err => {
+        db.afterPush('habits', pushedRaw, err);
+        if (!err) db.storeHabitIds(habits);
+      })
+      .catch(e => db.afterPush('habits', pushedRaw, e));
   },
   getKanban: (weekDate) => db.get(db.weekKey(weekDate || currentWeekDate), {}),
   setKanban: (data, weekDate) => {
     const key = db.weekKey(weekDate || currentWeekDate);
     db.set(key, data);
     db.lastLocalChange = Date.now();
-    if (isSupabaseAvailable()) {
-      window.supabaseDB.setKanban(key, data)
-        .then(err => { if (!err) db.clearDirty(key); })
-        .catch(e => console.error('[Sync] setKanban failed:', e));
-    }
+    db.pushKey(key, () => window.supabaseDB.setKanban(key, data));
   },
   getGoals: (date) => db.get(db.goalKey(date || currentGoalDate), []),
-  // Track when last local change was made (to skip realtime sync during cooldown)
+  // Track when last local change was made (to defer realtime sync during cooldown)
   lastLocalChange: 0,
   setGoals: (goals, date) => {
     const key = db.goalKey(date || currentGoalDate);
-    const timestamp = Date.now();
-
-    // Debug logging
-    console.log('[Goals] setGoals called:', {
-      key,
-      count: goals.length,
-      goals: goals.map(g => ({ text: g.text, done: g.done }))
-    });
-    console.trace('[Goals] Call stack');
-
     db.set(key, goals);
-    // Store timestamp for conflict resolution
-    localStorage.setItem(`ts_${key}`, timestamp.toString());
-    // Mark that we just made a local change (cooldown for realtime sync)
-    db.lastLocalChange = timestamp;
-    if (isSupabaseAvailable()) {
-      window.supabaseDB.setGoals(key, goals)
-        .then(err => { if (!err) db.clearDirty(key); })
-        .catch(e => console.error('[Sync] setGoals failed:', e));
-    }
+    db.lastLocalChange = Date.now();
+    db.pushKey(key, () => window.supabaseDB.setGoals(key, goals));
   },
   getGoalsTimestamp: (key) => parseInt(localStorage.getItem(`ts_${key}`) || '0'),
   getNotes: (date) => db.get(db.notesKey(date || currentGoalDate), ''),
@@ -475,32 +581,20 @@ const db = {
     const key = db.notesKey(date || currentGoalDate);
     db.set(key, text);
     db.lastLocalChange = Date.now();
-    if (isSupabaseAvailable()) {
-      window.supabaseDB.setNotes(key, text)
-        .then(err => { if (!err) db.clearDirty(key); })
-        .catch(e => console.error('[Sync] setNotes failed:', e));
-    }
+    db.pushKey(key, () => window.supabaseDB.setNotes(key, text));
   },
   getWeeklyReview: (date) => db.get(db.reviewKey(date || currentNoteDate), ''),
   setWeeklyReview: (text, date) => {
     const key = db.reviewKey(date || currentNoteDate);
     db.set(key, text);
     db.lastLocalChange = Date.now();
-    if (isSupabaseAvailable()) {
-      window.supabaseDB.setNotes(key, text)
-        .then(err => { if (!err) db.clearDirty(key); })
-        .catch(e => console.error('[Sync] setWeeklyReview failed:', e));
-    }
+    db.pushKey(key, () => window.supabaseDB.setNotes(key, text));
   },
   getBacklog: () => db.get('backlog', {}),
   setBacklog: (backlog) => {
     db.set('backlog', backlog);
     db.lastLocalChange = Date.now();
-    if (isSupabaseAvailable()) {
-      window.supabaseDB.setBacklog(backlog)
-        .then(err => { if (!err) db.clearDirty('backlog'); })
-        .catch(e => console.error('[Sync] setBacklog failed:', e));
-    }
+    db.pushKey('backlog', () => window.supabaseDB.setBacklog(backlog));
   },
 
   // Update Habit Checks (uses db.get/set logic internally)
@@ -515,11 +609,7 @@ const db = {
     db.lastLocalChange = Date.now();
 
     // 3. Sync to Cloud
-    if (isSupabaseAvailable()) {
-      window.supabaseDB.setSetting('habitChecks', checks)
-        .then(err => { if (!err) db.clearDirty('habitChecks'); })
-        .catch(e => console.error('[Sync] setHabitCheck failed:', e));
-    }
+    db.pushKey('habitChecks', () => window.supabaseDB.setSetting('habitChecks', checks));
   },
   getCalendarTasks: (date) => db.get(db.calKey(date), []),
   setCalendarTasks: (date, tasks) => {
@@ -527,11 +617,7 @@ const db = {
     db.set(key, tasks);
     // Mark that we just made a local change (cooldown for realtime sync)
     db.lastLocalChange = Date.now();
-    if (isSupabaseAvailable()) {
-      window.supabaseDB.setGoals(key, tasks)
-        .then(err => { if (!err) db.clearDirty(key); })
-        .catch(e => console.error('[Sync] setCalendarTasks failed:', e));
-    }
+    db.pushKey(key, () => window.supabaseDB.setGoals(key, tasks));
   },
 
   // Load habit checks from cloud data into localStorage
@@ -547,144 +633,184 @@ const db = {
 
   // Track when this session started (for conflict resolution)
   sessionStartTime: Date.now(),
+  _quiet: 0, // > 0 while writing many keys at once (status is refreshed once afterwards)
+  _syncRunning: null,
+  _syncAgain: false,
 
   // === Cloud sync functions ===
-  async loadFromCloud() {
-    if (!isSupabaseAvailable() || !window.currentUserId) return;
-    console.log('[Sync] Starting Sync...');
-
-    // --- Phase 0: Clear STALE dirty flags ---
-    // Dirty flags from PREVIOUS sessions (before page load) are stale
-    // They represent old cached data that should NOT overwrite newer cloud data
-    console.log('[Sync] Phase 0: Clearing stale dirty flags...');
-
-    const staleKeysCleared = [];
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('dirty_')) {
-        const dataKey = key.substring(6);
-        const timestamp = parseInt(localStorage.getItem(`ts_${dataKey}`) || '0');
-
-        // If the data was last modified BEFORE this session started, it's stale
-        // Also if there's NO timestamp, it's definitely stale (legacy data)
-        // Clear the dirty flag so we accept cloud data instead of pushing old data
-        if (timestamp === 0 || timestamp < db.sessionStartTime) {
-          if (timestamp === 0) {
-            console.log(`[Sync] Clearing stale dirty flag (no timestamp): ${dataKey}`);
-          } else {
-            console.log(`[Sync] Clearing stale dirty flag: ${dataKey} (modified ${new Date(timestamp).toLocaleString()})`);
-          }
-          localStorage.removeItem(key);
-          staleKeysCleared.push(dataKey);
-        }
+  // Serialized: callers during a running sync share it, and one more pass runs
+  // afterwards so changes announced meanwhile are not missed.
+  loadFromCloud() {
+    if (!isSupabaseAvailable() || !window.currentUserId) return Promise.resolve();
+    if (db._syncRunning) {
+      db._syncAgain = true;
+      return db._syncRunning;
+    }
+    db._syncRunning = (async () => {
+      try {
+        do {
+          db._syncAgain = false;
+          await db._syncOnce();
+        } while (db._syncAgain);
+      } catch (e) {
+        lastSyncError = describeError(e);
+        console.error('[Sync] Sync failed:', e);
+      } finally {
+        db._syncRunning = null;
+        updateSyncStatus();
       }
-    }
+    })();
+    return db._syncRunning;
+  },
 
-    if (staleKeysCleared.length > 0) {
-      console.log(`[Sync] Cleared ${staleKeysCleared.length} stale dirty flags`);
-    }
-
-    // --- Phase 1: PULL from Cloud FIRST (Get latest state) ---
-    // This ensures we have the newest data before deciding what to push
-    console.log('[Sync] Phase 1: Pulling from cloud...');
-
-    // Store current dirty keys BEFORE pulling (only remaining non-stale ones)
-    const dirtyKeysBeforePull = [];
+  // --- Phase 0: Changes left over from earlier sessions ---
+  // A dirty flag from before this page load means an upload never finished
+  // (offline, Supabase paused, tab closed). Upload it if the cloud still holds
+  // what this device last synced. Otherwise another device changed it: keep a
+  // local backup copy and let the cloud win (previous behaviour).
+  async resolveLeftoverChanges() {
+    const leftovers = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('dirty_')) {
-        const dataKey = k.substring(6);
-        const timestamp = db.getGoalsTimestamp(dataKey);
-        dirtyKeysBeforePull.push({ key: dataKey, timestamp });
+      if (!k || !k.startsWith('dirty_')) continue;
+      const key = k.substring(6);
+      if (db.getGoalsTimestamp(key) < db.sessionStartTime) leftovers.push(key);
+    }
+
+    const resumed = [];
+    const replaced = [];
+    for (const key of leftovers) {
+      if (!DataUtils.isSyncableKey(key)) {
+        // Local-only UI state never syncs
+        localStorage.removeItem('dirty_' + key);
+        continue;
+      }
+      const cloud = await db.fetchCloudValue(key);
+      if (!cloud.ok) continue; // cloud unreachable: keep pending, retry on next sync
+
+      const synced = localStorage.getItem('synced_' + key);
+      const cloudUnchanged = synced
+        ? DataUtils.fingerprint(key, cloud.value) === synced
+        : DataUtils.isEmptyCloudValue(key, cloud.value);
+
+      if (cloudUnchanged) {
+        // Treat as a change of this session so the phases below upload it
+        localStorage.setItem('ts_' + key, Date.now().toString());
+        resumed.push(key);
+      } else {
+        db.backupLocalValue(key, synced ? 'conflict' : 'unverified');
+        localStorage.removeItem('dirty_' + key);
+        replaced.push(key);
       }
     }
 
-    // --- Phase 2: Pull Cloud & Prune Clean (Server State) ---
-    // IMPORTANT: Skip overwriting any key marked as dirty (pending upload)
+    if (resumed.length > 0) console.log('[Sync] Uploading changes from an earlier session:', resumed);
+    if (replaced.length > 0) {
+      console.warn('[Sync] Cloud had newer data; local copies backed up:', replaced);
+      showNotification('⚠️ Sync conflict',
+        `${replaced.length} unsynced change(s) were replaced by newer cloud data. A copy is kept on this device (Sync → Export backup).`,
+        'info', 12000);
+    }
+  },
+
+  async _syncOnce() {
+    console.log('[Sync] Starting Sync...');
+    const errors = [];
+    const noteError = (what, err) => errors.push(`${what}: ${describeError(err)}`);
+
+    await db.resolveLeftoverChanges();
+
+    // Pending keys (now all from this session, or unresolved because the cloud was unreachable)
+    const dirtyKeysBeforePull = pendingSyncKeys();
+    const isSessionChange = (key) => db.getGoalsTimestamp(key) >= db.sessionStartTime;
+
+    // --- Phase 1/2: Pull from cloud; keys with pending uploads are never overwritten ---
 
     // 0. Metadata (Lists, Checks)
     const habitChecks = await window.supabaseDB.getSetting('habitChecks', {});
-    if (habitChecks && !db.isDirty('habitChecks')) {
+    if (habitChecks === null) {
+      noteError('habitChecks', 'download failed');
+    } else if (!db.isDirty('habitChecks')) {
       db.set('habitChecks', habitChecks, true);
-      db.loadHabitChecks(db.get('habitChecks', {}));
+      db.loadHabitChecks(habitChecks);
     }
 
     // List Metadata: ALWAYS merge cloud lists into local (even if dirty)
     // This ensures we receive new lists from other devices while preserving our pending changes
     const cloudListMeta = await window.supabaseDB.getSetting('customListsMeta', []);
-    const localListMeta = db.get('customListsMeta', []);
+    if (cloudListMeta === null) {
+      noteError('customListsMeta', 'download failed');
+    } else {
+      const localListMeta = db.get('customListsMeta', []);
 
-    // Merge: combine both local and cloud lists (no duplicates by ID)
-    const mergedMeta = [...localListMeta];
-    let addedFromCloud = 0;
-    for (const cloudList of (cloudListMeta || [])) {
-      if (!mergedMeta.some(m => m.id === cloudList.id)) {
-        mergedMeta.push(cloudList);
-        addedFromCloud++;
+      // Merge: combine both local and cloud lists (no duplicates by ID)
+      const mergedMeta = [...localListMeta];
+      let addedFromCloud = 0;
+      for (const cloudList of (cloudListMeta || [])) {
+        if (!mergedMeta.some(m => m.id === cloudList.id)) {
+          mergedMeta.push(cloudList);
+          addedFromCloud++;
+        }
+      }
+
+      if (addedFromCloud > 0) {
+        console.log('[Sync] Added', addedFromCloud, 'lists from cloud. Total:', mergedMeta.length);
+        localStorage.setItem('customListsMeta', JSON.stringify(mergedMeta));
+      } else if (!db.isDirty('customListsMeta') && cloudListMeta && cloudListMeta.length > 0) {
+        // If not dirty and cloud has data, use cloud data
+        db.set('customListsMeta', cloudListMeta, true);
       }
     }
 
-    // Always save merged metadata (fromCloud=true to not mark as dirty again)
-    if (addedFromCloud > 0) {
-      console.log('[Sync] Added', addedFromCloud, 'lists from cloud. Total:', mergedMeta.length);
-      db.set('customListsMeta', mergedMeta, true);
-    } else if (!db.isDirty('customListsMeta') && cloudListMeta && cloudListMeta.length > 0) {
-      // If not dirty and cloud has data, use cloud data
-      db.set('customListsMeta', cloudListMeta, true);
-    }
-
-    // 1. Goals - Only push goals modified DURING THIS SESSION, pull everything else
+    // 1. Goals & calendar - push this session's changes, then pull everything else
     const allGoals = await window.supabaseDB.getAllGoals();
-    const cloudGoalKeys = new Set(Object.keys(allGoals));
+    if (allGoals === null) {
+      // Never prune or overwrite on a failed download
+      noteError('goals', 'download failed');
+    } else {
+      const cloudGoalKeys = new Set(Object.keys(allGoals));
 
-    // For each dirty goal key, ONLY push if modified during THIS session
-    // This prevents old cached data from overwriting newer cloud data
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('dirty_goals-')) {
-        const goalKey = key.substring(6); // remove 'dirty_'
-        const timestamp = parseInt(localStorage.getItem(`ts_${goalKey}`) || '0');
-
-        // CRITICAL: Only push if modified DURING this session
-        // If it's old cached data (from before page load), clear the dirty flag and skip
-        if (timestamp < db.sessionStartTime) {
-          console.log(`[Sync] Skipping stale goals (not from this session): ${goalKey}`);
-          db.clearDirty(goalKey);
-          continue;
-        }
+      for (const goalKey of dirtyKeysBeforePull) {
+        if (!goalKey.startsWith('goals-') && !goalKey.startsWith('cal-')) continue;
+        if (!isSessionChange(goalKey)) continue; // unresolved leftover, retried next sync
 
         const localGoals = db.get(goalKey, []);
-        console.log(`[Sync] Pushing session-modified goals: ${goalKey} (${localGoals.length} items)`);
-
+        const pushedRaw = localStorage.getItem(goalKey);
+        let err = null;
         try {
-          const err = await window.supabaseDB.setGoals(goalKey, localGoals);
-          if (!err) {
-            db.clearDirty(goalKey);
-            // Update allGoals with what we pushed so we don't overwrite on pull
-            allGoals[goalKey] = localGoals;
-            cloudGoalKeys.add(goalKey);
-          }
+          err = await window.supabaseDB.setGoals(goalKey, localGoals);
         } catch (e) {
-          console.error(`[Sync] Failed to push ${goalKey}:`, e);
+          err = e;
+        }
+        if (db.afterPush(goalKey, pushedRaw, err)) {
+          // Update allGoals with what we pushed so we don't overwrite on pull
+          allGoals[goalKey] = localGoals;
+          cloudGoalKeys.add(goalKey);
+        } else {
+          noteError(goalKey, err);
         }
       }
-    }
 
-    // Now update local from cloud (skip dirty keys that failed to push)
-    Object.entries(allGoals).forEach(([k, v]) => {
-      if (!db.isDirty(k)) {
-        db.set(k, v, true);
-      }
-    });
+      db._quiet++;
+      try {
+        // Now update local from cloud (skip dirty keys)
+        Object.entries(allGoals).forEach(([k, v]) => {
+          if (!db.isDirty(k)) {
+            db.set(k, v, true);
+          }
+        });
 
-    // Handle Deletions (Prune Local Keys missing from Cloud, unless dirty)
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith('goals-') || key.startsWith('cal-'))) {
-        if (!cloudGoalKeys.has(key) && !db.isDirty(key)) {
-          db.del(key, true); // Delete locally (Remote deletion)
-          localStorage.removeItem(`ts_${key}`); // Clean up timestamp
+        // Handle remote deletions: drop local days the cloud no longer has, unless pending
+        const removedRemotely = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('goals-') || key.startsWith('cal-')) && !cloudGoalKeys.has(key) && !db.isDirty(key)) {
+            removedRemotely.push(key);
+          }
         }
+        removedRemotely.forEach(key => db.del(key, true));
+      } finally {
+        db._quiet--;
       }
     }
 
@@ -692,18 +818,24 @@ const db = {
     const todayNotesKey = db.notesKey(new Date());
     if (!db.isDirty(todayNotesKey)) {
       const notes = await window.supabaseDB.getNotes(todayNotesKey);
-      if (notes) db.set(todayNotesKey, notes, true);
+      if (notes === null) noteError('notes', 'download failed');
+      else if (notes) db.set(todayNotesKey, notes, true);
     }
 
     const reviewKey = db.reviewKey(new Date());
     if (!db.isDirty(reviewKey)) {
       const review = await window.supabaseDB.getNotes(reviewKey);
-      if (review) db.set(reviewKey, review, true);
+      if (review === null) noteError('review', 'download failed');
+      else if (review) db.set(reviewKey, review, true);
     }
 
     // 3. Habits & Checks - MERGE local and cloud habits
     const cloudHabits = await window.supabaseDB.getHabits();
-    if (db.isDirty('habits')) {
+    if (cloudHabits === null) {
+      noteError('habits', 'download failed');
+    } else if (db.isDirty('habits') && !isSessionChange('habits')) {
+      // Unverified change from an earlier session: leave untouched until it can be checked
+    } else if (db.isDirty('habits')) {
       // Merge local and cloud habits
       const localHabits = db.getAllHabits();
       const mergedHabits = [...cloudHabits];
@@ -735,10 +867,12 @@ const db = {
       }
 
       console.log(`[Sync] Merging habits: local=${localHabits.length}, cloud=${cloudHabits.length}, merged=${finalHabits.length}`);
-      db.set('habits', finalHabits, true);
-      db.clearDirty('habits');
-      await window.supabaseDB.setHabits(finalHabits);
-    } else if (cloudHabits && cloudHabits.length > 0) {
+      db.set('habits', finalHabits);
+      const pushedRaw = localStorage.getItem('habits');
+      const err = await window.supabaseDB.setHabits(finalHabits);
+      if (db.afterPush('habits', pushedRaw, err)) db.storeHabitIds(finalHabits);
+      else noteError('habits', err);
+    } else if (cloudHabits.length > 0) {
       db.set('habits', cloudHabits, true);
     }
 
@@ -746,113 +880,116 @@ const db = {
     const weekKey = db.weekKey(new Date());
     if (!db.isDirty(weekKey)) {
       const kanban = await window.supabaseDB.getKanban(weekKey);
-      if (kanban && Object.keys(kanban).length > 0) db.set(weekKey, kanban, true);
+      if (kanban === null) noteError('kanban', 'download failed');
+      else if (Object.keys(kanban).length > 0) db.set(weekKey, kanban, true);
     }
 
     if (!db.isDirty('backlog')) {
       const backlog = await window.supabaseDB.getBacklog();
-      if (backlog && Object.keys(backlog).length > 0) db.set('backlog', backlog, true);
+      if (backlog === null) noteError('backlog', 'download failed');
+      else if (Object.keys(backlog).length > 0) db.set('backlog', backlog, true);
     }
 
     // 5. Lists - MERGE local and cloud list items
     const lists = await window.supabaseDB.getAllLists();
-    if (lists.length > 0) {
+    if (lists === null) {
+      noteError('lists', 'download failed');
+    } else if (lists.length > 0) {
       const meta = db.get('customListsMeta', []);
 
-      lists.forEach(cloudList => {
+      for (const cloudList of lists) {
         // Match by ID: cloudList.name is stored as the list ID
         const localList = meta.find(m => m.id === cloudList.name);
-        if (localList) {
-          const localKey = `list-${localList.id}`;
-          const cloudItems = cloudList.items || [];
+        if (!localList) continue;
+        const localKey = `list-${localList.id}`;
+        const cloudItems = cloudList.items || [];
 
-          if (db.isDirty(localKey)) {
-            // Merge local and cloud items
-            const localItems = db.get(localKey, []);
-            const mergedItems = [...cloudItems];
+        if (db.isDirty(localKey) && !isSessionChange(localKey)) {
+          // Unverified change from an earlier session: leave untouched until it can be checked
+        } else if (db.isDirty(localKey)) {
+          // Merge local and cloud items
+          const localItems = db.get(localKey, []);
+          const mergedItems = [...cloudItems];
 
-            // Get text for comparison (items can be strings or objects)
-            const getItemText = (item) => typeof item === 'string' ? item : (item.text || item.name || JSON.stringify(item));
-            const cloudTexts = new Set(cloudItems.map(getItemText));
+          // Get text for comparison (items can be strings or objects)
+          const getItemText = (item) => typeof item === 'string' ? item : (item.text || item.name || JSON.stringify(item));
+          const cloudTexts = new Set(cloudItems.map(getItemText));
 
-            localItems.forEach(localItem => {
-              const text = getItemText(localItem);
-              if (!cloudTexts.has(text)) {
-                mergedItems.push(localItem);
-              } else {
-                // Update with local state
-                const idx = mergedItems.findIndex(i => getItemText(i) === text);
-                if (idx >= 0) mergedItems[idx] = localItem;
-              }
-            });
-
-            // Handle deletions
-            let finalItems = mergedItems;
-            if (localItems.length < cloudItems.length) {
-              const localTexts = new Set(localItems.map(getItemText));
-              finalItems = mergedItems.filter(i => localTexts.has(getItemText(i)));
+          localItems.forEach(localItem => {
+            const text = getItemText(localItem);
+            if (!cloudTexts.has(text)) {
+              mergedItems.push(localItem);
+            } else {
+              // Update with local state
+              const idx = mergedItems.findIndex(i => getItemText(i) === text);
+              if (idx >= 0) mergedItems[idx] = localItem;
             }
+          });
 
-            console.log(`[Sync] Merging list ${localList.id}: local=${localItems.length}, cloud=${cloudItems.length}, merged=${finalItems.length}`);
-            db.set(localKey, finalItems, true);
-            db.clearDirty(localKey);
-
-            const icon = db.get(`listIcon_${localList.id}`, '📝');
-            window.supabaseDB.setList(localList.id, finalItems, icon);
-          } else {
-            db.set(localKey, cloudItems, true);
+          // Handle deletions
+          let finalItems = mergedItems;
+          if (localItems.length < cloudItems.length) {
+            const localTexts = new Set(localItems.map(getItemText));
+            finalItems = mergedItems.filter(i => localTexts.has(getItemText(i)));
           }
+
+          console.log(`[Sync] Merging list ${localList.id}: local=${localItems.length}, cloud=${cloudItems.length}, merged=${finalItems.length}`);
+          db.set(localKey, finalItems);
+          const pushedRaw = localStorage.getItem(localKey);
+          const icon = db.get(`listIcon_${localList.id}`, '📝');
+          const err = await window.supabaseDB.setList(localList.id, finalItems, icon);
+          if (!db.afterPush(localKey, pushedRaw, err)) noteError(localKey, err);
+        } else {
+          db.set(localKey, cloudItems, true);
         }
-      });
+      }
     }
 
-    // Clear lastSyncError and update status on success
-    lastSyncError = null;
-    updateSyncStatus();
-
-    // --- Phase 3: Push remaining dirty items (non-goals) ---
-    // ONLY push items modified DURING this session
+    // --- Phase 3: Push remaining changes made during this session ---
     console.log('[Sync] Phase 3: Pushing session-modified items...');
 
-    for (const { key, timestamp } of dirtyKeysBeforePull) {
-      // Skip goals - already handled in Phase 1
+    for (const key of dirtyKeysBeforePull) {
+      // Goals and calendar are handled above
       if (key.startsWith('goals-') || key.startsWith('cal-')) continue;
+      // Only push if still dirty (might have been cleared) and not an unresolved leftover
+      if (!db.isDirty(key) || !isSessionChange(key)) continue;
 
-      // CRITICAL: Only push if modified DURING this session
-      if (timestamp < db.sessionStartTime) {
-        console.log(`[Sync] Skipping stale item (not from this session): ${key}`);
-        db.clearDirty(key);
-        continue;
-      }
+      const raw = localStorage.getItem(key);
+      let val;
+      try { val = JSON.parse(raw); } catch (e) { continue; }
+      if (val === null || val === undefined) continue;
 
-      // Only push if still dirty (might have been cleared)
-      if (!db.isDirty(key)) continue;
-
+      let err = null;
       try {
-        const val = JSON.parse(localStorage.getItem(key));
-        if (!val) continue;
-
-        let err = null;
         if (key.startsWith('notes-') || key.startsWith('review-')) err = await window.supabaseDB.setNotes(key, val);
-        else if (key === 'habits') err = await window.supabaseDB.setHabits(val);
-        else if (key === 'habitChecks' || key === 'customListsMeta') err = await window.supabaseDB.setSetting(key, val);
+        else if (key === 'habits') {
+          err = await window.supabaseDB.setHabits(val);
+          if (!err) db.storeHabitIds(val);
+        }
+        else if (key === 'habitChecks' || key === 'customListsMeta' || key === 'gymHubData') err = await window.supabaseDB.setSetting(key, val);
         else if (key === 'backlog') err = await window.supabaseDB.setBacklog(val);
         else if (key.startsWith('week-')) err = await window.supabaseDB.setKanban(key, val);
         else if (key.startsWith('list-')) {
           const listId = key.substring(5);
           const icon = db.get(`listIcon_${listId}`, '📝');
-          await window.supabaseDB.setList(listId, val, icon);
+          err = await window.supabaseDB.setList(listId, val, icon);
         }
-
-        if (!err) {
-          db.clearDirty(key);
-          console.log(`[Sync] Pushed: ${key}`);
-        }
+        else continue;
       } catch (e) {
-        console.error('[Sync] Failed to push:', key, e);
-        lastSyncError = e.message;
+        err = e;
       }
+
+      if (db.afterPush(key, raw, err)) console.log(`[Sync] Pushed: ${key}`);
+      else noteError(key, err);
     }
+
+    lastSyncAt = Date.now();
+    if (errors.length === 0) lastSyncError = null;
+    else if (navigator.onLine === false) lastSyncError = 'Offline – changes stay on this device and upload automatically';
+    else if (errors.every(e => e.endsWith('download failed'))) lastSyncError = 'Cloud not reachable – changes stay on this device and upload automatically';
+    else lastSyncError = errors.join('; ');
+    if (errors.length > 0) console.warn('[Sync] Finished with errors:', errors);
+    updateSyncStatus();
 
     // Refresh UI to show newly synced data
     try {
@@ -871,133 +1008,225 @@ const db = {
     console.log('[Sync] Starting manual upload...');
     let count = 0;
     const errors = [];
+    const api = window.supabaseDB;
+
+    // Upload one key; push(value) returns an error or null
+    const upload = async (key, label, push) => {
+      const raw = localStorage.getItem(key);
+      let err = null;
+      try {
+        err = await push(JSON.parse(raw));
+      } catch (e) {
+        err = e;
+      }
+      if (db.afterPush(key, raw, err)) count++;
+      else errors.push(`${label}: ${describeError(err)}`);
+    };
+
+    const keysWithPrefix = (...prefixes) => {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && prefixes.some(p => key.startsWith(p))) keys.push(key);
+      }
+      return keys;
+    };
 
     // 1. Goals & Calendar
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith('goals-') || key.startsWith('cal-'))) {
-        try {
-          const val = JSON.parse(localStorage.getItem(key));
-          const err = await window.supabaseDB.setGoals(key, val);
-          if (err) throw err;
-          count++;
-        } catch (e) {
-          console.error('Failed to sync goal ' + key, e);
-          errors.push(`Goal ${key}: ${e.message || e.code}`);
-        }
-      }
+    for (const key of keysWithPrefix('goals-', 'cal-')) {
+      await upload(key, `Goal ${key}`, val => api.setGoals(key, val || []));
     }
 
     // 2. Notes & Reviews
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith('notes-') || key.startsWith('review-'))) {
-        try {
-          const val = JSON.parse(localStorage.getItem(key));
-          const err = await window.supabaseDB.setNotes(key, val);
-          if (err) throw err;
-          count++;
-        } catch (e) {
-          console.error('Failed to sync note ' + key, e);
-          errors.push(`Note ${key}: ${e.message || e.code}`);
-        }
-      }
+    for (const key of keysWithPrefix('notes-', 'review-')) {
+      await upload(key, `Note ${key}`, val => api.setNotes(key, val || ''));
     }
 
-    // 3. Habits (Setters return error now)
-    try {
-      const err = await window.supabaseDB.setHabits(db.getAllHabits());
-      if (err) throw err;
-    } catch (e) { errors.push(`Habits: ${e.message}`); }
+    // 3. Habits
+    if (localStorage.getItem('habits') !== null) {
+      await upload('habits', 'Habits', async val => {
+        const habits = val || [];
+        const err = await api.setHabits(habits);
+        if (!err) db.storeHabitIds(habits);
+        return err;
+      });
+    }
 
-    // 4. Habit Checks
-    try {
-      await window.supabaseDB.setSetting('habitChecks', db.get('habitChecks', {}));
-    } catch (e) { errors.push(`HabitChecks: ${e.message}`); }
+    // 4. Settings blobs (habit checks, list metadata, health hub)
+    for (const key of ['habitChecks', 'customListsMeta', 'gymHubData']) {
+      if (localStorage.getItem(key) !== null) await upload(key, key, val => api.setSetting(key, val));
+    }
 
     // 5. Backlog
-    try {
-      const err = await window.supabaseDB.setBacklog(db.get('backlog', {}));
-      if (err) throw err;
-    } catch (e) { errors.push(`Backlog: ${e.message}`); }
-
-    // 6. Current Week Kanban
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('week-')) {
-        try {
-          const val = JSON.parse(localStorage.getItem(key));
-          const err = await window.supabaseDB.setKanban(key, val);
-          if (err) throw err;
-          count++;
-        } catch (e) { errors.push(`Kanban ${key}: ${e.message}`); }
-      }
+    if (localStorage.getItem('backlog') !== null) {
+      await upload('backlog', 'Backlog', val => api.setBacklog(val || {}));
     }
 
-    // 7. Lists (using new customListsMeta format)
-    const listMeta = db.get('customListsMeta', []);
-
-    // Sync the list metadata first
-    try {
-      await window.supabaseDB.setSetting('customListsMeta', listMeta);
-    } catch (e) { errors.push(`List Metadata: ${e.message}`); }
-
-    // Then sync each list's items (use ID, not title!)
-    for (const list of listMeta) {
-      try {
-        const items = db.get(`list-${list.id}`, []);
-        const err = await window.supabaseDB.setList(list.id, items, '📝');
-        if (err) throw new Error(err.message || 'Unknown error');
-        count++;
-      } catch (e) { errors.push(`List ${list.id}: ${e.message}`); }
+    // 6. Weekly Kanban
+    for (const key of keysWithPrefix('week-')) {
+      await upload(key, `Kanban ${key}`, val => api.setKanban(key, val || {}));
     }
 
+    // 7. Lists (use ID, not title!)
+    for (const list of db.get('customListsMeta', [])) {
+      const key = `list-${list.id}`;
+      if (localStorage.getItem(key) === null) continue;
+      await upload(key, `List ${list.id}`, val => api.setList(list.id, val || [], '📝'));
+    }
+
+    // 8. Step counter (own table)
+    if (window.stepCounter && typeof window.stepCounter.uploadAll === 'function') {
+      const stepResult = await window.stepCounter.uploadAll();
+      if (stepResult && stepResult.error) errors.push(`Steps: ${stepResult.error}`);
+      else count++;
+    }
+
+    lastSyncError = errors.length > 0 ? errors.join('; ') : null;
+    updateSyncStatus();
     return { count, errors };
   }
 };
 
-// Force Sync Button Handler
-window.forceSync = async () => {
-  const action = prompt("Type 'download' (or 'd') to get data from cloud.\nType 'upload' (or 'u') to save local data to cloud.\n\nChoose 'upload' on the device that has the data.");
+// ===== SYNC & BACKUP PANEL =====
+function formatSyncTime(ms) {
+  if (!ms) return 'not yet in this session';
+  return new Date(ms).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
 
-  if (!action) return;
-  const mode = action.toLowerCase().trim();
-
-  if (mode === 'download' || mode === 'd') {
-    try {
-      alert('Syncing (Download)... please wait.');
-      // Call init() which handles element binding and full rendering
-      await init();
-      alert('✅ Download complete! Data refreshed.');
-    } catch (e) {
-      alert('❌ Download failed: ' + e.message);
-      console.error(e);
-    }
+function getSyncBackups() {
+  try {
+    const backups = JSON.parse(localStorage.getItem('syncBackups') || '[]');
+    return Array.isArray(backups) ? backups : [];
+  } catch (e) {
+    return [];
   }
-  else if (mode === 'upload' || mode === 'u') {
-    if (!confirm("⚠️ This will overwrite cloud data with your local data. Are you sure?")) return;
-    try {
-      alert('Uploading to cloud... please wait.');
-      const result = await db.pushToCloud();
-      const count = result.count || 0;
-      const errors = result.errors || [];
+}
 
-      let msg = `✅ Upload complete! (${count} items synced).`;
-      if (errors.length > 0) {
-        msg += `\n⚠️ BUT with ${errors.length} errors:\n` + errors.slice(0, 5).join('\n');
-      }
-      msg += `\n\nNow use 'download' on your other devices.`;
+function renderSyncModalStatus() {
+  const el = document.getElementById('syncModalStatus');
+  if (!el) return;
+  const pending = pendingSyncKeys();
+  const stepPending = stepPendingCount();
+  const backups = getSyncBackups();
+  const online = navigator.onLine !== false;
 
-      alert(msg);
-    } catch (e) {
-      alert('❌ Upload failed: ' + e.message);
-      console.error(e);
-    }
+  let state;
+  if (!isSupabaseAvailable()) state = '⚪ Not signed in – data is only stored on this device';
+  else if (lastSyncError) state = '❌ Last sync had errors';
+  else if (pending.length + stepPending > 0) state = `⏳ ${pending.length + stepPending} change(s) waiting for upload`;
+  else state = '✅ Everything synced';
+
+  const rows = [
+    `<p class="sync-modal-state">${escapeHtml(state)}</p>`,
+    `<p>Last full sync: ${escapeHtml(formatSyncTime(lastSyncAt))}${online ? '' : ' · <strong>offline</strong>'}</p>`
+  ];
+  if (lastSyncError) rows.push(`<p class="sync-modal-error">${escapeHtml(lastSyncError)}</p>`);
+  if (pending.length > 0) {
+    const shown = pending.slice(0, 6).map(k => escapeHtml(k)).join(', ');
+    rows.push(`<p class="sync-modal-muted">Pending: ${shown}${pending.length > 6 ? ' …' : ''}</p>`);
   }
-  else {
-    alert("Invalid option. Please type 'download' or 'upload'.");
+  if (window.stepCounter && typeof window.stepCounter.syncSummary === 'function') {
+    rows.push(`<p>Steps: ${escapeHtml(window.stepCounter.syncSummary())}</p>`);
   }
+  if (backups.length > 0) {
+    rows.push(`<p class="sync-modal-muted">${backups.length} local backup cop${backups.length === 1 ? 'y' : 'ies'} of replaced changes (included in “Export backup”).</p>`);
+  }
+  el.innerHTML = rows.join('');
+}
+
+window.showSyncDetails = () => {
+  const modal = document.getElementById('syncModal');
+  if (!modal) return;
+  renderSyncModalStatus();
+  modal.classList.add('active');
+  const close = document.getElementById('syncModalClose');
+  if (close) close.focus();
 };
+
+window.closeSyncDetails = () => {
+  document.getElementById('syncModal')?.classList.remove('active');
+};
+
+async function runSyncAction(button, label, action) {
+  const original = button ? button.textContent : '';
+  if (button) {
+    button.disabled = true;
+    button.textContent = label;
+  }
+  try {
+    await action();
+  } catch (e) {
+    lastSyncError = describeError(e);
+    console.error('[Sync] Action failed:', e);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = original;
+    }
+    updateSyncStatus();
+    renderSyncModalStatus();
+  }
+}
+
+window.syncNow = (button) => runSyncAction(button, 'Syncing…', async () => {
+  await db.loadFromCloud();
+  if (window.stepCounter) await window.stepCounter.sync();
+  refreshAllViews();
+});
+
+// Cloud wins: pending local changes are backed up, then replaced by cloud data
+window.forceDownload = async (button) => {
+  const pending = pendingSyncKeys();
+  const confirmed = await showConfirmModal('Replace local data?',
+    pending.length > 0
+      ? `${pending.length} change(s) on this device have not been uploaded. They will be replaced by the cloud version (a backup copy is kept on this device).`
+      : 'Reload all data from the cloud?');
+  if (!confirmed) return;
+  return runSyncAction(button, 'Downloading…', async () => {
+    pending.forEach(key => {
+      db.backupLocalValue(key, 'manual-download');
+      localStorage.removeItem('dirty_' + key);
+    });
+    await db.loadFromCloud();
+    if (window.stepCounter) await window.stepCounter.sync();
+    refreshAllViews();
+  });
+};
+
+// Device wins: upload everything stored on this device
+window.forceUpload = async (button) => {
+  const confirmed = await showConfirmModal('Overwrite cloud data?',
+    'This uploads all data stored on this device and replaces the cloud version. Use it on the device that has the correct data.');
+  if (!confirmed) return;
+  return runSyncAction(button, 'Uploading…', async () => {
+    const result = await db.pushToCloud();
+    if (result.errors.length > 0) {
+      showNotification('⚠️ Upload incomplete', `${result.count} item(s) uploaded, ${result.errors.length} failed. Details in the sync panel.`, 'info', 8000);
+    } else {
+      showNotification('✅ Upload complete', `${result.count} item(s) uploaded.`, 'success');
+    }
+  });
+};
+
+// Older entry point (kept for console use)
+window.forceSync = () => window.showSyncDetails();
+
+// Re-render everything that shows synced data (the weekly review textarea is
+// left alone so text being typed is never replaced)
+function refreshAllViews() {
+  const views = [renderCalendar, renderGoals, renderKanban, renderHabits, renderAllLists, updateStats];
+  views.forEach(view => {
+    try { view(); } catch (e) { console.error('[UI] Refresh failed:', view.name, e); }
+  });
+}
+
+// Helper: ISO week-year (the calendar year of the week's Thursday)
+function getWeekYear(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  return date.getUTCFullYear();
+}
 
 // Helper: Get ISO week number
 function getWeekNumber(d) {
@@ -1059,7 +1288,9 @@ const pomo = {
 const weekdays = ["MO", "DI", "MI", "DO", "FR", "SA", "SO"];
 
 // ===== INITIALIZATION =====
-// ===== INITIALIZATION =====
+// init() runs on DOMContentLoaded (local data), again once the login is known
+// (cloud sync) and on "Sync now"; listeners must therefore be registered once.
+let oneTimeSetupDone = false;
 async function init() {
   // Ensure DOM is fully loaded before running
   if (document.readyState === 'loading') {
@@ -1113,90 +1344,66 @@ async function init() {
   updateTitles();
   updateHabitsTitle();
   setupEventListeners();
-  setupKeyboardShortcuts();
-  setupConfetti();
+  if (!oneTimeSetupDone) {
+    oneTimeSetupDone = true;
+    setupKeyboardShortcuts();
+    setupConfetti();
+    setupBackgroundSync();
+  }
 
   // Initialize Realtime sync for cross-device updates
   initRealtimeSync();
+
+  // Step challenge (js/steps.js) needs the logged-in user
+  if (window.stepCounter && window.currentUserId) window.stepCounter.start();
 }
 
 // ===== REALTIME SYNC =====
 let realtimeChannel = null;
 
+// Cooldown after a local change; remote refreshes inside it are postponed, not dropped
+const REALTIME_COOLDOWN = 5000;
+let remoteRefreshTimer = null;
+
+function scheduleRemoteRefresh(delay = 500) {
+  clearTimeout(remoteRefreshTimer);
+  remoteRefreshTimer = setTimeout(async () => {
+    const sinceLocalChange = Date.now() - db.lastLocalChange;
+    if (sinceLocalChange < REALTIME_COOLDOWN) {
+      scheduleRemoteRefresh(REALTIME_COOLDOWN - sinceLocalChange + 100);
+      return;
+    }
+    console.log('[Realtime] Refreshing after remote change...');
+    await db.loadFromCloud();
+    refreshAllViews();
+  }, delay);
+}
+
 function initRealtimeSync() {
+  if (realtimeChannel) return; // already subscribed
   if (!window.supabaseDB || !window.supabaseDB.subscribeToChanges) {
     console.log('[Realtime] Supabase not available, skipping realtime sync');
     return;
   }
 
-  // Debounce to prevent rapid-fire refreshes
-  let refreshTimeout = null;
-  const debounceRefresh = (callback, delay = 500) => {
-    if (refreshTimeout) clearTimeout(refreshTimeout);
-    refreshTimeout = setTimeout(callback, delay);
-  };
+  const onRemoteChange = () => scheduleRemoteRefresh();
+  realtimeChannel = window.supabaseDB.subscribeToChanges(onRemoteChange, onRemoteChange, onRemoteChange, onRemoteChange);
+  if (realtimeChannel) console.log('[Realtime] Sync initialized');
+}
 
-  // Cooldown period (ms) - skip realtime sync if we just made a local change
-  const SYNC_COOLDOWN = 5000;
-
-  realtimeChannel = window.supabaseDB.subscribeToChanges(
-    // On goals change (calendar + today's goals)
-    (payload) => {
-      debounceRefresh(async () => {
-        // Skip if we just made a local change (avoid overwriting our own changes)
-        if (Date.now() - db.lastLocalChange < SYNC_COOLDOWN) {
-          console.log('[Realtime] Skipping goals sync - local change cooldown active');
-          return;
-        }
-        console.log('[Realtime] Refreshing goals and calendar...');
-        await db.loadFromCloud();
-        renderCalendar();
-        renderGoals();
-        renderKanban();
-      });
-    },
-    // On habits change
-    (payload) => {
-      debounceRefresh(async () => {
-        // Skip if we just made a local change
-        if (Date.now() - db.lastLocalChange < SYNC_COOLDOWN) {
-          console.log('[Realtime] Skipping habits sync - local change cooldown active');
-          return;
-        }
-        console.log('[Realtime] Refreshing habits...');
-        await db.loadFromCloud();
-        renderHabits();
-      });
-    },
-    // On kanban/backlog change
-    (payload) => {
-      debounceRefresh(async () => {
-        // Skip if we just made a local change
-        if (Date.now() - db.lastLocalChange < SYNC_COOLDOWN) {
-          console.log('[Realtime] Skipping kanban sync - local change cooldown active');
-          return;
-        }
-        console.log('[Realtime] Refreshing kanban...');
-        await db.loadFromCloud();
-        renderKanban();
-      });
-    },
-    // On settings/lists change
-    (payload) => {
-      debounceRefresh(async () => {
-        // Skip if we just made a local change
-        if (Date.now() - db.lastLocalChange < SYNC_COOLDOWN) {
-          console.log('[Realtime] Skipping settings sync - local change cooldown active');
-          return;
-        }
-        console.log('[Realtime] Refreshing lists and settings...');
-        await db.loadFromCloud();
-        renderAllLists();
-      });
-    }
-  );
-
-  console.log('[Realtime] Sync initialized');
+// Retry pending uploads when the connection returns, and catch up on changes
+// from other devices when the app comes back to the foreground (iOS pauses
+// the realtime connection in the background).
+function setupBackgroundSync() {
+  window.addEventListener('online', () => {
+    if (!isSupabaseAvailable()) return;
+    db.loadFromCloud().then(refreshAllViews);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !isSupabaseAvailable()) return;
+    if (lastSyncAt && Date.now() - lastSyncAt < 60000) return;
+    db.loadFromCloud().then(refreshAllViews);
+  });
 }
 
 // ===== DATE/WEEK NAVIGATION =====
@@ -1326,6 +1533,7 @@ function setupKeyboardShortcuts() {
         break;
       case 'escape':
         closeShortcuts();
+        closeSyncDetails();
         if (focusModeActive) exitFocusMode();
         break;
     }
@@ -1349,15 +1557,15 @@ async function quickCapture() {
 
   // Add to today's calendar
   const today = new Date();
-  const key = db.calKey(today);
-  const tasks = db.get(key, []);
+  const tasks = db.getCalendarTasks(today);
   tasks.push({ text: text.trim(), done: false, priority: null });
-  db.set(key, tasks);
+  db.setCalendarTasks(today, tasks);
 
   // Re-render if viewing current month
   if (currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear()) {
     renderCalendar();
   }
+  renderKanban(); // Weekly overview shows calendar tasks too
 }
 
 // ===== FOCUS MODE =====
@@ -1708,12 +1916,12 @@ function completePomodoro() {
     const nextMode = pomo.sessions % 4 === 0 ? 'long' : 'short';
     switchPomoMode(nextMode);
 
-    if (Notification.permission === 'granted') {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') { // not available in iOS Safari tabs
       new Notification('🍅 Pomodoro Complete!', { body: 'Time for a break.' });
     }
   } else {
     switchPomoMode('work');
-    if (Notification.permission === 'granted') {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       new Notification('⏰ Break Over!', { body: 'Ready to focus?' });
     }
   }
@@ -2228,7 +2436,7 @@ function renderHabits() {
           if (migrated) {
             db.set('habitChecks', checks);
             db.lastLocalChange = Date.now();
-            if (isSupabaseAvailable()) window.supabaseDB.setSetting('habitChecks', checks);
+            db.pushKey('habitChecks', () => window.supabaseDB.setSetting('habitChecks', checks));
             // Refresh local storage keys to ensure UI renders correctly
             db.loadHabitChecks(checks);
           }
@@ -2362,16 +2570,9 @@ function getMondayOfWeek(date) {
   return d;
 }
 
+// Same key as the habit grid writes (getHabitKey), so analytics read the stored checks
 function getHabitKeyForWeek(weekDate, hIdx, dayIdx) {
-  const monday = getMondayOfWeek(weekDate);
-  const year = monday.getFullYear();
-
-  // Calculate week number for the Monday
-  const firstDayOfYear = new Date(year, 0, 1);
-  const pastDaysOfYear = (monday - firstDayOfYear) / 86400000;
-  const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
-
-  return `habitsData-${year}-W${weekNum}-h${hIdx}-d${dayIdx}`;
+  return `${db.habitsKey(getMondayOfWeek(weekDate))}-h${hIdx}-d${dayIdx}`;
 }
 
 function calculateHabitAnalytics() {
@@ -2515,7 +2716,7 @@ function calculateHabitAnalytics() {
     const item = document.createElement('div');
     item.className = 'habit-breakdown-item';
     item.innerHTML = `
-      <div class="habit-breakdown-name" title="${habitName}">${habitName}</div>
+      <div class="habit-breakdown-name" title="${escapeHtml(habitName)}">${escapeHtml(habitName)}</div>
       <div class="habit-breakdown-bar">
         <div class="habit-breakdown-fill" style="width: ${percent}%"></div>
       </div>
@@ -2811,12 +3012,15 @@ function setListItems(listName, items) {
   const config = getListConfig(listName);
   db.set(config.key, items);
   db.lastLocalChange = Date.now();
-  // Sync to Supabase
-  if (isSupabaseAvailable()) {
-    window.supabaseDB.setList(listName, items)
-      .then(() => db.clearDirty(config.key))
-      .catch(e => console.error('[Sync] setListItems failed:', e));
-  }
+  // Sync to Supabase (the dirty flag is only cleared after a confirmed upload)
+  db.pushKey(config.key, () => window.supabaseDB.setList(listName, items));
+}
+
+// Persist list metadata (titles, order) locally and upload it
+function saveListMeta(meta) {
+  db.set('customListsMeta', meta);
+  db.lastLocalChange = Date.now();
+  db.pushKey('customListsMeta', () => window.supabaseDB.setSetting('customListsMeta', meta));
 }
 
 function renderSimpleList(listName) {
@@ -3013,15 +3217,7 @@ window.createNewCustomList = async () => {
   const meta = db.get('customListsMeta', []);
   const id = 'custom-' + Date.now();
   meta.push({ id, title: name.trim() });
-  db.set('customListsMeta', meta);
-  db.lastLocalChange = Date.now();
-
-  // Sync to Supabase
-  if (isSupabaseAvailable()) {
-    window.supabaseDB.setSetting('customListsMeta', meta)
-      .then(err => { if (!err) db.clearDirty('customListsMeta'); })
-      .catch(e => console.error('[Sync] createNewCustomList failed:', e));
-  }
+  saveListMeta(meta);
 
   renderUnifiedLists();
 };
@@ -3039,18 +3235,24 @@ window.renderUnifiedLists = () => {
     div.setAttribute('data-list-id', list.id);
     div.setAttribute('data-list-index', index);
 
+    // Titles and ids may come from the cloud or a backup file: set them as text/properties only
     div.innerHTML = `
             <div class="list-drag-handle" title="Drag to reorder">⋮⋮</div>
-            <button class="delete-list-btn" onclick="deleteList('${list.id}')" title="Delete List">×</button>
-            <h3 contenteditable="true" 
-                id="title-${list.id}"
-                onblur="updateListTitle('${list.id}', this)"
-                style="outline:none; cursor:text; padding-bottom:2px; 
-                       border-bottom: ${list.title === 'Custom List' ? '1px dashed rgba(255,255,255,0.2)' : 'none'};"
-                title="Click to edit">${list.title}</h3>
-            <div class="simple-list" id="${list.id}List"></div>
-            <button class="btn" onclick="addListItem('${list.id}')" style="margin-top:auto;">+</button>
+            <button class="delete-list-btn" title="Delete List">×</button>
+            <h3 contenteditable="true"
+                style="outline:none; cursor:text; padding-bottom:2px;"
+                title="Click to edit"></h3>
+            <div class="simple-list"></div>
+            <button class="btn list-add-item-btn" style="margin-top:auto;">+</button>
         `;
+    const titleEl = div.querySelector('h3');
+    titleEl.id = `title-${list.id}`;
+    titleEl.textContent = list.title;
+    titleEl.style.borderBottom = list.title === 'Custom List' ? '1px dashed rgba(255,255,255,0.2)' : 'none';
+    titleEl.onblur = () => updateListTitle(list.id, titleEl);
+    div.querySelector('.delete-list-btn').onclick = () => deleteList(list.id);
+    div.querySelector('.simple-list').id = `${list.id}List`;
+    div.querySelector('.list-add-item-btn').onclick = () => addListItem(list.id);
 
     // Drag event handlers
     div.addEventListener('dragstart', handleListDragStart);
@@ -3140,15 +3342,7 @@ function handleListDrop(e) {
   meta.splice(targetIndex, 0, draggedItem);
 
   // Save reordered metadata
-  db.set('customListsMeta', meta);
-  db.lastLocalChange = Date.now();
-
-  // Sync to Supabase
-  if (isSupabaseAvailable()) {
-    window.supabaseDB.setSetting('customListsMeta', meta)
-      .then(err => { if (!err) db.clearDirty('customListsMeta'); })
-      .catch(e => console.error('[Sync] List reorder failed:', e));
-  }
+  saveListMeta(meta);
 
   // Re-render with new order
   renderUnifiedLists();
@@ -3158,18 +3352,15 @@ window.updateListTitle = (id, el) => {
   const meta = db.get('customListsMeta', []);
   const list = meta.find(m => m.id === id);
   if (list) {
-    list.title = el.innerText;
-    db.set('customListsMeta', meta);
-    db.lastLocalChange = Date.now();
+    const newTitle = el.innerText.trim();
+    if (!newTitle || newTitle === list.title) {
+      el.textContent = list.title;
+      return;
+    }
+    list.title = newTitle;
     // Toggle border
     el.style.borderBottom = list.title === 'Custom List' ? '1px dashed rgba(255,255,255,0.2)' : 'none';
-
-    // Sync to Supabase
-    if (isSupabaseAvailable()) {
-      window.supabaseDB.setSetting('customListsMeta', meta)
-        .then(err => { if (!err) db.clearDirty('customListsMeta'); })
-        .catch(e => console.error('[Sync] updateListTitle failed:', e));
-    }
+    saveListMeta(meta);
   }
 };
 
@@ -3183,22 +3374,14 @@ window.deleteList = async (id) => {
   if (!confirmed) return;
 
   const newMeta = meta.filter(m => m.id !== id);
-  db.set('customListsMeta', newMeta);
-  db.lastLocalChange = Date.now();
-  localStorage.removeItem('list-' + id);
-  localStorage.removeItem('dirty_list-' + id); // Also remove dirty flag
+  ['', 'dirty_', 'ts_', 'synced_'].forEach(prefix => localStorage.removeItem(prefix + 'list-' + id));
+  saveListMeta(newMeta);
 
-  // Sync deletion to Supabase
+  // Delete the list from cloud using its ID (not title!). If this fails the row is
+  // orphaned but harmless: lists are only shown when listed in customListsMeta.
   if (isSupabaseAvailable()) {
-    try {
-      // Delete the list from cloud using its ID (not title!)
-      await window.supabaseDB.deleteList(id);
-      // Also update the customListsMeta setting
-      await window.supabaseDB.setSetting('customListsMeta', newMeta);
-      db.clearDirty('customListsMeta');
-    } catch (e) {
-      console.error('[Sync] deleteList failed:', e);
-    }
+    const err = await window.supabaseDB.deleteList(id);
+    if (err) db.reportSyncError('list-' + id, err);
   }
 
   renderUnifiedLists();
@@ -3442,11 +3625,10 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
     task.priority = priorities[(currentIdx + 1) % priorities.length];
 
     if (isFromCalendar && sourceDate) {
-      const key = db.calKey(sourceDate);
-      const tasks = db.get(key, []);
+      const tasks = db.getCalendarTasks(sourceDate);
       if (tasks[index]) {
         tasks[index] = task;
-        db.set(key, tasks);
+        db.setCalendarTasks(sourceDate, tasks);
         renderCalendar();
       }
     } else {
@@ -3462,10 +3644,9 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
     e.stopPropagation();
     if (isFromCalendar && sourceDate) {
       // Delete from calendar
-      const key = db.calKey(sourceDate);
-      const tasks = db.get(key, []);
+      const tasks = db.getCalendarTasks(sourceDate);
       tasks.splice(index, 1);
-      db.set(key, tasks);
+      db.setCalendarTasks(sourceDate, tasks);
       renderCalendar();
       renderKanban();
     } else {
@@ -3499,11 +3680,10 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
       task.text = newText.trim();
 
       if (isFromCalendar && sourceDate) {
-        const key = db.calKey(sourceDate);
-        const tasks = db.get(key, []);
+        const tasks = db.getCalendarTasks(sourceDate);
         if (tasks[index]) {
           tasks[index] = task;
-          db.set(key, tasks);
+          db.setCalendarTasks(sourceDate, tasks);
           renderCalendar();
         }
       } else {
@@ -3587,7 +3767,7 @@ function handleKanbanDrop(e, targetCol, isWeekBased) {
 
       // Same column - reorder within the day
       if (sourceCol === targetCol && sourceKey === targetKey) {
-        const tasks = db.get(targetKey, []);
+        const tasks = db.getCalendarTasks(targetDate);
         let adjustedInsertIndex = insertIndex;
 
         // Adjust for moved item
@@ -3596,7 +3776,7 @@ function handleKanbanDrop(e, targetCol, isWeekBased) {
 
         const [movedTask] = tasks.splice(data.idx, 1);
         tasks.splice(adjustedInsertIndex, 0, movedTask);
-        db.set(targetKey, tasks);
+        db.setCalendarTasks(targetDate, tasks);
 
         renderCalendar();
         renderKanban();
@@ -3604,13 +3784,13 @@ function handleKanbanDrop(e, targetCol, isWeekBased) {
       }
 
       // Different column - move between days
-      const sourceTasks = db.get(sourceKey, []);
+      const sourceTasks = db.getCalendarTasks(sourceDate);
       sourceTasks.splice(data.idx, 1);
-      db.set(sourceKey, sourceTasks);
+      db.setCalendarTasks(sourceDate, sourceTasks);
 
-      const targetTasks = db.get(targetKey, []);
+      const targetTasks = db.getCalendarTasks(targetDate);
       targetTasks.splice(insertIndex, 0, data.task);
-      db.set(targetKey, targetTasks);
+      db.setCalendarTasks(targetDate, targetTasks);
 
       renderCalendar();
       renderKanban();
@@ -3676,10 +3856,15 @@ function deleteKanbanItem(col, index, isWeekBased) {
 }
 
 // ===== EXPORT / IMPORT =====
+// Supabase stores the login session (incl. refresh token) under "sb-<project>-auth-token".
+// It must never end up in a backup file and must survive an import.
+const isAuthStorageKey = (key) => key.startsWith('sb-');
+
 window.exportData = () => {
   const data = {};
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
+    if (!key || isAuthStorageKey(key)) continue;
     data[key] = localStorage.getItem(key);
   }
 
@@ -3687,37 +3872,60 @@ window.exportData = () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `dalis-dashboard-backup-${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `dalis-dashboard-backup-${getTodayKey()}.json`;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 
   sounds.click();
 };
 
-window.importData = (event) => {
-  const file = event.target.files[0];
+window.importData = async (event) => {
+  const input = event.target;
+  const file = input.files && input.files[0];
+  input.value = ''; // allow choosing the same file again
   if (!file) return;
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target.result);
+  const fail = (message) => showNotification('❌ Import failed', message, 'info', 8000);
+  let data;
+  try {
+    data = JSON.parse(await file.text());
+  } catch (err) {
+    return fail('The file is not a valid JSON backup.');
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return fail('Unexpected backup format.');
+  const entries = Object.entries(data).filter(([key]) => !isAuthStorageKey(key));
+  if (entries.length === 0) return fail('The backup is empty.');
+  if (entries.some(([, value]) => typeof value !== 'string')) return fail('Unexpected backup format (values must be text).');
 
-      if (!confirm("This will replace all your current data. Continue?")) return;
+  const uploads = isSupabaseAvailable();
+  const confirmed = await showConfirmModal('Import backup?',
+    `All dashboard data on this device will be replaced by the ${entries.length} entries from "${file.name}"` +
+    (uploads ? ' and then uploaded to the cloud.' : '.'));
+  if (!confirmed) return;
 
-      localStorage.clear();
-      Object.entries(data).forEach(([key, value]) => {
-        localStorage.setItem(key, value);
-      });
+  // Keep the login session, replace everything else
+  const session = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && isAuthStorageKey(key)) session.push([key, localStorage.getItem(key)]);
+  }
+  try {
+    localStorage.clear();
+    session.forEach(([key, value]) => localStorage.setItem(key, value));
+    entries.forEach(([key, value]) => localStorage.setItem(key, value));
+  } catch (err) {
+    return fail('Not enough storage space on this device: ' + describeError(err));
+  }
 
-      sounds.success();
-      alert("Data imported successfully! Refreshing...");
-      location.reload();
-    } catch (err) {
-      alert("Failed to import: Invalid file format");
-    }
-  };
-  reader.readAsText(file);
+  // Without the upload, the next sync would replace the restored data with the cloud version
+  if (uploads) {
+    const result = await db.pushToCloud();
+    if (result.errors.length > 0) console.warn('[Import] Upload errors:', result.errors);
+  }
+  sounds.success();
+  location.reload();
 };
 
 // ===== START =====
@@ -3818,8 +4026,8 @@ function toggleGymHub() {
     toggle.textContent = '▼';
   }
 
-  // Save state
-  db.set('gymHubOpen', !content.classList.contains('collapsed'));
+  // Save state (local UI preference, not synced)
+  localStorage.setItem('gymHubOpen', JSON.stringify(!content.classList.contains('collapsed')));
 }
 
 function updateGymQuote() {
@@ -4093,7 +4301,7 @@ function renderSupplementsForWeek(weekOffset) {
   supplements.forEach((name, idx) => {
     html += `<div class="supp-row">
       <div style="display:flex; align-items:center; flex:1; min-width:0;">
-        <span class="supp-name">${name}</span>
+        <span class="supp-name">${escapeHtml(name)}</span>
         <button class="delete-btn" style="margin-left:6px; opacity:0; transition:opacity 0.2s; flex-shrink:0;" onclick="event.stopPropagation(); deleteSupplement(${idx})">×</button>
       </div>
       <div class="supp-days-grid">`;
@@ -4102,15 +4310,21 @@ function renderSupplementsForWeek(weekOffset) {
       const takenList = history[key] || [];
       const isActive = takenList.includes(name);
       const activeClass = isActive ? 'active' : '';
-      const cleanName = name.replace(/'/g, "\\'");
-      // Only allow clicking if not viewing historical data (or always allow to correct mistakes)
-      html += `<div class="day-circle ${activeClass}" onclick="toggleSupplementDay('${cleanName}', '${key}')" title="${key}"></div>`;
+      // Names are looked up by index on click (see listener below), never embedded in JS
+      html += `<div class="day-circle ${activeClass}" data-supp-index="${idx}" data-date="${key}" title="${key}"></div>`;
     });
 
     html += `</div></div>`;
   });
 
   container.innerHTML = html;
+
+  container.querySelectorAll('.day-circle[data-supp-index]').forEach(circle => {
+    circle.onclick = () => {
+      const suppName = supplements[parseInt(circle.dataset.suppIndex)];
+      if (suppName !== undefined) toggleSupplementDay(suppName, circle.dataset.date);
+    };
+  });
 
   // Quick fix for delete visibility
   const rows = container.querySelectorAll('.supp-row');
@@ -4170,17 +4384,16 @@ function saveGymData(type) {
   }
 
   db.set('gymHubData', gymData);
-  db.lastLocalChange = Date.now();
-
-  // Sync to Supabase
-  if (isSupabaseAvailable()) {
-    window.supabaseDB.setSetting('gymHubData', gymData)
-      .then(err => { if (!err) db.clearDirty('gymHubData'); })
-      .catch(e => console.error('[Sync] Gym Hub save failed:', e));
-  }
+  syncGymData();
 
   // Visual feedback
-  showNotification('Saved! 💪', 'success');
+  showNotification('Saved! 💪', '', 'success');
+}
+
+// Sets an input's value if the element exists (several Health Hub fields were removed from the page)
+function setInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value === undefined || value === null ? '' : value;
 }
 
 function loadGymData() {
@@ -4188,50 +4401,22 @@ function loadGymData() {
   const gymData = db.get('gymHubData', {});
   const todayData = gymData[todayKey] || {};
 
-  // Load nutrition notes
-  if (todayData.nutritionNotes) {
-    document.getElementById('nutritionNotes').value = todayData.nutritionNotes;
-  } else {
-    document.getElementById('nutritionNotes').value = '';
-  }
+  setInputValue('nutritionNotes', todayData.nutritionNotes);
 
-  // Load macros
-  if (todayData.macros) {
-    document.getElementById('macroCalories').value = todayData.macros.calories || '';
-    document.getElementById('macroProtein').value = todayData.macros.protein || '';
-    document.getElementById('macroCarbs').value = todayData.macros.carbs || '';
-    document.getElementById('macroFat').value = todayData.macros.fat || '';
-  } else {
-    document.getElementById('macroCalories').value = '';
-    document.getElementById('macroProtein').value = '';
-    document.getElementById('macroCarbs').value = '';
-    document.getElementById('macroFat').value = '';
-  }
+  const macros = todayData.macros || {};
+  setInputValue('macroCalories', macros.calories);
+  setInputValue('macroProtein', macros.protein);
+  setInputValue('macroCarbs', macros.carbs);
+  setInputValue('macroFat', macros.fat);
 
-  // Load workout log
-  if (todayData.workoutLog) {
-    document.getElementById('workoutLog').value = todayData.workoutLog;
-  } else {
-    document.getElementById('workoutLog').value = '';
-  }
+  setInputValue('workoutLog', todayData.workoutLog);
 
-  // Load progress
-  if (todayData.progress) {
-    document.getElementById('progressWeight').value = todayData.progress.weight || '';
-    document.getElementById('progressBodyFat').value = todayData.progress.bodyFat || '';
-    document.getElementById('progressNotes').value = todayData.progress.notes || '';
-  } else {
-    document.getElementById('progressWeight').value = '';
-    document.getElementById('progressBodyFat').value = '';
-    document.getElementById('progressNotes').value = '';
-  }
+  const progress = todayData.progress || {};
+  setInputValue('progressWeight', progress.weight);
+  setInputValue('progressBodyFat', progress.bodyFat);
+  setInputValue('progressNotes', progress.notes);
 
-  // Load inspiration (global)
-  if (gymData.inspiration) {
-    document.getElementById('inspirationNotes').value = gymData.inspiration;
-  } else {
-    document.getElementById('inspirationNotes').value = '';
-  }
+  setInputValue('inspirationNotes', gymData.inspiration);
 }
 
 // Restore Gym Hub state on load
@@ -4243,13 +4428,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (content && toggle) {
       content.classList.remove('collapsed');
       toggle.textContent = '▲';
-      window.loadGymData();
       updateGymQuote();
     }
   }
 
-  // Always render supplements regardless of gym hub state
-  renderSupplements();
+  // The hero row (streak, water, macros, supplements) is always visible: load today's values
+  try { window.loadGymData(); } catch (e) { console.error('[Health Hub] load failed', e); }
   updateHeroSupplementButtons();
 });
 
@@ -4263,7 +4447,8 @@ let currentWater = 0;
 const waterGoal = 3000;
 
 function addWater(amount) {
-  currentWater += amount;
+  const todayData = db.get('gymHubData', {})[getTodayKey()] || {};
+  currentWater = (Number(todayData.water) || 0) + amount;
   updateWaterDisplay();
   saveGymData('water');
 }
@@ -4311,8 +4496,8 @@ function renderPRList() {
 
   container.innerHTML = prs.map((pr, i) => `
     <div class="pr-item">
-      <span class="pr-exercise">${pr.exercise}</span>
-      <span class="pr-weight">${pr.weight}</span>
+      <span class="pr-exercise">${escapeHtml(pr.exercise)}</span>
+      <span class="pr-weight">${escapeHtml(pr.weight)}</span>
       <button class="pr-delete" onclick="deletePR(${i})">×</button>
     </div>
   `).join('');
@@ -4424,10 +4609,10 @@ function quickToggleSupplement(name) {
   const idx = gymData.supplementsTaken[todayKey].indexOf(name);
   if (idx > -1) {
     gymData.supplementsTaken[todayKey].splice(idx, 1);
-    showNotification(`${name} unmarked`, 'info');
+    showNotification(`${name} unmarked`, '', 'info');
   } else {
     gymData.supplementsTaken[todayKey].push(name);
-    showNotification(`${name} ✓`, 'success');
+    showNotification(`${name} ✓`, '', 'success');
   }
 
   db.set('gymHubData', gymData);
@@ -4510,9 +4695,9 @@ function logWorkoutDay() {
   if (!gymData.workoutDays.includes(todayKey)) {
     gymData.workoutDays.push(todayKey);
     db.set('gymHubData', gymData);
-    showNotification('Workout logged! 🔥', 'success');
+    showNotification('Workout logged! 🔥', '', 'success');
   } else {
-    showNotification('Already logged today!', 'info');
+    showNotification('Already logged today!', '', 'info');
   }
 
   updateStreakDisplay();
@@ -4571,7 +4756,7 @@ function toggleTimer() {
 
         // Play sound or vibrate
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-        showNotification('Rest complete! 💪', 'success');
+        showNotification('Rest complete! 💪', '', 'success');
       }
     }, 1000);
   }
@@ -4623,7 +4808,7 @@ function renderWeeklyGoals() {
   container.innerHTML = goals.map((goal, i) => `
     <div class="weekly-goal-item ${goal.done ? 'done' : ''}" onclick="toggleWeeklyGoal(${i})">
       <div class="goal-check">${goal.done ? '✓' : ''}</div>
-      <span class="goal-text">${goal.text}</span>
+      <span class="goal-text">${escapeHtml(goal.text)}</span>
       <button class="goal-delete" onclick="event.stopPropagation(); deleteWeeklyGoal(${i})">×</button>
     </div>
   `).join('');
@@ -4677,7 +4862,7 @@ function renderTrainingGoals() {
   container.innerHTML = goals.map((goal, i) => `
     <div class="weekly-goal-item ${goal.done ? 'done' : ''}" onclick="toggleTrainingGoal(${i})">
       <div class="goal-check">${goal.done ? '✓' : ''}</div>
-      <span class="goal-text">${goal.text}</span>
+      <span class="goal-text">${escapeHtml(goal.text)}</span>
       <button class="delete-goal-btn" onclick="event.stopPropagation(); deleteTrainingGoal(${i})">×</button>
     </div>
   `).join('');
@@ -4725,11 +4910,7 @@ window.deleteTrainingGoal = deleteTrainingGoal;
 function syncGymData() {
   const gymData = db.get('gymHubData', {});
   db.lastLocalChange = Date.now();
-  if (isSupabaseAvailable()) {
-    window.supabaseDB.setSetting('gymHubData', gymData)
-      .then(err => { if (!err) db.clearDirty('gymHubData'); })
-      .catch(e => console.error('[Sync] Gym Hub sync failed:', e));
-  }
+  db.pushKey('gymHubData', () => window.supabaseDB.setSetting('gymHubData', gymData));
 }
 
 // ===== ENHANCED LOAD GYM DATA =====
@@ -4750,16 +4931,16 @@ window.loadGymData = function () {
 
   // Load sleep
   if (todayData.sleep) {
-    document.getElementById('sleepHours').value = todayData.sleep.hours || '';
+    setInputValue('sleepHours', todayData.sleep.hours);
     if (todayData.sleep.quality) setSleepQuality(todayData.sleep.quality);
   }
 
   // Load measurements
   if (todayData.measurements) {
-    document.getElementById('measureChest').value = todayData.measurements.chest || '';
-    document.getElementById('measureWaist').value = todayData.measurements.waist || '';
-    document.getElementById('measureArms').value = todayData.measurements.arms || '';
-    document.getElementById('measureLegs').value = todayData.measurements.legs || '';
+    setInputValue('measureChest', todayData.measurements.chest);
+    setInputValue('measureWaist', todayData.measurements.waist);
+    setInputValue('measureArms', todayData.measurements.arms);
+    setInputValue('measureLegs', todayData.measurements.legs);
   }
 
   // Load weekly split
@@ -4816,7 +4997,7 @@ window.saveGymData = function (type) {
 
   db.set('gymHubData', gymData);
   syncGymData();
-  showNotification('Saved! 💪', 'success');
+  showNotification('Saved! 💪', '', 'success');
 };
 
 // ===== MACRO CHART =====
@@ -5049,7 +5230,7 @@ function quickAddFood(name, cals, protein, carbs, fat) {
   updateMacroChart();
 
   // Show notification
-  showNotification(`Added ${name}! 🍽️`, 'success');
+  showNotification(`Added ${name}! 🍽️`, '', 'success');
 }
 
 window.quickAddFood = quickAddFood;

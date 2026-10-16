@@ -15,7 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Styles -->
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20261016">
   <style>
     /* Nutrition Settings Styles */
     .settings-icon-btn {
@@ -186,6 +186,32 @@
       <div class="input-modal-actions">
         <button class="btn input-modal-cancel" id="inputModalCancel">Cancel</button>
         <button class="btn input-modal-submit" id="inputModalSubmit">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sync & Backup Panel -->
+  <div class="input-modal" id="syncModal" role="dialog" aria-modal="true" aria-labelledby="syncModalTitle"
+    onclick="if (event.target === this) closeSyncDetails()">
+    <div class="input-modal-content glass-panel sync-modal-content">
+      <h3 id="syncModalTitle">☁️ Sync &amp; Backup</h3>
+      <div class="sync-modal-status" id="syncModalStatus" aria-live="polite"></div>
+      <div class="sync-modal-actions">
+        <button class="btn sync-primary" onclick="syncNow(this)">Sync now</button>
+        <button class="btn" onclick="exportData()">Export backup</button>
+        <button class="btn" onclick="document.getElementById('importFile').click()">Import backup…</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden onchange="importData(event)">
+      </div>
+      <details class="sync-modal-advanced">
+        <summary>Resolve sync problems</summary>
+        <p>Use these only if two devices show different data.</p>
+        <div class="sync-modal-actions">
+          <button class="btn" onclick="forceDownload(this)">Cloud → this device</button>
+          <button class="btn" onclick="forceUpload(this)">This device → cloud</button>
+        </div>
+      </details>
+      <div class="input-modal-actions">
+        <button class="btn input-modal-cancel" id="syncModalClose" onclick="closeSyncDetails()">Close</button>
       </div>
     </div>
   </div>
@@ -505,6 +531,9 @@
         </div>
       </div>
       <div class="streak-history" id="streakHistory"></div>
+
+      <!-- Step Challenge (rendered by js/steps.js once the user is known) -->
+      <section class="glass-panel step-card" id="stepChallenge" aria-labelledby="stepChallengeTitle" hidden></section>
 
       <!-- Collapsible content -->
       <div class="gym-hub-content collapsed" id="gymHubContent">
@@ -957,11 +986,14 @@
     </div>
   </div>
 
-  <!-- Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/supabase.js"></script>
-  <script src="js/app.js"></script>
+  <!-- Supabase (pinned: update deliberately, not on every upstream release) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+  <script src="js/data-utils.js?v=20261016"></script>
+  <script src="js/auth.js?v=20261016"></script>
+  <script src="js/supabase.js?v=20261016"></script>
+  <script src="js/steps-core.js?v=20261016"></script>
+  <script src="js/steps.js?v=20261016"></script>
+  <script src="js/app.js?v=20261016"></script>
 </body>
 
 </html>

@@ -11,20 +11,55 @@
         return;
     }
 
-    // Initialize Supabase client
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Reuse the client created by auth.js: two clients on the same storage key
+    // would refresh the session token independently and can race each other.
+    const supabase = window.supabaseClient || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // Helper to get current user ID
     function getUserId() {
         return window.currentUserId || null;
     }
 
+    // Serialize writes per data key. Several writes (delete + insert, or
+    // select + insert) must not interleave for the same key, otherwise rows get
+    // duplicated or deleted entries come back.
+    const writeLocks = new Map();
+    function withLock(lockKey, task) {
+        const previous = writeLocks.get(lockKey) || Promise.resolve();
+        const next = previous.catch(function () { }).then(task);
+        writeLocks.set(lockKey, next);
+        next.finally(function () {
+            if (writeLocks.get(lockKey) === next) writeLocks.delete(lockKey);
+        }).catch(function () { });
+        return next;
+    }
+
+    // Older data may contain duplicate rows for one key. Prefer the last row
+    // returned (most recently written in practice) instead of failing.
+    function lastRow(rows) {
+        return rows && rows.length ? rows[rows.length - 1] : null;
+    }
+
+    // Update all rows matching the filter; insert one row when none exists.
+    async function updateOrInsert(table, match, values) {
+        let query = supabase.from(table).update(values);
+        Object.keys(match).forEach(function (col) { query = query.eq(col, match[col]); });
+        const { data: updated, error: updateError } = await query.select('id');
+        if (updateError) return updateError;
+        if (updated && updated.length > 0) return null;
+
+        const { error: insertError } = await supabase.from(table).insert(Object.assign({}, match, values));
+        return insertError || null;
+    }
+
     // ===== SUPABASE DATABASE API =====
+    // Getters return null when the request failed, so callers can tell
+    // "cloud is empty" apart from "cloud not reachable".
     const supabaseDB = {
         // ===== GOALS =====
         async getGoals(dateKey) {
             const userId = getUserId();
-            if (!userId) return [];
+            if (!userId) return null;
 
             const { data, error } = await supabase
                 .from('goals')
@@ -35,7 +70,7 @@
 
             if (error) {
                 console.error('Error fetching goals:', error);
-                return [];
+                return null;
             }
             return data.map(function (g) {
                 return {
@@ -49,47 +84,49 @@
             });
         },
 
-        async setGoals(dateKey, goals) {
-            const userId = getUserId();
-            if (!userId) {
-                console.error('[Supabase] setGoals failed: Not logged in');
-                return { error: 'Not logged in' };
-            }
-
-            // Delete existing goals for this date and user
-            const { error: deleteError } = await supabase.from('goals').delete().eq('user_id', userId).eq('date', dateKey);
-            if (deleteError) {
-                console.error('[Supabase] setGoals delete failed:', deleteError);
-                return deleteError; // Return early - don't insert if delete failed
-            }
-
-            // Insert new goals with position to preserve order
-            if (goals.length > 0) {
-                const rows = goals.map(function (g, index) {
-                    return {
-                        user_id: userId,
-                        date: dateKey,
-                        text: typeof g === 'string' ? g : g.text,
-                        done: typeof g === 'string' ? false : (g.done || false),
-                        rolled_from: g.rolledFrom || null,
-                        priority: g.priority || null,
-                        urgency: g.urgency || null,
-                        position: index
-                    };
-                });
-
-                const { error } = await supabase.from('goals').insert(rows);
-                if (error) {
-                    console.error('Error saving goals:', error);
-                    return error;
+        setGoals(dateKey, goals) {
+            return withLock('goals:' + dateKey, async function () {
+                const userId = getUserId();
+                if (!userId) {
+                    console.error('[Supabase] setGoals failed: Not logged in');
+                    return { error: 'Not logged in' };
                 }
-            }
-            return null;
+
+                // Delete existing goals for this date and user
+                const { error: deleteError } = await supabase.from('goals').delete().eq('user_id', userId).eq('date', dateKey);
+                if (deleteError) {
+                    console.error('[Supabase] setGoals delete failed:', deleteError);
+                    return deleteError; // Return early - don't insert if delete failed
+                }
+
+                // Insert new goals with position to preserve order
+                if (goals.length > 0) {
+                    const rows = goals.map(function (g, index) {
+                        return {
+                            user_id: userId,
+                            date: dateKey,
+                            text: typeof g === 'string' ? g : g.text,
+                            done: typeof g === 'string' ? false : (g.done || false),
+                            rolled_from: g.rolledFrom || null,
+                            priority: g.priority || null,
+                            urgency: g.urgency || null,
+                            position: index
+                        };
+                    });
+
+                    const { error } = await supabase.from('goals').insert(rows);
+                    if (error) {
+                        console.error('Error saving goals:', error);
+                        return error;
+                    }
+                }
+                return null;
+            });
         },
 
         async getAllGoals() {
             const userId = getUserId();
-            if (!userId) return {};
+            if (!userId) return null;
 
             const { data, error } = await supabase
                 .from('goals')
@@ -100,7 +137,7 @@
 
             if (error) {
                 console.error('Error fetching all goals:', error);
-                return {};
+                return null;
             }
 
             // Group by date
@@ -126,7 +163,7 @@
         // ===== HABITS =====
         async getHabits() {
             const userId = getUserId();
-            if (!userId) return [];
+            if (!userId) return null;
 
             const { data, error } = await supabase
                 .from('habits')
@@ -136,62 +173,71 @@
 
             if (error) {
                 console.error('Error fetching habits:', error);
-                return [];
+                return null;
             }
             return data.map(function (h) {
                 return { id: h.id, name: h.name, color: h.color, history: h.history || {} };
             });
         },
 
-        async setHabits(habits) {
-            const userId = getUserId();
-            if (!userId) return { error: 'Not logged in' };
+        // Habits inserted without id get the new cloud id written onto the
+        // passed objects, so the caller can store it locally.
+        setHabits(habits) {
+            return withLock('habits', async function () {
+                const userId = getUserId();
+                if (!userId) return { error: 'Not logged in' };
 
-            try {
-                // Normalize habits: convert strings to objects
-                const normalizedHabits = habits.map(h => {
-                    if (typeof h === 'string') {
-                        return { name: h, color: '#6366f1', history: {} };
+                try {
+                    // Normalize habits: convert strings to objects
+                    const normalizedHabits = habits.map(h => {
+                        if (typeof h === 'string') {
+                            return { name: h, color: '#6366f1', history: {} };
+                        }
+                        return h;
+                    });
+
+                    // 1. Get current cloud IDs to detect deletions
+                    const { data: existing, error: selectError } = await supabase
+                        .from('habits')
+                        .select('id')
+                        .eq('user_id', userId);
+                    if (selectError) return selectError;
+
+                    const currentIds = existing ? existing.map(h => h.id) : [];
+                    const newIds = normalizedHabits.map(h => h.id).filter(id => id); // Valid IDs only
+
+                    // 2. Delete habits that are missing from the new list
+                    const idsToDelete = currentIds.filter(id => !newIds.includes(id));
+                    if (idsToDelete.length > 0) {
+                        const { error } = await supabase.from('habits').delete().in('id', idsToDelete).eq('user_id', userId);
+                        if (error) return error;
                     }
-                    return h;
-                });
 
-                // 1. Get current cloud IDs to detect deletions
-                const { data: existing } = await supabase
-                    .from('habits')
-                    .select('id')
-                    .eq('user_id', userId);
+                    // 3. Upsert (Insert/Update)
+                    for (var i = 0; i < normalizedHabits.length; i++) {
+                        var habit = normalizedHabits[i];
+                        var payload = {
+                            user_id: userId,
+                            name: habit.name,
+                            color: habit.color || '#6366f1',
+                            history: habit.history || {}
+                        };
 
-                const currentIds = existing ? existing.map(h => h.id) : [];
-                const newIds = normalizedHabits.map(h => h.id).filter(id => id); // Valid IDs only
-
-                // 2. Delete habits that are missing from the new list
-                const idsToDelete = currentIds.filter(id => !newIds.includes(id));
-                if (idsToDelete.length > 0) {
-                    await supabase.from('habits').delete().in('id', idsToDelete).eq('user_id', userId);
-                }
-
-                // 3. Upsert (Insert/Update)
-                for (var i = 0; i < normalizedHabits.length; i++) {
-                    var habit = normalizedHabits[i];
-                    var payload = {
-                        user_id: userId,
-                        name: habit.name,
-                        color: habit.color || '#6366f1',
-                        history: habit.history || {}
-                    };
-
-                    if (habit.id) {
-                        await supabase.from('habits').update(payload).eq('id', habit.id).eq('user_id', userId);
-                    } else {
-                        await supabase.from('habits').insert(payload);
+                        if (habit.id) {
+                            const { error } = await supabase.from('habits').update(payload).eq('id', habit.id).eq('user_id', userId);
+                            if (error) return error;
+                        } else {
+                            const { data, error } = await supabase.from('habits').insert(payload).select('id').single();
+                            if (error) return error;
+                            if (data && data.id) habit.id = data.id;
+                        }
                     }
+                    return null; // Success
+                } catch (e) {
+                    console.error('Error in setHabits:', e);
+                    return { error: e.message };
                 }
-                return null; // Success
-            } catch (e) {
-                console.error('Error in setHabits:', e);
-                return { error: e.message };
-            }
+            });
         },
 
         async addHabit(habit) {
@@ -240,52 +286,37 @@
         // ===== NOTES =====
         async getNotes(dateKey) {
             const userId = getUserId();
-            if (!userId) return '';
+            if (!userId) return null;
 
             const { data, error } = await supabase
                 .from('notes')
                 .select('content')
                 .eq('user_id', userId)
-                .eq('date', dateKey)
-                .single();
+                .eq('date', dateKey);
 
-            if (error && error.code !== 'PGRST116') { // PGRST116 = no rows
+            if (error) {
                 console.error('Error fetching notes:', error);
+                return null;
             }
-            return data ? data.content : '';
+            const row = lastRow(data);
+            return row ? (row.content || '') : '';
         },
 
-        async setNotes(dateKey, content) {
-            const userId = getUserId();
-            if (!userId) return;
+        setNotes(dateKey, content) {
+            return withLock('notes:' + dateKey, async function () {
+                const userId = getUserId();
+                if (!userId) return { error: 'Not logged in' };
 
-            // First try to update, then insert if needed
-            const { data: existing } = await supabase
-                .from('notes')
-                .select('id')
-                .eq('user_id', userId)
-                .eq('date', dateKey)
-                .single();
-
-            if (existing) {
-                const { error } = await supabase
-                    .from('notes')
-                    .update({ content: content })
-                    .eq('id', existing.id);
-                if (error) { console.error('Error saving notes:', error); return error; }
-            } else {
-                const { error } = await supabase
-                    .from('notes')
-                    .insert({ user_id: userId, date: dateKey, content: content });
-                if (error) { console.error('Error saving notes:', error); return error; }
-            }
-            return null;
+                const error = await updateOrInsert('notes', { user_id: userId, date: dateKey }, { content: content });
+                if (error) console.error('Error saving notes:', error);
+                return error;
+            });
         },
 
         // ===== KANBAN (Weekly) =====
         async getKanban(weekKey) {
             const userId = getUserId();
-            if (!userId) return {};
+            if (!userId) return null;
 
             const { data, error } = await supabase
                 .from('kanban_tasks')
@@ -296,7 +327,7 @@
 
             if (error) {
                 console.error('Error fetching kanban:', error);
-                return {};
+                return null;
             }
 
             // Group by column - parse JSON if stored as object
@@ -313,43 +344,45 @@
             return kanban;
         },
 
-        async setKanban(weekKey, kanbanData) {
-            const userId = getUserId();
-            if (!userId) return { error: 'Not logged in' };
+        setKanban(weekKey, kanbanData) {
+            return withLock('week:' + weekKey, async function () {
+                const userId = getUserId();
+                if (!userId) return { error: 'Not logged in' };
 
-            // Delete existing for this week and user
-            const { error: deleteError } = await supabase.from('kanban_tasks').delete().eq('user_id', userId).eq('week_key', weekKey);
-            if (deleteError) {
-                console.error('[Supabase] setKanban delete failed:', deleteError);
-                return deleteError;
-            }
-
-            // Insert new
-            var rows = [];
-            Object.entries(kanbanData).forEach(function (entry) {
-                var colName = entry[0];
-                var tasks = entry[1];
-                tasks.forEach(function (task, idx) {
-                    // If task is an object, stringify it; otherwise store as-is
-                    var text = typeof task === 'object' ? JSON.stringify(task) : task;
-                    rows.push({ user_id: userId, week_key: weekKey, column_name: colName, text: text, sort_order: idx });
-                });
-            });
-
-            if (rows.length > 0) {
-                const { error } = await supabase.from('kanban_tasks').insert(rows);
-                if (error) {
-                    console.error('Error saving kanban:', error);
-                    return error;
+                // Delete existing for this week and user
+                const { error: deleteError } = await supabase.from('kanban_tasks').delete().eq('user_id', userId).eq('week_key', weekKey);
+                if (deleteError) {
+                    console.error('[Supabase] setKanban delete failed:', deleteError);
+                    return deleteError;
                 }
-            }
-            return null;
+
+                // Insert new
+                var rows = [];
+                Object.entries(kanbanData).forEach(function (entry) {
+                    var colName = entry[0];
+                    var tasks = entry[1];
+                    tasks.forEach(function (task, idx) {
+                        // If task is an object, stringify it; otherwise store as-is
+                        var text = typeof task === 'object' ? JSON.stringify(task) : task;
+                        rows.push({ user_id: userId, week_key: weekKey, column_name: colName, text: text, sort_order: idx });
+                    });
+                });
+
+                if (rows.length > 0) {
+                    const { error } = await supabase.from('kanban_tasks').insert(rows);
+                    if (error) {
+                        console.error('Error saving kanban:', error);
+                        return error;
+                    }
+                }
+                return null;
+            });
         },
 
         // ===== BACKLOG =====
         async getBacklog() {
             const userId = getUserId();
-            if (!userId) return {};
+            if (!userId) return null;
 
             const { data, error } = await supabase
                 .from('backlog_tasks')
@@ -359,7 +392,7 @@
 
             if (error) {
                 console.error('Error fetching backlog:', error);
-                return {};
+                return null;
             }
 
             var backlog = {};
@@ -375,97 +408,76 @@
             return backlog;
         },
 
-        async setBacklog(backlogData) {
-            const userId = getUserId();
-            if (!userId) return { error: 'Not logged in' };
+        setBacklog(backlogData) {
+            return withLock('backlog', async function () {
+                const userId = getUserId();
+                if (!userId) return { error: 'Not logged in' };
 
-            // Delete all existing for this user
-            const { error: deleteError } = await supabase.from('backlog_tasks').delete().eq('user_id', userId);
-            if (deleteError) {
-                console.error('[Supabase] setBacklog delete failed:', deleteError);
-                return deleteError;
-            }
+                // Delete all existing for this user
+                const { error: deleteError } = await supabase.from('backlog_tasks').delete().eq('user_id', userId);
+                if (deleteError) {
+                    console.error('[Supabase] setBacklog delete failed:', deleteError);
+                    return deleteError;
+                }
 
-            // Insert new
-            var rows = [];
-            Object.entries(backlogData).forEach(function (entry) {
-                var colName = entry[0];
-                var tasks = entry[1];
-                tasks.forEach(function (task, idx) {
-                    // If task is an object, stringify it; otherwise store as-is
-                    var text = typeof task === 'object' ? JSON.stringify(task) : task;
-                    rows.push({ user_id: userId, column_name: colName, text: text, sort_order: idx });
+                // Insert new
+                var rows = [];
+                Object.entries(backlogData).forEach(function (entry) {
+                    var colName = entry[0];
+                    var tasks = entry[1];
+                    tasks.forEach(function (task, idx) {
+                        // If task is an object, stringify it; otherwise store as-is
+                        var text = typeof task === 'object' ? JSON.stringify(task) : task;
+                        rows.push({ user_id: userId, column_name: colName, text: text, sort_order: idx });
+                    });
                 });
-            });
 
-            if (rows.length > 0) {
-                const { error } = await supabase.from('backlog_tasks').insert(rows);
-                if (error) { console.error('Error saving backlog:', error); return error; }
-            }
-            return null;
+                if (rows.length > 0) {
+                    const { error } = await supabase.from('backlog_tasks').insert(rows);
+                    if (error) { console.error('Error saving backlog:', error); return error; }
+                }
+                return null;
+            });
         },
 
         // ===== LISTS (Shopping, Chores, Goals2026, Custom) =====
         async getList(listName) {
             const userId = getUserId();
-            if (!userId) return { items: [], icon: 'list' };
+            if (!userId) return null;
 
             const { data, error } = await supabase
                 .from('lists')
                 .select('*')
                 .eq('user_id', userId)
-                .eq('name', listName)
-                .single();
+                .eq('name', listName);
 
-            if (error && error.code !== 'PGRST116') {
+            if (error) {
                 console.error('Error fetching list:', error);
+                return null;
             }
-            return data ? { items: data.items || [], icon: data.icon, id: data.id } : { items: [], icon: 'list' };
+            const row = lastRow(data);
+            return row ? { items: row.items || [], icon: row.icon, id: row.id } : { items: [], icon: 'list' };
         },
 
-        async setList(listName, items, icon) {
-            const userId = getUserId();
-            if (!userId) return { error: 'Not logged in' };
+        setList(listName, items, icon) {
+            return withLock('list:' + listName, async function () {
+                const userId = getUserId();
+                if (!userId) return { error: 'Not logged in' };
 
-            icon = icon || 'list';
-
-            try {
-                // Check if list exists
-                const { data: existing } = await supabase
-                    .from('lists')
-                    .select('id')
-                    .eq('user_id', userId)
-                    .eq('name', listName)
-                    .single();
-
-                if (existing) {
-                    const { error } = await supabase
-                        .from('lists')
-                        .update({ items: items, icon: icon })
-                        .eq('id', existing.id);
-                    if (error) {
-                        console.error('Error saving list:', error);
-                        return error;
-                    }
-                } else {
-                    const { error } = await supabase
-                        .from('lists')
-                        .insert({ user_id: userId, name: listName, items: items, icon: icon });
-                    if (error) {
-                        console.error('Error saving list:', error);
-                        return error;
-                    }
+                try {
+                    const error = await updateOrInsert('lists', { user_id: userId, name: listName }, { items: items, icon: icon || 'list' });
+                    if (error) console.error('Error saving list:', error);
+                    return error;
+                } catch (e) {
+                    console.error('Error in setList:', e);
+                    return { error: e.message };
                 }
-                return null; // Success
-            } catch (e) {
-                console.error('Error in setList:', e);
-                return { error: e.message };
-            }
+            });
         },
 
         async getAllLists() {
             const userId = getUserId();
-            if (!userId) return [];
+            if (!userId) return null;
 
             const { data, error } = await supabase
                 .from('lists')
@@ -475,24 +487,27 @@
 
             if (error) {
                 console.error('Error fetching all lists:', error);
-                return [];
+                return null;
             }
             return data.map(function (l) {
                 return { name: l.name, items: l.items || [], icon: l.icon };
             });
         },
 
-        async deleteList(listName) {
-            const userId = getUserId();
-            if (!userId) return;
+        deleteList(listName) {
+            return withLock('list:' + listName, async function () {
+                const userId = getUserId();
+                if (!userId) return { error: 'Not logged in' };
 
-            const { error } = await supabase
-                .from('lists')
-                .delete()
-                .eq('user_id', userId)
-                .eq('name', listName);
+                const { error } = await supabase
+                    .from('lists')
+                    .delete()
+                    .eq('user_id', userId)
+                    .eq('name', listName);
 
-            if (error) console.error('Error deleting list:', error);
+                if (error) console.error('Error deleting list:', error);
+                return error || null;
+            });
         },
 
         // ===== POMODORO STATS =====
@@ -560,60 +575,95 @@
         },
 
         // ===== SETTINGS =====
+        // Returns null when the request failed, defaultValue when no row exists.
         async getSetting(key, defaultValue) {
-            const userId = getUserId();
-            if (!userId) return defaultValue || null;
+            const result = await this.fetchSetting(key);
+            if (!result.ok) return null;
+            if (!result.exists) return defaultValue === undefined ? null : defaultValue;
+            return result.value;
+        },
 
-            defaultValue = defaultValue || null;
+        // Unambiguous variant: { ok, exists, value, error }
+        async fetchSetting(key) {
+            const userId = getUserId();
+            if (!userId) return { ok: false, error: { message: 'Not logged in' } };
+
             const { data, error } = await supabase
                 .from('settings')
                 .select('value')
                 .eq('user_id', userId)
-                .eq('key', key)
-                .single();
+                .eq('key', key);
 
-            if (error && error.code !== 'PGRST116') {
-                console.error('Error fetching setting:', error);
+            if (error) {
+                console.error('Error fetching setting:', key, error);
+                return { ok: false, error: error };
             }
-            return (data && data.value !== undefined) ? data.value : defaultValue;
+            if (data.length > 1) console.warn('[Supabase] Duplicate settings rows for', key, '- using the last one');
+            const row = lastRow(data);
+            return { ok: true, exists: !!row, value: row ? row.value : null };
         },
 
-        async setSetting(key, value) {
-            const userId = getUserId();
-            if (!userId) return { error: 'Not logged in' };
+        setSetting(key, value) {
+            return withLock('setting:' + key, async function () {
+                const userId = getUserId();
+                if (!userId) return { error: 'Not logged in' };
 
-            try {
-                // Check if exists
-                const { data: existing } = await supabase
-                    .from('settings')
-                    .select('id')
-                    .eq('user_id', userId)
-                    .eq('key', key)
-                    .single();
-
-                if (existing) {
-                    const { error } = await supabase
-                        .from('settings')
-                        .update({ value: value })
-                        .eq('id', existing.id);
-                    if (error) {
-                        console.error('Error saving setting:', error);
-                        return error;
-                    }
-                } else {
-                    const { error } = await supabase
-                        .from('settings')
-                        .insert({ user_id: userId, key: key, value: value });
-                    if (error) {
-                        console.error('Error saving setting:', error);
-                        return error;
-                    }
+                try {
+                    const error = await updateOrInsert('settings', { user_id: userId, key: key }, { value: value });
+                    if (error) console.error('Error saving setting:', error);
+                    return error;
+                } catch (e) {
+                    console.error('Error in setSetting:', e);
+                    return { error: e.message };
                 }
-                return null; // Success
-            } catch (e) {
-                console.error('Error in setSetting:', e);
-                return { error: e.message };
-            }
+            });
+        },
+
+        // ===== STEP ENTRIES (migrations/2026-10-16_step_entries.sql) =====
+        // Low-level access; js/steps.js owns the merge rules. Returns { data, error }.
+        async getStepEntries() {
+            const userId = getUserId();
+            if (!userId) return { data: null, error: { message: 'Not logged in' } };
+
+            return supabase
+                .from('step_entries')
+                .select('date, steps, deleted, updated_at')
+                .eq('user_id', userId)
+                .order('date', { ascending: true });
+        },
+
+        // rows: [{ date: 'YYYY-MM-DD', steps, deleted, updated_at: ISO }]
+        // A database trigger ignores rows older than the stored version; only
+        // rows that were actually written come back in data.
+        upsertStepEntries(rows) {
+            return withLock('step_entries', async function () {
+                const userId = getUserId();
+                if (!userId) return { data: null, error: { message: 'Not logged in' } };
+
+                const payload = rows.map(function (r) {
+                    return { user_id: userId, date: r.date, steps: r.steps, deleted: !!r.deleted, updated_at: r.updated_at };
+                });
+                return supabase
+                    .from('step_entries')
+                    .upsert(payload, { onConflict: 'user_id,date' })
+                    .select('date, steps, deleted, updated_at');
+            });
+        },
+
+        subscribeToStepEntries(onChange) {
+            const userId = getUserId();
+            if (!userId) return null;
+
+            return supabase
+                .channel('steps-sync')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'step_entries', filter: `user_id=eq.${userId}` },
+                    (payload) => { if (onChange) onChange(payload); }
+                )
+                .subscribe((status) => {
+                    console.log('[Realtime] Steps subscription status:', status);
+                });
         },
 
         // ===== REALTIME SUBSCRIPTIONS =====

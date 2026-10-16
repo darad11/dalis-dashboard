@@ -12,6 +12,8 @@
   }
 
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // Shared with supabase.js so only one client manages (and refreshes) the session
+  window.supabaseClient = supabase;
 
   // Auth state
   let currentUser = null;
