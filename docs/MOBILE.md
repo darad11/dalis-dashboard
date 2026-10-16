@@ -94,7 +94,8 @@ bewegt sich dann ohne Nachschwingen und Dehnen, die Leiste wächst nicht).
 **Nicht nachbildbar im Web:** die echte Lichtbrechung von Liquid Glass (WebKit unterstützt keine
 SVG-Filter für `backdrop-filter`); verwendet wird Unschärfe + Sättigung + Lichtkante. Die
 Linse bricht deshalb nur die Symbole der Leiste (Kopien, vergrößert bzw. am Rand verkleinert und
-in Farbkanäle versetzt), nicht den Seiteninhalt dahinter.
+in Farbkanäle versetzt) und zeigt am Rand die Kante der Leiste und den Seitenhintergrund wie
+dickes Glas – nicht den tatsächlichen Seiteninhalt dahinter.
 Die Emojis in den Überschriften (🎯, ⚡, 📅 …) sind Teil deines Designs und bleiben.
 
 ## iPhone Duo

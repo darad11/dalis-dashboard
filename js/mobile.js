@@ -246,8 +246,8 @@
     overhang: 3.5,     // ... and 3.5px taller than the bar above and below
     magnify: 0.15,     // items under the lens: 1.15 x
     rimWidth: 0.1,     // rim: 10% of the lens height; items seen through it ...
-    rimShrink: 0.08,   // ... 0.92 x, with the colour channels ...
-    dispersion: 0.012, // ... 1.2% apart
+    rimShrink: 0.08,   // ... 0.92 x (so the bar's edge and the page beyond it show in the rim),
+    dispersion: 0.045, // ... with the colour channels 4.5% apart
     swell: 14,         // the bar grows by about 14px in width while touched
     slop: 8            // px a finger moves before a touch counts as a drag
   };
@@ -284,9 +284,11 @@
     state.x += state.v * dt;
   }
 
-  // Copy of the items for the lens, laid out like the real ones
+  // Copy of the items for the lens, laid out like the real ones. Seen through the rim, the
+  // copies also show the bar's edge and the page around the bar (refracted into the lens).
   function lensCopy(cls) {
     const view = el('span', cls ? 'tabbar-lens-view ' + cls : 'tabbar-lens-view');
+    if (cls) view.append(el('span', 'tabbar-lens-page'), el('span', 'tabbar-lens-edge'));
     const copy = el('span', 'tabbar-items-copy');
     lens.items.querySelectorAll('.mobile-tab').forEach(tab => {
       const item = el('span', 'tabbar-lens-tab');
@@ -346,12 +348,16 @@
       lensW: pillW * LENS.grow, lensH: height + 2 * LENS.overhang,
       items: { left: x(items.left), top: y(items.top), width: items.width / scale, height: items.height / scale }
     };
+    const place = (node, left, top, w, h) => {
+      node.style.left = `${left}px`;
+      node.style.top = `${top}px`;
+      node.style.width = `${w}px`;
+      node.style.height = `${h}px`;
+    };
     lens.views.forEach(v => {
-      const copy = v.node.firstChild.style;
-      copy.left = `${geo.items.left}px`;
-      copy.top = `${geo.items.top}px`;
-      copy.width = `${geo.items.width}px`;
-      copy.height = `${geo.items.height}px`;
+      place(v.node.querySelector('.tabbar-items-copy'), geo.items.left, geo.items.top, geo.items.width, geo.items.height);
+      v.node.querySelectorAll('.tabbar-lens-page, .tabbar-lens-edge').forEach(n =>
+        place(n, -borderLeft, -borderTop, geo.outerWidth, geo.outerHeight));
     });
     return geo;
   }

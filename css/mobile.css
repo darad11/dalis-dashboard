@@ -372,6 +372,7 @@ html.touch-layout body.dark {
     --lens-glow-core: rgba(255, 255, 255, 0.07);
     --lens-glow-floor: rgba(255, 255, 255, 0.035);
     --lens-blend: screen;
+    --lens-edge-opacity: 0.45;
     --lens-r: #ff0000;
     --lens-g: #00ff00;
     --lens-b: #0000ff;
@@ -826,7 +827,24 @@ html.touch-layout .mobile-tabbar {
 }
 
 .tabbar-lens-ring>.tabbar-lens-view {
-    filter: blur(0.35px);
+    filter: blur(0.8px);
+}
+
+/* Seen through the rim: the bar's edge, and the page around the bar (a spread shadow of the
+   bar's shape), as a thick glass edge shows them */
+.tabbar-lens-page,
+.tabbar-lens-edge {
+    position: absolute;
+    border-radius: 999px;
+}
+
+.tabbar-lens-ring>.channel-r .tabbar-lens-page {
+    box-shadow: 0 0 0 240px var(--page-bg, #f2f2f7);
+}
+
+.tabbar-lens-edge {
+    border: 1px solid currentColor;
+    opacity: var(--lens-edge-opacity, 0);
 }
 
 .tabbar-items-copy {
@@ -841,16 +859,20 @@ html.touch-layout .mobile-tabbar {
     mix-blend-mode: var(--lens-blend, multiply);
 }
 
-.tabbar-lens-ring>.channel-r .tabbar-lens-tab {
+.tabbar-lens-ring>.channel-r {
     color: var(--lens-r, #0ff);
 }
 
-.tabbar-lens-ring>.channel-g .tabbar-lens-tab {
+.tabbar-lens-ring>.channel-g {
     color: var(--lens-g, #f0f);
 }
 
-.tabbar-lens-ring>.channel-b .tabbar-lens-tab {
+.tabbar-lens-ring>.channel-b {
     color: var(--lens-b, #ff0);
+}
+
+.tabbar-lens-ring>.tabbar-lens-view .tabbar-lens-tab {
+    color: inherit;
 }
 
 /* Specular edge: hairline, light from the top left, colour fringes at both ends */
