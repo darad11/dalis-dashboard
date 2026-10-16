@@ -250,6 +250,9 @@ sein (`"12.345"`), `date` auch `16.10.2026`.
 Einmalig in Supabase: Migration ausführen (idempotent, ändert nichts Bestehendes) und die
 Function veröffentlichen: `supabase functions deploy health-steps --no-verify-jwt`.
 
+Stand im Supabase-Projekt: Version 3 seit 16.10.2026, 22:47 (Antwort mit `received`, genauere
+Fehlermeldungen); Inhalt nach dem Hochladen zurückgelesen und mit dem Repository verglichen.
+
 ## Schnelleingabe per Link (optional, z. B. iOS-Kurzbefehl)
 
 Ein Aufruf von `https://darad11.github.io/dalis-dashboard/?steps=12345&date=2026-10-16`
