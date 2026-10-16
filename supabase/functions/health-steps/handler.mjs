@@ -136,16 +136,16 @@ export async function handleHealthSteps(req, env) {
   try { data = await res.json(); } catch (e) { data = null; }
 
   if (res.ok && data && typeof data.steps === 'number') {
+    // steps = what is stored now; received = what this run sent. A kept value names both:
+    // "29341" alone read as this run's count when the run had sent 0
     const kept = data.updated === false;
-    return reply(200, {
-      ok: true,
-      date: data.date || date,
-      steps: data.steps,
-      updated: !kept,
-      message: kept
-        ? `${data.steps} steps on ${date} already stored (a lower count never replaces it)`
-        : `Saved: ${data.steps} steps on ${date}`
-    });
+    let message = `Saved: ${data.steps} steps on ${date}`;
+    if (kept) {
+      message = steps === data.steps
+        ? `Already stored: ${data.steps} steps on ${date}`
+        : `Received ${steps} steps for ${date}, kept the stored ${data.steps}: a lower count never replaces a higher one`;
+    }
+    return reply(200, { ok: true, date: data.date || date, steps: data.steps, received: steps, updated: !kept, message });
   }
   const code = data && data.code;
   if (code === '28000') return reply(401, { ok: false, error: 'Unknown or revoked upload token: create a new one in the dashboard' });

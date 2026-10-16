@@ -129,7 +129,7 @@ test('a valid upload calls submit_health_steps with the secret key on apikey', a
     { supabaseUrl: URL_ + '/', secretKey: 'sb_secret_abc', fetch: db.fetch });
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('Cache-Control'), 'no-store');
-  assert.deepEqual(await res.json(), { ok: true, date: '2026-10-16', steps: 12345, updated: true, message: 'Saved: 12345 steps on 2026-10-16' });
+  assert.deepEqual(await res.json(), { ok: true, date: '2026-10-16', steps: 12345, received: 12345, updated: true, message: 'Saved: 12345 steps on 2026-10-16' });
   assert.equal(db.calls.length, 1);
   assert.equal(db.calls[0].url, 'https://example.supabase.co/rest/v1/rpc/submit_health_steps');
   assert.equal(db.calls[0].init.method, 'POST');
@@ -146,15 +146,23 @@ test('a legacy service_role key (JWT) is also sent as bearer token', async () =>
   assert.equal(db.calls[0].init.headers.Authorization, 'Bearer eyJhbGciOi.legacy.jwt');
 });
 
-test('a lower count is reported as kept', async () => {
+test('a lower count is reported as kept, naming what was received and what is stored', async () => {
   const { handleHealthSteps } = await load();
-  const db = fakeDb(200, { date: '2026-10-16', steps: 9100, updated: false });
-  const res = await handleHealthSteps(post({ token: TOKEN, date: '2026-10-16', steps: 0 }), { supabaseUrl: URL_, secretKey: 'sb_secret_abc', fetch: db.fetch });
-  const body = await res.json();
-  assert.equal(res.status, 200);
-  assert.equal(body.updated, false);
-  assert.equal(body.steps, 9100);
-  assert.match(body.message, /already stored/);
+  const run = async (sent, stored) => {
+    const db = fakeDb(200, { date: '2026-10-16', steps: stored, updated: false });
+    const res = await handleHealthSteps(post({ token: TOKEN, date: '2026-10-16', steps: sent }), { supabaseUrl: URL_, secretKey: 'sb_secret_abc', fetch: db.fetch });
+    assert.equal(res.status, 200);
+    return res.json();
+  };
+  // Seen on a real iPhone: a run sent a single digit, the answer showed only the stored 29341
+  const lower = await run(7, 29341);
+  assert.equal(lower.updated, false);
+  assert.equal(lower.steps, 29341);
+  assert.equal(lower.received, 7);
+  assert.equal(lower.message, 'Received 7 steps for 2026-10-16, kept the stored 29341: a lower count never replaces a higher one');
+  const same = await run(15073, 15073);
+  assert.equal(same.received, 15073);
+  assert.equal(same.message, 'Already stored: 15073 steps on 2026-10-16');
 });
 
 test('database answers become clear errors without internal details', async () => {

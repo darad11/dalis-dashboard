@@ -128,8 +128,9 @@ Platzhalter – er muss angetippt und belegt werden.
 
 5. Einmal ausführen (▶︎). Die Antwort lautet `Saved: … steps on …`. **Vergleiche die Zahl mit
    der Health-App.** Ist sie höher, wurden iPhone und Apple Watch beide gezählt: in Schritt 1
-   zusätzlich nach einer **Quelle** filtern (meist die Watch). Bei einer Fehlermeldung:
-   [Fehlersuche](#fehlersuche).
+   zusätzlich nach einer **Quelle** filtern (meist die Watch). Ein zu hoher Wert, der schon
+   gespeichert ist, wird von späteren Läufen **nicht** gesenkt (siehe Regeln) – den Tag dann im
+   Dashboard einmal von Hand korrigieren. Bei einer Fehlermeldung: [Fehlersuche](#fehlersuche).
 
 ### 3. Automation
 
@@ -194,11 +195,20 @@ Ausführen im Editor an):
 | `steps must be a number, received "…"` | im Feld `steps` steht nicht die **Summe** |
 | `Unknown upload token …` / `Unknown or revoked upload token …` | Schlüssel unvollständig kopiert oder widerrufen → im Dashboard neu erzeugen und einsetzen |
 | `date must be within the last 31 days` | Datum weit daneben, z. B. `YYYY` statt `yyyy` im eigenen Format → **ISO 8601** |
+| `Received 7 steps for …, kept the stored 29341: …` | Lauf erfolgreich, aber dieser Lauf hat weniger gezählt als gespeichert ist; gespeichert bleibt der höhere Wert. Ist der gespeicherte Wert falsch (z. B. doppelt gezählt), im Dashboard von Hand korrigieren; zählt der Lauf fast nichts, passt der Quellenfilter in Aktion 1 nicht |
 
 Der erste echte Lauf (16.10.2026, 20:29) brachte `date must be a day like 2026-10-16`: Im
 Kurzbefehl war bei „Datum formatieren“ kein Datum gesetzt, und im Formatfeld stand die Variable
 „Summe“. Die Anfrage war 79 Bytes groß – mit Schlüssel (43 Zeichen) und fünfstelliger Schrittzahl
 genau ein leeres `date`. Deshalb nennt die Funktion ein leeres Datum ausdrücklich (`date is empty`).
+
+Der erste erfolgreiche Lauf (21:54) speicherte **29.341** Schritte – die Health-App zeigte 15.073:
+ohne Quellenfilter zählt der Kurzbefehl iPhone und Apple Watch doppelt (die Health-App rechnet
+überlappende Schritte nur einmal; „Gruppieren nach Tag“ verhindert das nicht). Der nächste Lauf
+mit Quellenfilter „Apple Watch“ schickte nur eine einstellige Zahl (Anfrage 85 Bytes); die
+Antwort zeigte aber nur den gespeicherten Wert („29341 steps … already stored“) und sah aus wie
+das Ergebnis dieses Laufs. Deshalb nennt die Antwort beides: `received` (dieser Lauf) und
+`steps` (gespeichert).
 
 ### Technik
 
@@ -210,7 +220,7 @@ genau ein leeres `date`. Deshalb nennt die Funktion ein leeres Datum ausdrückli
 
 Anfrage: `POST https://<projekt>.supabase.co/functions/v1/health-steps` mit
 `{"token": "…", "date": "2026-10-16", "steps": 12345}`. Antworten: `200` gespeichert
-(bzw. höherer Wert behalten), `400` Datum/Zahl fehlt, leer oder ungültig (die Antwort nennt,
+(bzw. höherer Wert behalten; `received` = dieser Lauf, `steps` = gespeichert), `400` Datum/Zahl fehlt, leer oder ungültig (die Antwort nennt,
 was ankam, siehe [Fehlersuche](#fehlersuche)), `401` Schlüssel fehlt, unbekannt oder widerrufen,
 `405` nicht POST, `502` Datenbank nicht erreichbar. `steps` darf auch Text
 sein (`"12.345"`), `date` auch `16.10.2026`.
