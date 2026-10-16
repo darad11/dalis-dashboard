@@ -20,5 +20,8 @@ run -f "$ROOT/migrations/add_priority_columns.sql" >/dev/null
 run -f "$ROOT/migrations/2026-10-16_step_entries.sql" >/dev/null
 run -f "$ROOT/migrations/2026-10-16_step_entries.sql" >/dev/null
 run -f "$DIR/step_entries.test.sql"
+run -f "$ROOT/migrations/2026-10-16_calendar_times.sql" >/dev/null
+run -f "$ROOT/migrations/2026-10-16_calendar_times.sql" >/dev/null
+run -f "$DIR/calendar_times.test.sql"
 # Read-only health check must run without errors
 run -f "$ROOT/migrations/2026-10-16_health_check.sql" >/dev/null && echo "health_check.sql: runs without errors"

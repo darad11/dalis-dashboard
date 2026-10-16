@@ -4,6 +4,8 @@
  * - escapeHtml: safe interpolation of user text into innerHTML templates
  * - fingerprint: compact hash of a value in the shape the cloud returns it,
  *   used to detect whether the cloud changed since this device last synced
+ * - normalizeTime / goalIdentity: times of calendar entries and the key that tells
+ *   two entries of one day apart (also used by js/supabase.js and js/calendar-core.js)
  */
 (function (root, factory) {
   const api = factory();
@@ -40,7 +42,21 @@
     return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
   }
 
-  const SETTING_KEYS = ['habitChecks', 'customListsMeta', 'gymHubData'];
+  const SETTING_KEYS = ['habitChecks', 'customListsMeta', 'gymHubData', 'calendars'];
+
+  // "HH:MM" for a valid wall-clock time ("HH:MM:SS" as Postgres returns a time column), else null.
+  function normalizeTime(value) {
+    if (typeof value !== 'string') return null;
+    const m = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d(\.\d+)?)?$/.exec(value.trim());
+    return m ? `${m[1]}:${m[2]}` : null;
+  }
+
+  // Entries of one day with the same text are duplicates (old concurrent writes), unless
+  // their time or calendar differs ("Meeting" at 10:00 and at 14:00 are two entries).
+  function goalIdentity(goal) {
+    if (typeof goal === 'string') return goal + '|||';
+    return [goal.text, normalizeTime(goal.start) || '', normalizeTime(goal.end) || '', goal.calendarId || ''].join('|');
+  }
 
   // Which cloud representation a localStorage key maps to (null = local-only key).
   function keyKind(key) {
@@ -58,7 +74,7 @@
     return keyKind(key) !== null;
   }
 
-  // Mirrors supabase.js setGoals + getAllGoals (fields kept, de-duplicated by text).
+  // Mirrors supabase.js setGoals + getAllGoals (fields kept, de-duplicated by goalIdentity).
   function normalizeGoals(value) {
     if (!Array.isArray(value)) return [];
     const seen = new Set();
@@ -67,14 +83,24 @@
       if (goal === null || goal === undefined) return;
       const isText = typeof goal === 'string';
       const text = isText ? goal : goal.text;
-      if (seen.has(text)) return;
-      seen.add(text);
-      out.push({
+      const identity = goalIdentity(goal);
+      if (seen.has(identity)) return;
+      seen.add(identity);
+      const item = {
         text: text === undefined ? null : text,
         done: isText ? false : !!goal.done,
         priority: (!isText && goal.priority) || null,
         urgency: (!isText && goal.urgency) || null
-      });
+      };
+      // Only when set: entries without times keep the fingerprint they had before times existed
+      if (!isText) {
+        const start = normalizeTime(goal.start);
+        const end = normalizeTime(goal.end);
+        if (start) item.start = start;
+        if (end) item.end = end;
+        if (goal.calendarId) item.calendarId = goal.calendarId;
+      }
+      out.push(item);
     });
     return out;
   }
@@ -131,6 +157,8 @@
 
   return {
     escapeHtml,
+    normalizeTime,
+    goalIdentity,
     canonicalJson,
     hashString,
     keyKind,

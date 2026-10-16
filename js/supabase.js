@@ -40,6 +40,38 @@
         return rows && rows.length ? rows[rows.length - 1] : null;
     }
 
+    // Calendar entry times are stored in time columns (migrations/2026-10-16_calendar_times.sql);
+    // Postgres returns them as "HH:MM:SS", the dashboard uses "HH:MM".
+    function timeOrNull(value) {
+        return typeof value === 'string' && /^\d{2}:\d{2}/.test(value) ? value.slice(0, 5) : null;
+    }
+
+    // Row -> entry. Times and calendar only when set, like entries created on this device.
+    function goalFromRow(g, withId) {
+        const goal = {
+            text: g.text,
+            done: g.done,
+            priority: g.priority,
+            urgency: g.urgency
+        };
+        if (withId) {
+            goal.rolledFrom = g.rolled_from;
+            goal.id = g.id;
+        }
+        const start = timeOrNull(g.start_time);
+        const end = timeOrNull(g.end_time);
+        if (start) goal.start = start;
+        if (end) goal.end = end;
+        if (g.calendar_id) goal.calendarId = g.calendar_id;
+        return goal;
+    }
+
+    // Entries of one day that count as the same (window.DataUtils.goalIdentity in the browser)
+    function goalIdentity(goal) {
+        if (window.DataUtils && window.DataUtils.goalIdentity) return window.DataUtils.goalIdentity(goal);
+        return [goal.text, goal.start || '', goal.end || '', goal.calendarId || ''].join('|');
+    }
+
     // Update all rows matching the filter; insert one row when none exists.
     async function updateOrInsert(table, match, values) {
         let query = supabase.from(table).update(values);
@@ -72,16 +104,7 @@
                 console.error('Error fetching goals:', error);
                 return null;
             }
-            return data.map(function (g) {
-                return {
-                    text: g.text,
-                    done: g.done,
-                    rolledFrom: g.rolled_from,
-                    id: g.id,
-                    priority: g.priority,
-                    urgency: g.urgency
-                };
-            });
+            return data.map(function (g) { return goalFromRow(g, true); });
         },
 
         setGoals(dateKey, goals) {
@@ -102,7 +125,7 @@
                 // Insert new goals with position to preserve order
                 if (goals.length > 0) {
                     const rows = goals.map(function (g, index) {
-                        return {
+                        const row = {
                             user_id: userId,
                             date: dateKey,
                             text: typeof g === 'string' ? g : g.text,
@@ -112,6 +135,16 @@
                             urgency: g.urgency || null,
                             position: index
                         };
+                        // Only sent when set: entries without times work with or without the
+                        // calendar_times migration; entries with times need it
+                        if (typeof g === 'object' && g) {
+                            const start = timeOrNull(g.start);
+                            const end = timeOrNull(g.end);
+                            if (start) row.start_time = start;
+                            if (end) row.end_time = end;
+                            if (g.calendarId) row.calendar_id = g.calendarId;
+                        }
+                        return row;
                     });
 
                     const { error } = await supabase.from('goals').insert(rows);
@@ -142,20 +175,19 @@
 
             // Group by date
             var grouped = {};
+            var seen = {};
             data.forEach(function (g) {
-                if (!grouped[g.date]) grouped[g.date] = [];
-
-                // Deduplication: Prevent duplicate tasks (same text)
-                const isDuplicate = grouped[g.date].some(existing => existing.text === g.text);
-
-                if (!isDuplicate) {
-                    grouped[g.date].push({
-                        text: g.text,
-                        done: g.done,
-                        urgency: g.urgency,
-                        priority: g.priority
-                    });
+                if (!grouped[g.date]) {
+                    grouped[g.date] = [];
+                    seen[g.date] = new Set();
                 }
+                const goal = goalFromRow(g, false);
+
+                // Deduplication: rows of old concurrent writes (same text, time and calendar)
+                const identity = goalIdentity(goal);
+                if (seen[g.date].has(identity)) return;
+                seen[g.date].add(identity);
+                grouped[g.date].push(goal);
             });
             return grouped;
         },

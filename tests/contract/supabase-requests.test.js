@@ -136,6 +136,51 @@ test('supabase.js request contract', { skip: supabaseJs ? false : '@supabase/sup
     assert.equal(await api.getAllLists(), null);
   });
 
+  await t.test('calendar entries: times and calendar are sent only when set', async () => {
+    requests.length = 0;
+    responder = () => ({ status: 201, body: null });
+    const err = await api.setGoals('cal-2026-9-16', [
+      { text: 'Paket abholen', done: false, priority: null },
+      { text: 'Meeting', done: false, priority: 'high', start: '10:00', end: '11:30', calendarId: 'cal-work' }
+    ]);
+    assert.equal(err, null);
+    assert.deepEqual(requests.map(r => r.method), ['DELETE', 'POST']);
+    const [del, insert] = requests;
+    assert.equal(del.params.user_id, `eq.${USER}`);
+    assert.equal(del.params.date, 'eq.cal-2026-9-16');
+    assert.deepEqual(insert.body, [
+      { user_id: USER, date: 'cal-2026-9-16', text: 'Paket abholen', done: false, rolled_from: null, priority: null, urgency: null, position: 0 },
+      { user_id: USER, date: 'cal-2026-9-16', text: 'Meeting', done: false, rolled_from: null, priority: 'high', urgency: null, position: 1,
+        start_time: '10:00', end_time: '11:30', calendar_id: 'cal-work' }
+    ]);
+    // supabase-js names the union of all columns, so rows without a time get NULL there
+    assert.match(insert.params.columns || '', /start_time/);
+
+    // A day without times names exactly the columns of the version before times existed
+    // (works with or without migrations/2026-10-16_calendar_times.sql)
+    requests.length = 0;
+    await api.setGoals('goals-2026-9-16', [{ text: 'Ziel', done: true }]);
+    assert.equal(requests[1].params.columns, '"user_id","date","text","done","rolled_from","priority","urgency","position"');
+  });
+
+  await t.test('getAllGoals returns times as HH:MM and keeps same-text entries at different times', async () => {
+    responder = () => ({
+      status: 200, body: [
+        { date: 'cal-2026-9-16', text: 'Meeting', done: false, priority: null, urgency: null, position: 0, start_time: '10:00:00', end_time: '11:30:00', calendar_id: 'cal-work' },
+        { date: 'cal-2026-9-16', text: 'Meeting', done: false, priority: null, urgency: null, position: 1, start_time: '14:00:00', end_time: '15:00:00', calendar_id: 'cal-work' },
+        { date: 'cal-2026-9-16', text: 'Meeting', done: false, priority: null, urgency: null, position: 2, start_time: '10:00:00', end_time: '11:30:00', calendar_id: 'cal-work' },
+        { date: 'cal-2026-9-16', text: 'Paket', done: true, priority: 'low', urgency: null, position: 3, start_time: null, end_time: null, calendar_id: null },
+        { date: 'cal-2026-9-16', text: 'Paket', done: true, priority: 'low', urgency: null, position: 4 }
+      ]
+    });
+    const all = await api.getAllGoals();
+    assert.deepEqual(all['cal-2026-9-16'], [
+      { text: 'Meeting', done: false, priority: null, urgency: null, start: '10:00', end: '11:30', calendarId: 'cal-work' },
+      { text: 'Meeting', done: false, priority: null, urgency: null, start: '14:00', end: '15:00', calendarId: 'cal-work' },
+      { text: 'Paket', done: true, priority: 'low', urgency: null }
+    ]);
+  });
+
   await t.test('writes for the same day are serialized (no interleaved delete/insert)', async () => {
     const order = [];
     // While the first DELETE response is in flight, a second unserialized write would
