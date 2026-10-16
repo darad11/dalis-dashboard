@@ -3,11 +3,33 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <!-- viewport-fit=cover: content may use the full screen, safe areas are padded in css/mobile.css.
+       Pinch zoom stays allowed; inputs use 16px text, so iOS does not auto-zoom on focus. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f0f2f5">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Dalis Dashboard">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
   <title>Dali's Dashboard</title>
+  <script>
+    // Phone/tablet layout flag and last section, set before first paint so the page
+    // does not flash the desktop layout. Same query as TAB_MODE_QUERY in js/mobile.js.
+    (function () {
+      try {
+        var root = document.documentElement;
+        var tabs = window.matchMedia('(pointer: coarse) and (max-width: 1099px)').matches;
+        root.classList.toggle('tabs-on', tabs);
+        var tab = null;
+        try { tab = localStorage.getItem('dashboardTab'); } catch (e) { }
+        if (/[?&]steps=/.test(location.search)) tab = 'health';
+        root.setAttribute('data-tab', /^(today|week|health|habits|lists)$/.test(tab || '') ? tab : 'today');
+      } catch (e) { }
+    })();
+  </script>
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,7 +37,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Styles -->
-  <link rel="stylesheet" href="css/style.css?v=20261016">
+  <link rel="stylesheet" href="css/style.css?v=20261016b">
+  <link rel="stylesheet" href="css/mobile.css?v=20261016b">
   <style>
     /* Nutrition Settings Styles */
     .settings-icon-btn {
@@ -30,10 +53,12 @@
       transition: color 0.2s;
     }
 
-    .settings-icon-btn:hover {
-      color: var(--text-primary);
-      transform: rotate(45deg);
-      transition: transform 0.3s ease, color 0.2s;
+    @media (hover: hover) {
+      .settings-icon-btn:hover {
+        color: var(--text-primary);
+        transform: rotate(45deg);
+        transition: transform 0.3s ease, color 0.2s;
+      }
     }
 
     .modal-input-group {
@@ -85,13 +110,15 @@
       background: rgba(0, 0, 0, 0.2);
     }
 
-    .supp-row:hover {
-      background: rgba(255, 255, 255, 0.8);
-      border-color: var(--glass-border);
-    }
+    @media (hover: hover) {
+      .supp-row:hover {
+        background: rgba(255, 255, 255, 0.8);
+        border-color: var(--glass-border);
+      }
 
-    body.dark .supp-row:hover {
-      background: rgba(0, 0, 0, 0.3);
+      body.dark .supp-row:hover {
+        background: rgba(0, 0, 0, 0.3);
+      }
     }
 
     .supp-name {
@@ -120,8 +147,10 @@
       border-color: rgba(255, 255, 255, 0.1);
     }
 
-    .day-circle:hover {
-      border-color: var(--accent-color);
+    @media (hover: hover) {
+      .day-circle:hover {
+        border-color: var(--accent-color);
+      }
     }
 
     .day-circle.active {
@@ -179,7 +208,7 @@
   </div>
 
   <!-- Custom Input Modal -->
-  <div class="input-modal" id="inputModal">
+  <div class="input-modal" id="inputModal" role="dialog" aria-modal="true" aria-labelledby="inputModalTitle">
     <div class="input-modal-content glass-panel">
       <h3 id="inputModalTitle">Enter text</h3>
       <input type="text" id="inputModalField" class="input-modal-field" placeholder="Type here...">
@@ -217,7 +246,8 @@
   </div>
 
   <!-- Custom Confirm Modal -->
-  <div class="confirm-modal" id="confirmModal">
+  <div class="confirm-modal" id="confirmModal" role="alertdialog" aria-modal="true" aria-labelledby="confirmModalTitle"
+    aria-describedby="confirmModalMessage">
     <div class="confirm-modal-content glass-panel">
       <h3 id="confirmModalTitle">Confirm</h3>
       <p id="confirmModalMessage">Are you sure?</p>
@@ -257,23 +287,24 @@
         </span>
       </button>
       <div class="fab-menu">
+        <!-- .fab-item-label is only shown in the phone/tablet menu (css/mobile.css) -->
         <button class="fab-item" id="btnToggleDark" onclick="toggleDark(); toggleFabMenu();" title="Toggle Dark Mode"
           data-tooltip="Dark Mode">
-          <span class="fab-item-icon">🌙</span>
+          <span class="fab-item-icon">🌙</span><span class="fab-item-label" data-mobile-only>Dark mode</span>
         </button>
         <button class="fab-item" onclick="enterFocusMode(); toggleFabMenu();" title="Focus Mode" data-tooltip="Focus">
-          <span class="fab-item-icon">🧠</span>
+          <span class="fab-item-icon">🧠</span><span class="fab-item-label" data-mobile-only>Focus mode</span>
         </button>
-        <button class="fab-item" onclick="showShortcuts(); toggleFabMenu();" title="Keyboard Shortcuts"
+        <button class="fab-item fab-item-shortcuts" onclick="showShortcuts(); toggleFabMenu();" title="Keyboard Shortcuts"
           data-tooltip="Shortcuts">
-          <span class="fab-item-icon">⌨️</span>
+          <span class="fab-item-icon">⌨️</span><span class="fab-item-label" data-mobile-only>Keyboard shortcuts</span>
         </button>
         <button class="fab-item sync-status" id="syncStatus" onclick="showSyncDetails(); toggleFabMenu();"
           title="Sync Status" data-tooltip="Sync">
-          <span class="fab-item-icon">☁️</span>
+          <span class="fab-item-icon">☁️</span><span class="fab-item-label" data-mobile-only>Sync &amp; backup</span>
         </button>
         <button class="fab-item fab-item-logout" onclick="signOut();" title="Sign Out" data-tooltip="Logout">
-          <span class="fab-item-icon">🚪</span>
+          <span class="fab-item-icon">🚪</span><span class="fab-item-label" data-mobile-only>Sign out</span>
         </button>
       </div>
       <div class="fab-backdrop" onclick="toggleFabMenu()"></div>
@@ -281,7 +312,8 @@
 
     <!-- 1. POMODORO + STATS SIDE BY SIDE -->
     <!-- 1. POMODORO + STATS + SIDEBAR -->
-    <div class="dashboard-main-layout">
+    <!-- data-tab-section: which tab of the phone/tablet tab bar shows this block (js/mobile.js) -->
+    <div class="dashboard-main-layout" data-tab-section="today">
       <div class="combined-glass-panel glass-panel" id="pomoStatsWrapper">
         <!-- Focus Section -->
         <div class="pomodoro-section">
@@ -339,8 +371,8 @@
             <h3 id="statsWeekTitle" style="margin: 0; text-align: center;">Week of December 30</h3>
             <div style="display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 16px;">
               <button class="btn" onclick="goToStatsToday()" style="margin-right: 8px;">Today</button>
-              <button class="btn" onclick="changeStatsWeek(-1)">◀︎</button>
-              <button class="btn" onclick="changeStatsWeek(1)">▶︎</button>
+              <button class="btn" onclick="changeStatsWeek(-1)" aria-label="Previous week">◀︎</button>
+              <button class="btn" onclick="changeStatsWeek(1)" aria-label="Next week">▶︎</button>
             </div>
           </div>
           <div class="stats-grid">
@@ -385,9 +417,9 @@
         <div class="sidebar-datetime" id="sidebarDateTime">--.--.---- - --:--</div>
         <div class="glass-panel goals-container">
           <div class="section-nav">
-            <button class="btn nav-btn" onclick="changeGoalDate(-1)">◀</button>
+            <button class="btn nav-btn" onclick="changeGoalDate(-1)" aria-label="Previous day">◀</button>
             <h2 id="goalsTitle">🎯 Today's Goals</h2>
-            <button class="btn nav-btn" onclick="changeGoalDate(1)">▶</button>
+            <button class="btn nav-btn" onclick="changeGoalDate(1)" aria-label="Next day">▶</button>
           </div>
           <div class="goals-list" id="goalsList"></div>
           <button class="btn" onclick="addGoal()" style="margin-top:auto;">+ Add Goal</button>
@@ -396,26 +428,28 @@
     </div>
 
     <!-- 3. WEEKLY FOCUS (moved above quick notes) -->
-    <h2 style="margin-top: 32px;">⚡ Weekly Overview & Tasks</h2>
-    <div class="glass-panel" style="padding: 20px 24px;">
-      <div class="section-nav" style="margin-bottom: 0;">
-        <h3 id="weekTitle" style="margin: 0;">Friday, January 3</h3>
-        <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
-          <button class="btn" onclick="goToWeekToday()" style="margin-right: 8px;">Today</button>
-          <button class="btn" onclick="changeWeek(-1)">◀︎</button>
-          <button class="btn" onclick="changeWeek(1)">▶︎</button>
+    <section class="week-overview-section" data-tab-section="week" aria-labelledby="weekOverviewHeading">
+      <h2 id="weekOverviewHeading" style="margin-top: 32px;">⚡ Weekly Overview & Tasks</h2>
+      <div class="glass-panel week-nav-panel" style="padding: 20px 24px;">
+        <div class="section-nav" style="margin-bottom: 0;">
+          <h3 id="weekTitle" style="margin: 0;">Friday, January 3</h3>
+          <div class="section-nav-buttons" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+            <button class="btn" onclick="goToWeekToday()" style="margin-right: 8px;">Today</button>
+            <button class="btn" onclick="changeWeek(-1)" aria-label="Previous week">◀︎</button>
+            <button class="btn" onclick="changeWeek(1)" aria-label="Next week">▶︎</button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="kanban-board week-kanban" id="weekKanban"></div>
-    <h3 class="inspirational-quote" style="margin-top: 24px;">Your future is created by what you do today, not tomorrow
-    </h3>
+      <div class="kanban-board week-kanban" id="weekKanban"></div>
+      <h3 class="inspirational-quote" style="margin-top: 24px;">Your future is created by what you do today, not tomorrow
+      </h3>
+    </section>
 
     <div class="divider"></div>
 
     <!-- 7. HEALTH HUB (Collapsible) -->
-    <div class="gym-hub-section">
+    <div class="gym-hub-section" data-tab-section="health">
       <div class="gym-hub-header" onclick="toggleGymHub()">
         <h2>🔋 Health Hub</h2>
         <span class="gym-hub-toggle" id="gymHubToggle">▼</span>
@@ -811,17 +845,20 @@
     <div class="divider"></div>
 
     <!-- 3. MINI LISTS (Goals 2026, Shopping, Chores) -->
-    <div id="unifiedListsGrid" class="lists-grid"></div>
+    <section class="lists-section" data-tab-section="lists" aria-label="Lists">
+      <h2 class="mobile-section-title" data-mobile-only>📋 Lists</h2>
+      <div id="unifiedListsGrid" class="lists-grid"></div>
 
-    <button class="btn glass-panel" onclick="createNewCustomList()"
-      style="width: auto; min-width: 200px; border: 1px dashed rgba(255,255,255,0.3); justify-content: center; padding: 12px 24px; opacity: 0.8; margin: 48px auto 48px auto; display: flex;">
-      + Create New List
-    </button>
+      <button class="btn glass-panel create-list-btn" onclick="createNewCustomList()"
+        style="width: auto; min-width: 200px; border: 1px dashed rgba(255,255,255,0.3); justify-content: center; padding: 12px 24px; opacity: 0.8; margin: 48px auto 48px auto; display: flex;">
+        + Create New List
+      </button>
+    </section>
 
     <div class="divider"></div>
 
     <!-- 4. CALENDAR (Collapsible) -->
-    <div class="calendar-section">
+    <div class="calendar-section" data-tab-section="week">
       <div class="calendar-section-header" onclick="toggleCalendarSection()">
         <h2>📅 Calendar</h2>
         <span class="calendar-section-toggle" id="calendarToggle" style="margin-left: auto;">▼</span>
@@ -833,10 +870,10 @@
             <div class="calendar-title-group" style="flex-direction: column;">
               <h3 id="title">User Calendar</h3>
             </div>
-            <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+            <div class="section-nav-buttons" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
               <button class="btn" onclick="goToToday()" style="margin-right: 8px;">Today</button>
-              <button class="btn" id="prevMonth">◀︎</button>
-              <button class="btn" id="nextMonth">▶︎</button>
+              <button class="btn" id="prevMonth" aria-label="Previous month">◀︎</button>
+              <button class="btn" id="nextMonth" aria-label="Next month">▶︎</button>
             </div>
           </div>
 
@@ -853,12 +890,15 @@
           <div class="calendar-grid" id="calendar">
             <!-- JS generates Calendar -->
           </div>
+
+          <!-- Phone/tablet: tasks of the selected day (filled by renderCalendarAgenda in js/app.js) -->
+          <div class="calendar-agenda" id="calendarAgenda" data-mobile-only></div>
         </div>
       </div>
     </div>
 
     <!-- 8. HABITS (Collapsible) -->
-    <div class="habits-section">
+    <div class="habits-section" data-tab-section="habits">
       <div class="habits-header" onclick="toggleHabitsSection()">
         <h2>✨ Habits</h2>
         <span class="habits-toggle" id="habitsToggle" style="margin-left: auto;">▼</span>
@@ -873,9 +913,9 @@
               <h3 id="habitsWeekTitle">Today, Week of December 30</h3>
             </div>
             <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
-              <button class="btn" onclick="changeHabitsWeek(-1)">◀︎</button>
+              <button class="btn" onclick="changeHabitsWeek(-1)" aria-label="Previous week">◀︎</button>
               <button class="btn" onclick="goToHabitsToday()" style="margin: 0 4px;">Today</button>
-              <button class="btn" onclick="changeHabitsWeek(1)">▶︎</button>
+              <button class="btn" onclick="changeHabitsWeek(1)" aria-label="Next week">▶︎</button>
             </div>
           </div>
           <div style="margin: 8px 0 4px 0;">
@@ -923,7 +963,7 @@
     </div>
 
     <!-- 9. WEEKLY REVIEW (Collapsible) -->
-    <div class="weekly-review-section">
+    <div class="weekly-review-section" data-tab-section="habits">
       <div class="weekly-review-header" onclick="toggleWeeklyReviewSection()">
         <h2>📝 Weekly Review</h2>
         <span class="weekly-review-toggle" id="weeklyReviewToggle" style="margin-left: auto;">▼</span>
@@ -937,8 +977,8 @@
             </div>
             <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
               <button class="btn" onclick="goToReviewToday()" style="margin-right: 8px;">Today</button>
-              <button class="btn" onclick="changeReviewWeek(-1)">◀︎</button>
-              <button class="btn" onclick="changeReviewWeek(1)">▶︎</button>
+              <button class="btn" onclick="changeReviewWeek(-1)" aria-label="Previous week">◀︎</button>
+              <button class="btn" onclick="changeReviewWeek(1)" aria-label="Next week">▶︎</button>
             </div>
           </div>
           <textarea class="weekly-review" id="weeklyReview"
@@ -986,6 +1026,30 @@
     </div>
   </div>
 
+  <!-- Phone/tablet section tabs (shown only with html.tabs-on, see js/mobile.js) -->
+  <nav class="mobile-tabbar" id="mobileTabbar" aria-label="Dashboard sections" data-mobile-only>
+    <button type="button" class="mobile-tab" data-tab="today">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>
+      <span>Today</span>
+    </button>
+    <button type="button" class="mobile-tab" data-tab="week">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+      <span>Week</span>
+    </button>
+    <button type="button" class="mobile-tab" data-tab="health">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg>
+      <span>Health</span>
+    </button>
+    <button type="button" class="mobile-tab" data-tab="habits">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.3 5 5.2.6-3.9 3.6 1.1 5.2L12 15.3l-4.7 2.6 1.1-5.2-3.9-3.6 5.2-.6z"/></svg>
+      <span>Habits</span>
+    </button>
+    <button type="button" class="mobile-tab" data-tab="lists">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.75" cy="6.5" r="1.25"/><circle cx="4.75" cy="12" r="1.25"/><circle cx="4.75" cy="17.5" r="1.25"/></svg>
+      <span>Lists</span>
+    </button>
+  </nav>
+
   <!-- Supabase (pinned: update deliberately, not on every upstream release) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
   <script src="js/data-utils.js?v=20261016"></script>
@@ -993,7 +1057,8 @@
   <script src="js/supabase.js?v=20261016"></script>
   <script src="js/steps-core.js?v=20261016"></script>
   <script src="js/steps.js?v=20261016"></script>
-  <script src="js/app.js?v=20261016"></script>
+  <script src="js/mobile.js?v=20261016b"></script>
+  <script src="js/app.js?v=20261016b"></script>
 </body>
 
 </html>

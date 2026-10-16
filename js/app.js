@@ -232,7 +232,8 @@ function dismissNotification(banner) {
 }
 
 // ===== CUSTOM INPUT MODAL =====
-function showInputModal(title, placeholder = '', defaultValue = '') {
+// options.type: 'text' (default) or 'date' (value as YYYY-MM-DD, native date picker on phones)
+function showInputModal(title, placeholder = '', defaultValue = '', options = {}) {
   return new Promise((resolve) => {
     const modal = document.getElementById('inputModal');
     const titleEl = document.getElementById('inputModalTitle');
@@ -241,11 +242,14 @@ function showInputModal(title, placeholder = '', defaultValue = '') {
     const cancelBtn = document.getElementById('inputModalCancel');
 
     titleEl.textContent = title;
+    input.type = options.type === 'date' ? 'date' : 'text';
     input.placeholder = placeholder || 'Type here...';
     input.value = defaultValue;
     modal.classList.add('active');
 
-    // Focus input after animation
+    // Focus right away: iOS only opens the keyboard when focus happens during the tap
+    // that opened the dialog. The delayed call is a fallback for the animation.
+    input.focus();
     setTimeout(() => input.focus(), 50);
 
     const cleanup = () => {
@@ -253,6 +257,7 @@ function showInputModal(title, placeholder = '', defaultValue = '') {
       submitBtn.onclick = null;
       cancelBtn.onclick = null;
       input.onkeydown = null;
+      input.type = 'text';
     };
 
     submitBtn.onclick = () => {
@@ -381,17 +386,25 @@ function updateSyncStatus() {
   const el = document.getElementById('syncStatus');
   if (!el) return;
   const dirtyCount = pendingSyncKeys().length + stepPendingCount();
+  // Icon and (phone menu) label are separate spans, so only their text changes
+  const icon = el.querySelector('.fab-item-icon');
+  const label = el.querySelector('.fab-item-label');
+  const show = (iconText, labelText, state) => {
+    if (icon) icon.textContent = iconText; else el.textContent = iconText;
+    if (label) label.textContent = labelText;
+    el.dataset.syncState = state;
+  };
 
   if (lastSyncError) {
-    el.textContent = '☁️❌';
+    show('☁️❌', 'Sync problem – details', 'error');
     el.title = 'Sync Error: ' + lastSyncError;
     el.style.cssText = 'color: #ff4444 !important; filter: drop-shadow(0 0 2px rgba(255,0,0,0.5));';
   } else if (dirtyCount > 0) {
-    el.textContent = '☁️⏳';
+    show('☁️⏳', `Sync: ${dirtyCount} waiting`, 'pending');
     el.title = 'Pending Uploads: ' + dirtyCount;
     el.style.cssText = 'color: #ffcc00 !important; filter: drop-shadow(0 0 2px rgba(255,200,0,0.5));';
   } else {
-    el.textContent = '☁️✅';
+    show('☁️✅', 'Sync & backup', 'ok');
     el.title = 'Synced';
     el.style.cssText = 'color: #44ff44 !important;';
   }
@@ -1486,6 +1499,13 @@ window.goToWeekToday = () => {
 };
 
 
+// Phone/tablet layout switched on or off (rotation, unfolding, iPad split view):
+// the calendar is rendered differently in the two layouts (js/mobile.js)
+window.addEventListener('dashboard:layoutchange', () => {
+  if (!els.calList) return;
+  try { renderCalendar(); } catch (e) { console.error(e); }
+});
+
 function setupEventListeners() {
   document.getElementById('prevMonth').onclick = () => changeMonth(-1);
   document.getElementById('nextMonth').onclick = () => changeMonth(1);
@@ -1522,6 +1542,7 @@ function setupKeyboardShortcuts() {
         resetPomodoro();
         break;
       case 'q':
+        e.preventDefault(); // the dialog's field gets focus right away: do not type the "q" into it
         quickCapture();
         break;
       case 'f':
@@ -1682,7 +1703,11 @@ function toggleDark() {
 
 function updateThemeBtn() {
   const isDark = document.body.classList.contains("dark");
-  if (els.btnDark) els.btnDark.textContent = isDark ? "☀️" : "🌙";
+  if (!els.btnDark) return;
+  const icon = els.btnDark.querySelector('.fab-item-icon');
+  const label = els.btnDark.querySelector('.fab-item-label');
+  if (icon) icon.textContent = isDark ? "☀️" : "🌙"; else els.btnDark.textContent = isDark ? "☀️" : "🌙";
+  if (label) label.textContent = isDark ? 'Light mode' : 'Dark mode';
 }
 
 // ===== FLOATING ACTION MENU =====
@@ -2075,12 +2100,14 @@ window.togglePiP = async () => {
 
 // ===== CALENDAR =====
 function changeMonth(delta) {
-  currentDate.setMonth(currentDate.getMonth() + delta);
+  // Step from the 1st: setMonth() on the 29th-31st would skip short months (31.10. + 1 = 1.12.)
+  currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + delta, 1);
   renderCalendar();
 }
 
 window.goToToday = () => {
   currentDate = new Date();
+  calendarSelectedKey = null;
   renderCalendar();
 };
 
@@ -2145,6 +2172,90 @@ function getHoliday(date) {
   return holidays.get(key);
 }
 
+// Day whose tasks the phone/tablet agenda below the month grid shows (calKey)
+let calendarSelectedKey = null;
+
+function isTabLayout() {
+  return !!(window.MobileUI && window.MobileUI.isTabMode());
+}
+
+// Selected day if it is in the shown month, else today (current month) or the 1st
+function calendarAgendaDate() {
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const prefix = `cal-${year}-${month}-`;
+  if (calendarSelectedKey && calendarSelectedKey.startsWith(prefix)) {
+    return new Date(year, month, parseInt(calendarSelectedKey.slice(prefix.length), 10));
+  }
+  const today = new Date();
+  if (today.getFullYear() === year && today.getMonth() === month) {
+    return new Date(year, month, today.getDate());
+  }
+  return new Date(year, month, 1);
+}
+
+function selectCalendarDay(dateObj) {
+  calendarSelectedKey = db.calKey(dateObj);
+  els.calList.querySelectorAll('.day-cell[data-date]').forEach(cell => {
+    const selected = cell.dataset.date === calendarSelectedKey;
+    cell.classList.toggle('selected', selected);
+    cell.setAttribute('aria-pressed', String(selected));
+  });
+  renderCalendarAgenda();
+}
+
+function renderCalendarAgenda() {
+  const box = document.getElementById('calendarAgenda');
+  if (!box) return;
+  box.textContent = '';
+  if (!isTabLayout()) return;
+
+  const dateObj = calendarAgendaDate();
+  const tasks = db.getCalendarTasks(dateObj);
+
+  const head = document.createElement('div');
+  head.className = 'calendar-agenda-head';
+  const title = document.createElement('h4');
+  title.className = 'calendar-agenda-title';
+  title.textContent = dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+  head.appendChild(title);
+  const holiday = getHoliday(dateObj);
+  if (holiday) {
+    const tag = document.createElement('span');
+    tag.className = 'calendar-agenda-holiday';
+    tag.textContent = holiday;
+    head.appendChild(tag);
+  }
+  box.appendChild(head);
+
+  const list = document.createElement('div');
+  list.className = 'tasks-list calendar-agenda-list';
+  if (tasks.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'calendar-agenda-empty';
+    empty.textContent = 'No entries for this day.';
+    list.appendChild(empty);
+  }
+  tasks.forEach((t, idx) => list.appendChild(createTaskEl(t, dateObj, idx)));
+  box.appendChild(list);
+
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'btn calendar-agenda-add';
+  add.textContent = '+ Add entry';
+  add.onclick = async () => {
+    const text = await showInputModal('New Task', 'What needs to be done?');
+    if (text && text.trim()) {
+      const current = db.getCalendarTasks(dateObj);
+      current.push({ text: text.trim(), done: false, priority: null });
+      db.setCalendarTasks(dateObj, current);
+      renderCalendar();
+      renderKanban(); // Update weekly overview
+    }
+  };
+  box.appendChild(add);
+}
+
 function renderCalendar() {
   els.calList.innerHTML = "";
   els.calTitle.textContent = currentDate.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
@@ -2154,6 +2265,8 @@ function renderCalendar() {
   const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = new Date();
+  const tabMode = isTabLayout();
+  const agendaKey = tabMode ? db.calKey(calendarAgendaDate()) : null;
 
   for (let i = 0; i < firstDay; i++) {
     const empty = document.createElement("div");
@@ -2192,6 +2305,30 @@ function renderCalendar() {
     const tasks = db.get(db.calKey(dateObj), []);
     tasks.forEach((t, idx) => tasksContainer.appendChild(createTaskEl(t, dateObj, idx)));
 
+    // Phone/tablet: the month grid only selects a day; its tasks are listed below (renderCalendarAgenda)
+    if (tabMode) {
+      if (tasks.length) {
+        box.classList.add('has-tasks');
+        box.dataset.count = tasks.length;
+      }
+      const key = db.calKey(dateObj);
+      const selected = key === agendaKey;
+      box.classList.toggle('selected', selected);
+      box.tabIndex = 0;
+      box.setAttribute('role', 'button');
+      box.setAttribute('aria-pressed', String(selected));
+      const label = dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+      box.setAttribute('aria-label', `${label}${holiday ? ', ' + holiday : ''}, ${tasks.length} ${tasks.length === 1 ? 'entry' : 'entries'}`);
+      const select = () => selectCalendarDay(dateObj);
+      box.addEventListener('click', select);
+      box.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          select();
+        }
+      });
+    }
+
     // Drag drop
     box.ondragover = (e) => {
       e.preventDefault();
@@ -2219,6 +2356,8 @@ function renderCalendar() {
     box.append(num, tasksContainer, addBtn);
     els.calList.appendChild(box);
   }
+
+  renderCalendarAgenda();
 }
 
 function createTaskEl(task, dateObj, index) {
@@ -2254,9 +2393,7 @@ function createTaskEl(task, dateObj, index) {
   span.className = "task-text";
   span.textContent = task.text;
 
-  // Double-click to edit task
-  span.ondblclick = async (e) => {
-    e.stopPropagation();
+  const editEvent = async () => {
     const newText = await showInputModal('Edit Event', 'Update your event...', task.text);
     if (newText && newText.trim() && newText.trim() !== task.text) {
       task.text = newText.trim();
@@ -2266,16 +2403,26 @@ function createTaskEl(task, dateObj, index) {
     }
   };
 
+  const setPriority = (priority) => {
+    task.priority = priority;
+    updateTask(dateObj, index, task);
+    renderCalendar();
+    renderKanban(); // Update weekly overview
+  };
+
+  // Double-click to edit task
+  span.ondblclick = (e) => {
+    e.stopPropagation();
+    editEvent();
+  };
+
   // Right-click to set priority
   el.oncontextmenu = (e) => {
     e.preventDefault();
     e.stopPropagation();
     const priorities = [null, 'high', 'medium', 'low'];
     const currentIdx = priorities.indexOf(task.priority);
-    task.priority = priorities[(currentIdx + 1) % priorities.length];
-    updateTask(dateObj, index, task);
-    renderCalendar();
-    renderKanban(); // Update weekly overview
+    setPriority(priorities[(currentIdx + 1) % priorities.length]);
   };
 
   const del = document.createElement("button");
@@ -2287,7 +2434,53 @@ function createTaskEl(task, dateObj, index) {
   };
 
   el.append(span, del);
+
+  // Touch screens: edit / priority / move / delete in a sheet
+  if (window.MobileUI) {
+    el.appendChild(MobileUI.moreButton(`Actions for ${task.text}`, () => ({
+      title: task.text,
+      message: dateObj.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' }),
+      actions: [
+        { id: 'edit', label: 'Edit', icon: '✏️', onSelect: editEvent },
+        {
+          id: 'priority', label: 'Priority', icon: '🚩', hint: MobileUI.PRIORITY_LABELS[task.priority] || 'None',
+          onSelect: () => MobileUI.showActionSheet(MobileUI.prioritySheet('Priority', task.priority, setPriority))
+        },
+        { id: 'move', label: 'Move to another date', icon: '📆', onSelect: () => moveCalendarTaskToDate(task, dateObj, index) },
+        { id: 'delete', label: 'Delete', icon: '🗑️', destructive: true, onSelect: () => deleteTask(dateObj, index) }
+      ]
+    })));
+  }
   return el;
+}
+
+function toDateInputValue(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Touch alternative to dragging a calendar entry onto another day (native date picker)
+async function moveCalendarTaskToDate(task, fromDate, fromIndex) {
+  const value = await showInputModal('Move to date', '', toDateInputValue(fromDate), { type: 'date' });
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
+  if (!match) return;
+  const target = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (isNaN(target.getTime()) || db.calKey(target) === db.calKey(fromDate)) return;
+
+  const fromTasks = db.getCalendarTasks(fromDate);
+  fromTasks.splice(fromIndex, 1);
+  db.setCalendarTasks(fromDate, fromTasks);
+
+  const toTasks = db.getCalendarTasks(target);
+  toTasks.push(task);
+  db.setCalendarTasks(target, toTasks);
+
+  // Follow the entry: show its new day (and month) in the calendar
+  calendarSelectedKey = db.calKey(target);
+  if (target.getMonth() !== currentDate.getMonth() || target.getFullYear() !== currentDate.getFullYear()) {
+    currentDate = new Date(target.getFullYear(), target.getMonth(), 1);
+  }
+  renderCalendar();
+  renderKanban(); // Update weekly overview
 }
 
 function handleCalendarDrop(e, targetDate, box) {
@@ -2416,7 +2609,7 @@ function renderHabits() {
     };
 
     nameEl.append(nameText, deleteBtn);
-    nameEl.ondblclick = async () => {
+    const renameHabit = async () => {
       const newName = await showInputModal('Rename Habit', 'Enter new name...', habitName);
       if (newName && newName.trim()) {
         const cleanName = newName.trim();
@@ -2453,6 +2646,18 @@ function renderHabits() {
         renderHabits();
       }
     };
+    nameEl.ondblclick = renameHabit;
+
+    // Touch screens: rename / delete in a sheet (no double-click or hover there)
+    if (window.MobileUI) {
+      nameEl.appendChild(MobileUI.moreButton(`Actions for habit ${habitName}`, () => ({
+        title: habitName,
+        actions: [
+          { id: 'rename', label: 'Rename', icon: '✏️', onSelect: renameHabit },
+          { id: 'delete', label: 'Delete habit', icon: '🗑️', destructive: true, onSelect: () => deleteHabit(hIdx) }
+        ]
+      })));
+    }
 
     row.appendChild(nameEl);
 
@@ -2465,9 +2670,23 @@ function renderHabits() {
       const key = getHabitKey(hIdx, dayIdx);
       if (localStorage.getItem(key)) check.classList.add("done");
 
+      // Each day is a checkbox for screen readers and keyboards
+      check.setAttribute('role', 'checkbox');
+      check.tabIndex = 0;
+      check.setAttribute('aria-label', `${habitName}, ${weekdays[dayIdx]}`);
+      check.setAttribute('aria-checked', String(check.classList.contains('done')));
+      check.onkeydown = (e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation(); // Space must not also start/pause the focus timer
+          check.click();
+        }
+      };
+
       check.onclick = () => {
         check.classList.toggle("done");
         const isDone = check.classList.contains("done");
+        check.setAttribute('aria-checked', String(isDone));
 
         // Use db.setHabitCheck to ensure cloud sync
         db.setHabitCheck(key, isDone);
@@ -2925,9 +3144,12 @@ function renderGoals() {
     const textDiv = document.createElement("div");
     textDiv.className = "focus-text";
     textDiv.textContent = typeof goal === 'string' ? goal : goal.text;
+    // Touch screens: tapping the text ticks the goal (editing is in the "⋯" sheet)
+    textDiv.onclick = () => {
+      if (window.MobileUI && MobileUI.isTouch()) cb.click();
+    };
 
-    // Double-click to edit
-    textDiv.ondblclick = async () => {
+    const editGoal = async () => {
       const currentText = typeof goal === 'string' ? goal : goal.text;
       const newText = await showInputModal('Edit Goal', 'Update your goal...', currentText);
       if (newText && newText.trim()) {
@@ -2938,17 +3160,24 @@ function renderGoals() {
       }
     };
 
+    const setUrgency = (urgency) => {
+      goal.urgency = urgency;
+      const goals = db.getGoals();
+      goals[idx] = goal;
+      db.setGoals(goals);
+      renderGoals();
+    };
+
+    // Double-click to edit
+    textDiv.ondblclick = editGoal;
+
     // Right-click to set urgency
     textDiv.oncontextmenu = (e) => {
       e.preventDefault();
       e.stopPropagation();
       const urgencies = [null, 'high', 'medium', 'low'];
       const currentIdx = urgencies.indexOf(goal.urgency || null);
-      goal.urgency = urgencies[(currentIdx + 1) % urgencies.length];
-      const goals = db.getGoals();
-      goals[idx] = goal;
-      db.setGoals(goals);
-      renderGoals();
+      setUrgency(urgencies[(currentIdx + 1) % urgencies.length]);
     };
 
     // Delete button
@@ -2958,6 +3187,22 @@ function renderGoals() {
     deleteBtn.onclick = () => deleteGoal(idx);
 
     item.append(cb, textDiv, deleteBtn);
+
+    // Touch screens: the same actions in a sheet (no hover, double-click or right-click there)
+    if (window.MobileUI) {
+      const label = textDiv.textContent;
+      item.appendChild(MobileUI.moreButton(`Actions for goal ${label}`, () => ({
+        title: label,
+        actions: [
+          { id: 'edit', label: 'Edit', icon: '✏️', onSelect: editGoal },
+          {
+            id: 'urgency', label: 'Urgency', icon: '🚩', hint: MobileUI.PRIORITY_LABELS[goal.urgency] || 'None',
+            onSelect: () => MobileUI.showActionSheet(MobileUI.prioritySheet('Urgency', goal.urgency, setUrgency))
+          },
+          { id: 'delete', label: 'Delete goal', icon: '🗑️', destructive: true, onSelect: () => deleteGoal(idx) }
+        ]
+      })));
+    }
     els.goalsList.appendChild(item);
   });
 }
@@ -3177,8 +3422,79 @@ function renderSimpleList(listName) {
     };
 
     div.append(span, del);
+
+    // Touch screens: edit / reorder / move / delete in a sheet
+    if (window.MobileUI) {
+      div.appendChild(MobileUI.moreButton(`Actions for ${item.text}`, () => {
+        const otherLists = db.get('customListsMeta', []).filter(m => m.id !== listName);
+        const actions = [
+          { id: 'edit', label: 'Edit', icon: '✏️', onSelect: () => editListItem(listName, idx, item.text) },
+          { id: 'up', label: 'Move up', icon: '⬆️', disabled: idx === 0, onSelect: () => moveListItem(listName, idx, idx - 1, item.text) },
+          { id: 'down', label: 'Move down', icon: '⬇️', disabled: idx === items.length - 1, onSelect: () => moveListItem(listName, idx, idx + 1, item.text) }
+        ];
+        if (otherLists.length) {
+          actions.push({
+            id: 'move', label: 'Move to another list', icon: '📋',
+            onSelect: () => MobileUI.showActionSheet({
+              title: 'Move to',
+              actions: otherLists.map(m => ({ id: 'list-' + m.id, label: m.title, onSelect: () => moveListItemToList(listName, idx, m.id, item.text) }))
+            })
+          });
+        }
+        actions.push({ id: 'delete', label: 'Delete', icon: '🗑️', destructive: true, onSelect: () => deleteListItem(listName, idx, item.text) });
+        return { title: item.text, actions };
+      }));
+    }
     container.appendChild(div);
   });
+}
+
+// The sheet actions re-read the list and check the item is still where it was:
+// a sync from another device may have changed the list while the sheet was open.
+function listItemAt(items, idx, text) {
+  return items[idx] && items[idx].text === text ? items[idx] : null;
+}
+
+async function editListItem(listName, idx, text) {
+  const items = getListItems(listName);
+  const item = listItemAt(items, idx, text);
+  if (!item) return;
+  const newText = await showInputModal('Edit Item', 'Update...', item.text);
+  if (newText && newText.trim()) {
+    item.text = newText.trim();
+    setListItems(listName, items);
+    renderSimpleList(listName);
+  }
+}
+
+function moveListItem(listName, from, to, text) {
+  const items = getListItems(listName);
+  if (!listItemAt(items, from, text) || to < 0 || to >= items.length) return;
+  const [moved] = items.splice(from, 1);
+  items.splice(to, 0, moved);
+  setListItems(listName, items);
+  renderSimpleList(listName);
+}
+
+// Same as dropping an item on another list
+function deleteListItem(listName, idx, text) {
+  const items = getListItems(listName);
+  if (!listItemAt(items, idx, text)) return;
+  items.splice(idx, 1);
+  setListItems(listName, items);
+  renderSimpleList(listName);
+}
+
+function moveListItemToList(sourceList, idx, targetList, text) {
+  const sourceItems = getListItems(sourceList);
+  if (!listItemAt(sourceItems, idx, text)) return;
+  const [moved] = sourceItems.splice(idx, 1);
+  setListItems(sourceList, sourceItems);
+  const targetItems = getListItems(targetList);
+  targetItems.push(moved);
+  setListItems(targetList, targetItems);
+  renderSimpleList(sourceList);
+  renderSimpleList(targetList);
 }
 
 window.addListItem = async (listName) => {
@@ -3255,6 +3571,21 @@ window.renderUnifiedLists = () => {
     div.querySelector('.delete-list-btn').onclick = () => deleteList(list.id);
     div.querySelector('.simple-list').id = `${list.id}List`;
     div.querySelector('.list-add-item-btn').onclick = () => addListItem(list.id);
+
+    // Touch screens: rename / reorder / delete in a sheet (hover buttons and dragging do not work there)
+    if (window.MobileUI) {
+      const more = MobileUI.moreButton(`Actions for list ${list.title}`, () => ({
+        title: list.title,
+        actions: [
+          { id: 'rename', label: 'Rename', icon: '✏️', onSelect: () => renameList(list.id) },
+          { id: 'up', label: 'Move up', icon: '⬆️', disabled: index === 0, onSelect: () => moveList(list.id, -1) },
+          { id: 'down', label: 'Move down', icon: '⬇️', disabled: index === meta.length - 1, onSelect: () => moveList(list.id, 1) },
+          { id: 'delete', label: 'Delete list', icon: '🗑️', destructive: true, onSelect: () => deleteList(list.id) }
+        ]
+      }));
+      more.classList.add('list-more-btn');
+      div.appendChild(more);
+    }
 
     // Drag event handlers
     div.addEventListener('dragstart', handleListDragStart);
@@ -3365,6 +3696,29 @@ window.updateListTitle = (id, el) => {
     saveListMeta(meta);
   }
 };
+
+// Touch alternatives to editing the title in place and dragging lists
+async function renameList(id) {
+  const meta = db.get('customListsMeta', []);
+  const list = meta.find(m => m.id === id);
+  if (!list) return;
+  const name = await showInputModal('Rename List', 'List name', list.title);
+  if (!name || !name.trim() || name.trim() === list.title) return;
+  list.title = name.trim();
+  saveListMeta(meta);
+  renderUnifiedLists();
+}
+
+function moveList(id, delta) {
+  const meta = db.get('customListsMeta', []);
+  const from = meta.findIndex(m => m.id === id);
+  const to = from + delta;
+  if (from === -1 || to < 0 || to >= meta.length) return;
+  const [moved] = meta.splice(from, 1);
+  meta.splice(to, 0, moved);
+  saveListMeta(meta);
+  renderUnifiedLists();
+}
 
 window.deleteList = async (id) => {
   // Find list name for better UX
@@ -3631,18 +3985,16 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
       div.classList.toggle('done', task.done);
     };
     div.appendChild(cb);
+    // Touch screens: tapping the text ticks the task (editing is in the "⋯" sheet)
+    textSpan.onclick = () => {
+      if (window.MobileUI && MobileUI.isTouch()) cb.click();
+    };
   }
 
   div.appendChild(textSpan);
 
-  // Right-click to set priority
-  textSpan.oncontextmenu = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const priorities = [null, 'high', 'medium', 'low'];
-    const currentIdx = priorities.indexOf(task.priority);
-    task.priority = priorities[(currentIdx + 1) % priorities.length];
-
+  // Saves the changed task where it lives (calendar day or weekly board)
+  const saveTask = () => {
     if (isFromCalendar && sourceDate) {
       const tasks = db.getCalendarTasks(sourceDate);
       if (tasks[index]) {
@@ -3656,11 +4008,12 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
     renderKanban();
   };
 
-  const deleteBtn = document.createElement("button");
-  deleteBtn.className = "kanban-card-delete";
-  deleteBtn.innerHTML = "&times;";
-  deleteBtn.onclick = (e) => {
-    e.stopPropagation();
+  const setPriority = (priority) => {
+    task.priority = priority;
+    saveTask();
+  };
+
+  const removeTask = () => {
     if (isFromCalendar && sourceDate) {
       // Delete from calendar
       const tasks = db.getCalendarTasks(sourceDate);
@@ -3673,7 +4026,63 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
     }
   };
 
+  const editTask = async () => {
+    const newText = await showInputModal('Edit Card', 'Update your card...', task.text);
+    if (newText && newText.trim() && newText.trim() !== task.text) {
+      task.text = newText.trim();
+      saveTask();
+    }
+  };
+
+  // Right-click to set priority
+  textSpan.oncontextmenu = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const priorities = [null, 'high', 'medium', 'low'];
+    const currentIdx = priorities.indexOf(task.priority);
+    setPriority(priorities[(currentIdx + 1) % priorities.length]);
+  };
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "kanban-card-delete";
+  deleteBtn.innerHTML = "&times;";
+  deleteBtn.onclick = (e) => {
+    e.stopPropagation();
+    removeTask();
+  };
+
   div.appendChild(deleteBtn);
+
+  // Touch screens: edit / priority / move / delete in a sheet instead of
+  // double-click, right-click, hover and drag & drop
+  if (window.MobileUI) {
+    div.appendChild(MobileUI.moreButton(`Actions for ${task.text}`, () => {
+      const actions = [
+        { id: 'edit', label: 'Edit', icon: '✏️', onSelect: editTask },
+        {
+          id: 'priority', label: 'Priority', icon: '🚩', hint: MobileUI.PRIORITY_LABELS[task.priority] || 'None',
+          onSelect: () => MobileUI.showActionSheet(MobileUI.prioritySheet('Priority', task.priority, setPriority))
+        }
+      ];
+      if (isWeekBased) {
+        actions.push({
+          id: 'move', label: 'Move to another day', icon: '📆',
+          onSelect: () => MobileUI.showActionSheet({
+            title: 'Move to',
+            actions: weekdays.map((day, dayIdx) => ({
+              id: 'day-' + day,
+              label: `${day} ${getDateForWeekday(dayIdx).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}`,
+              checked: day === colName,
+              disabled: day === colName,
+              onSelect: () => moveKanbanCardToDay({ task, colName, index, isWeekBased, isFromCalendar, sourceDate }, day)
+            }))
+          })
+        });
+      }
+      actions.push({ id: 'delete', label: 'Delete', icon: '🗑️', destructive: true, onSelect: removeTask });
+      return { title: task.text, actions };
+    }));
+  }
 
   // Enable dragging for all tasks
   div.ondragstart = (e) => {
@@ -3693,26 +4102,42 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
     document.querySelectorAll('.kanban-items.drag-over').forEach(el => el.classList.remove('drag-over'));
   };
 
-  div.ondblclick = async () => {
-    const newText = await showInputModal('Edit Card', 'Update your card...', task.text);
-    if (newText && newText.trim() && newText.trim() !== task.text) {
-      task.text = newText.trim();
-
-      if (isFromCalendar && sourceDate) {
-        const tasks = db.getCalendarTasks(sourceDate);
-        if (tasks[index]) {
-          tasks[index] = task;
-          db.setCalendarTasks(sourceDate, tasks);
-          renderCalendar();
-        }
-      } else {
-        updateKanbanItem(colName, index, task, isWeekBased);
-      }
-      renderKanban();
-    }
-  };
+  div.ondblclick = editTask;
 
   return div;
+}
+
+// Touch alternative to dragging a card onto another day column: appends it there.
+// Mirrors the "different column" branch of handleKanbanDrop.
+function moveKanbanCardToDay(card, targetCol) {
+  const { task, colName, index, isWeekBased, isFromCalendar, sourceDate } = card;
+  if (targetCol === colName) return;
+
+  if (isFromCalendar && sourceDate) {
+    const targetColIndex = weekdays.indexOf(targetCol);
+    if (targetColIndex === -1) return;
+    const targetDate = getDateForWeekday(targetColIndex);
+
+    const sourceTasks = db.getCalendarTasks(sourceDate);
+    sourceTasks.splice(index, 1);
+    db.setCalendarTasks(sourceDate, sourceTasks);
+
+    const targetTasks = db.getCalendarTasks(targetDate);
+    targetTasks.push(task);
+    db.setCalendarTasks(targetDate, targetTasks);
+
+    renderCalendar();
+    renderKanban();
+    return;
+  }
+
+  const board = getKanbanBoard(isWeekBased);
+  if (!board[colName] || board[colName][index] === undefined) return;
+  const [moved] = board[colName].splice(index, 1);
+  if (!board[targetCol]) board[targetCol] = [];
+  board[targetCol].push(moved);
+  setKanbanBoard(board, isWeekBased);
+  renderKanban();
 }
 
 function getKanbanBoard(isWeekBased) {

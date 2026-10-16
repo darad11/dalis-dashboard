@@ -1,0 +1,1908 @@
+/*
+ * Phones, tablets and foldables (iPhone, iPhone Duo folded/unfolded, iPad).
+ * Loaded after style.css. Desktop (mouse/trackpad, 1100px and wider) is untouched:
+ *   - .tabs-on      touch screen narrower than 1100px (set in index.html / js/mobile.js)
+ *   - (hover: none) touch screen of any width (no hover, no double-click, no right-click)
+ *   - max-width     layout fixes that narrow desktop windows need as well
+ * Layouts depend on the available width only. Safari does not tell whether an iPhone Duo
+ * is folded, so folded (~466px), split view (~445px) and unfolded (~890px landscape)
+ * simply use the compact (< 700px) or medium (700-1099px) layout.
+ */
+
+:root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --tabbar-height: 58px;
+    --touch-target: 44px;
+    --tabbar-bg: rgba(246, 247, 250, 0.88);
+    --tab-active: #4f46e5;
+}
+
+body.dark {
+    --tabbar-bg: rgba(15, 23, 42, 0.88);
+    --tab-active: #a5b4fc;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+body {
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+/* Elements that only exist for the phone/tablet layout */
+.mobile-tabbar,
+.mobile-section-title,
+.calendar-agenda,
+.fab-item-label,
+.item-more-btn {
+    display: none;
+}
+
+/* ===================================================================
+   Layout fixes for narrow windows (also desktop browsers made narrow)
+   =================================================================== */
+
+/* Habits between 769 and 900px rendered each check as a full-width circle,
+   below that as a vertical list without day labels: use one card per habit */
+@media (max-width: 900px) {
+    .habits-grid {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        overflow: visible;
+    }
+
+    .habit-header-row,
+    .habit-row {
+        min-width: 0;
+    }
+
+    .habit-header-row {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 4px;
+        padding: 0 13px;
+    }
+
+    .habit-header-row>div:first-child {
+        display: none;
+    }
+
+    .habit-header-row>div {
+        font-size: 0.75rem;
+    }
+
+    .habit-row {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 10px 4px;
+        align-items: center;
+        padding: 10px 12px 12px;
+        background: var(--surface-color);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-md);
+    }
+
+    .habit-name {
+        grid-column: 1 / -1;
+        min-width: 0;
+        padding: 0;
+        background: transparent;
+        border: none;
+        font-size: 0.95rem;
+    }
+
+    .habit-check {
+        width: 100%;
+        max-width: 40px;
+        border-width: 2px;
+    }
+}
+
+/* Section headers: the centred title is absolutely positioned on desktop and
+   slid under the buttons on narrow screens */
+@media (max-width: 768px) {
+
+    .section-nav h2,
+    .section-nav h3,
+    .calendar-title-group {
+        position: static;
+        transform: none;
+        width: auto;
+    }
+
+    .section-nav,
+    .calendar-header {
+        flex-wrap: wrap;
+        justify-content: center;
+        row-gap: 10px;
+    }
+
+    .calendar-header .calendar-title-group,
+    .week-nav-panel .section-nav h3 {
+        flex: 1 1 100%;
+        text-align: center;
+    }
+
+    .calendar-header h3 {
+        font-size: 1rem;
+        white-space: normal;
+        overflow: visible;
+    }
+
+    .section-nav-buttons,
+    .calendar-header>div:last-child {
+        justify-content: center !important;
+        width: auto !important;
+    }
+
+    .goals-container .section-nav {
+        flex-wrap: nowrap;
+    }
+
+    .goals-container .section-nav h2 {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .sidebar-datetime {
+        position: static;
+        text-align: right;
+        margin-bottom: -12px;
+    }
+}
+
+/* ===================================================================
+   Touch screens (any width): no hover, double-click or right-click
+   =================================================================== */
+@media (hover: none) {
+    html {
+        touch-action: manipulation;
+    }
+
+    .habit-check,
+    .day-cell,
+    .day-circle,
+    .simple-list-item span,
+    .kanban-card,
+    .focus-item,
+    .mobile-tab,
+    .item-more-btn {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Pressed feedback instead of hover */
+    .btn:active,
+    .kanban-add-btn:active,
+    .add-task-btn:active,
+    .quick-add-btn:active {
+        transform: scale(0.97);
+        background-color: rgba(99, 102, 241, 0.14);
+    }
+
+    /* Blur on ~150 buttons costs scrolling smoothness on phones; buttons are opaque enough */
+    .btn {
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
+
+    /* Hover-only delete buttons were invisible but still tappable: replaced by "⋯" sheets */
+    .focus-delete,
+    .kanban-card-delete,
+    .task-delete,
+    .simple-list-item .delete-btn,
+    .habit-delete-btn,
+    .delete-list-btn,
+    .list-drag-handle {
+        display: none;
+    }
+
+    .item-more-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: var(--touch-target);
+        height: var(--touch-target);
+        margin: -10px -10px -10px -4px;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        touch-action: manipulation;
+    }
+
+    .item-more-btn svg {
+        width: 20px;
+        height: 20px;
+        fill: currentColor;
+    }
+
+    .item-more-btn:active {
+        background: rgba(99, 102, 241, 0.16);
+        color: var(--text-primary);
+    }
+
+    .list-panel .list-more-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        margin: 0;
+    }
+
+    .habit-name .item-more-btn {
+        margin: -8px -8px -8px 0;
+    }
+
+    /* Health Hub delete buttons were only shown on mouse hover */
+    .supp-row .delete-btn {
+        opacity: 0.55 !important;
+        min-width: 36px;
+        min-height: 36px;
+        border: none;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 1.2rem;
+    }
+
+    .pr-delete,
+    .goal-delete,
+    .supplement-delete {
+        opacity: 0.55;
+        min-width: 32px;
+        min-height: 32px;
+    }
+}
+
+/* ===================================================================
+   Tab layout: touch screens narrower than 1100px
+   =================================================================== */
+
+/* ---- Page frame, safe areas (notch, Dynamic Island, home indicator, fold edges) ---- */
+html.tabs-on body {
+    padding: calc(var(--safe-top) + 6px) calc(var(--safe-right) + 12px) calc(var(--tabbar-height) + var(--safe-bottom) + 28px) calc(var(--safe-left) + 12px);
+}
+
+html.tabs-on.sheet-open {
+    overflow: hidden;
+}
+
+/* Room to scroll the last item above the floating + button */
+html.tabs-on[data-tab="today"] body,
+html.tabs-on[data-tab="week"] body {
+    padding-bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 92px);
+}
+
+.tabs-on .container {
+    position: relative;
+    max-width: 100%;
+}
+
+/* Only the sections of the active tab are displayed */
+html.tabs-on[data-tab="today"] [data-tab-section]:not([data-tab-section="today"]),
+html.tabs-on[data-tab="week"] [data-tab-section]:not([data-tab-section="week"]),
+html.tabs-on[data-tab="health"] [data-tab-section]:not([data-tab-section="health"]),
+html.tabs-on[data-tab="habits"] [data-tab-section]:not([data-tab-section="habits"]),
+html.tabs-on[data-tab="lists"] [data-tab-section]:not([data-tab-section="lists"]) {
+    display: none;
+}
+
+.tabs-on .container>.divider {
+    display: none;
+}
+
+.tabs-on .mobile-section-title {
+    display: flex;
+}
+
+.tabs-on h2 {
+    font-size: 1.25rem;
+    margin-bottom: 14px;
+}
+
+.tabs-on .glass-panel {
+    padding: 16px;
+    border-radius: 16px;
+    margin-bottom: 16px;
+}
+
+.tabs-on .inspirational-quote {
+    font-size: 0.85rem;
+    margin: 4px 8px 16px !important;
+}
+
+/* Touch targets: 44 x 44 pt (Apple Human Interface Guidelines) */
+.tabs-on .btn {
+    min-height: var(--touch-target);
+    font-size: 0.95rem;
+    width: auto;
+}
+
+/* style.css makes every button full width below 500px; keep that only for "add" buttons */
+.tabs-on .goals-container>.btn,
+.tabs-on .habits-content .glass-panel>div>.btn,
+.tabs-on .list-add-item-btn,
+.tabs-on .calendar-agenda-add {
+    width: 100%;
+}
+
+.tabs-on .icon-btn {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    border-radius: 50%;
+}
+
+.tabs-on .section-nav .btn,
+.tabs-on .calendar-header .btn,
+.tabs-on .stats-section .btn {
+    min-width: var(--touch-target);
+    padding: 0 14px;
+    font-size: 0.95rem;
+}
+
+/* ---- Header: compact brand row, menu button on the right ---- */
+.tabs-on .brand-header {
+    justify-content: flex-start;
+    gap: 10px;
+    margin: 0 0 10px;
+    padding: 6px 56px 6px 2px;
+    min-height: 52px;
+}
+
+.tabs-on .brand-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 1.25rem;
+}
+
+.tabs-on .brand-name {
+    font-size: 1.2rem;
+}
+
+.tabs-on .brand-tagline {
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+}
+
+.tabs-on .fab-container {
+    position: absolute;
+    top: 8px;
+    right: 0;
+    bottom: auto;
+    z-index: 950;
+}
+
+.tabs-on .fab-trigger {
+    width: 44px;
+    height: 44px;
+}
+
+/* Sync problem or pending upload: small dot on the closed menu button */
+.tabs-on .fab-container:has(#syncStatus[data-sync-state="error"]) .fab-trigger::after,
+.tabs-on .fab-container:has(#syncStatus[data-sync-state="pending"]) .fab-trigger::after {
+    content: '';
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-color);
+    background: #f59e0b;
+}
+
+.tabs-on .fab-container:has(#syncStatus[data-sync-state="error"]) .fab-trigger::after {
+    background: #ef4444;
+}
+
+/* Menu opens as a list with labels (no hover tooltips on touch) */
+.tabs-on .fab-menu {
+    top: 52px;
+    bottom: auto;
+    right: 0;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 230px;
+    padding: 6px;
+    border-radius: 16px;
+    background: var(--surface-color);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px) scale(0.98);
+    transform-origin: top right;
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+}
+
+html.tabs-on body:not(.dark) .fab-menu {
+    background: rgba(255, 255, 255, 0.97);
+}
+
+.tabs-on .fab-container.open .fab-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    pointer-events: auto;
+}
+
+.tabs-on .fab-item,
+.tabs-on .fab-container.open .fab-item {
+    width: 100%;
+    height: 48px;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    box-shadow: none;
+    opacity: 1;
+    transform: none;
+    transition: background-color 0.15s;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+.tabs-on .fab-item:active {
+    background: rgba(99, 102, 241, 0.12);
+}
+
+.tabs-on .fab-item-icon {
+    min-width: 28px;
+    text-align: center;
+    font-size: 1.15rem;
+    white-space: nowrap;
+    position: relative;
+}
+
+.tabs-on .fab-item-label {
+    display: inline;
+    font: 500 0.95rem/1.2 var(--font-main);
+    color: var(--text-primary);
+    filter: none;
+}
+
+.tabs-on .fab-item::before,
+.tabs-on .fab-item::after {
+    display: none;
+}
+
+.tabs-on .fab-item-logout .fab-item-label {
+    color: var(--danger-color);
+}
+
+.tabs-on .fab-backdrop {
+    background: rgba(0, 0, 0, 0.18);
+}
+
+/* ---- Bottom tab bar ---- */
+.tabs-on .mobile-tabbar {
+    display: flex;
+    justify-content: center;
+    gap: 2px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 900;
+    padding: 5px calc(var(--safe-right) + 8px) calc(var(--safe-bottom) + 5px) calc(var(--safe-left) + 8px);
+    background: var(--tabbar-bg);
+    border-top: 1px solid var(--glass-border);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+}
+
+.mobile-tab {
+    flex: 1 1 0;
+    max-width: 120px;
+    min-height: 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 4px 2px;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-secondary);
+    font: 600 0.6875rem/1.1 var(--font-main);
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.mobile-tab svg {
+    width: 25px;
+    height: 25px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.mobile-tab.active {
+    color: var(--tab-active);
+}
+
+.mobile-tab.active svg {
+    fill: currentColor;
+    fill-opacity: 0.16;
+    stroke-width: 2;
+}
+
+.mobile-tab:active {
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.mobile-tab:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: -2px;
+}
+
+/* ---- Floating buttons: above the tab bar, inside the safe area ---- */
+.tabs-on .quick-capture-btn {
+    right: calc(var(--safe-right) + 16px);
+    bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 16px);
+    width: 56px;
+    height: 56px;
+    font-size: 1.9rem;
+}
+
+/* Quick Add puts a task on today's calendar: only offered where that is visible */
+html.tabs-on:not([data-tab="today"]):not([data-tab="week"]) .quick-capture-btn {
+    display: none;
+}
+
+.tabs-on .pip-timer {
+    right: auto;
+    left: calc(var(--safe-left) + 16px);
+    bottom: calc(var(--tabbar-height) + var(--safe-bottom) + 16px);
+}
+
+.tabs-on .notification-container {
+    top: calc(var(--safe-top) + 10px);
+    width: calc(100% - 24px - var(--safe-left) - var(--safe-right));
+}
+
+/* ---- Dialogs: inside the safe area, scrollable, above the keyboard ---- */
+.tabs-on .input-modal,
+.tabs-on .confirm-modal,
+.tabs-on .shortcuts-modal {
+    padding: calc(var(--safe-top) + 16px) calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 16px) calc(var(--safe-left) + 16px);
+}
+
+.tabs-on .input-modal-content,
+.tabs-on .confirm-modal-content,
+.tabs-on .shortcuts-content {
+    max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 32px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.tabs-on .input-modal-actions .btn,
+.tabs-on .confirm-modal-actions .btn {
+    min-height: 48px;
+}
+
+/* Text fields sit in the upper part, so the iOS keyboard does not cover them */
+@media (max-width: 699px) {
+
+    .tabs-on .input-modal,
+    .tabs-on .confirm-modal {
+        align-items: flex-start;
+        padding-top: calc(var(--safe-top) + 10vh);
+    }
+}
+
+.tabs-on .focus-overlay {
+    padding: calc(var(--safe-top) + 24px) calc(var(--safe-right) + 20px) calc(var(--safe-bottom) + 24px) calc(var(--safe-left) + 20px);
+}
+
+.tabs-on .focus-exit-btn {
+    top: calc(var(--safe-top) + 16px);
+    right: calc(var(--safe-right) + 16px);
+    min-height: var(--touch-target);
+}
+
+.tabs-on .focus-timer {
+    width: min(300px, 70vw, 48dvh);
+    height: min(300px, 70vw, 48dvh);
+    margin-bottom: 28px;
+}
+
+.tabs-on .focus-timer .pomo-time {
+    /* scales with the ring, so "25:00" fits on short landscape screens too */
+    font-size: calc(min(300px, 70vw, 48dvh) * 0.21);
+}
+
+/* ---- Action sheet (js/mobile.js) ---- */
+.action-sheet-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.action-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+
+.action-sheet {
+    position: relative;
+    width: min(100%, 440px);
+    max-height: calc(100dvh - var(--safe-top) - 16px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 calc(var(--safe-right) + 10px) calc(var(--safe-bottom) + 10px) calc(var(--safe-left) + 10px);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transform: translateY(24px);
+    opacity: 0;
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s ease;
+}
+
+.action-sheet-layer.open .action-sheet-backdrop {
+    opacity: 1;
+}
+
+.action-sheet-layer.open .action-sheet {
+    transform: none;
+    opacity: 1;
+}
+
+.action-sheet-panel {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-color);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+
+body:not(.dark) .action-sheet-panel,
+body:not(.dark) .action-sheet-cancel {
+    background: #ffffff;
+}
+
+body.dark .action-sheet-panel,
+body.dark .action-sheet-cancel {
+    background: #1e293b;
+}
+
+.action-sheet-header {
+    padding: 14px 18px 12px;
+    text-align: center;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.action-sheet-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+}
+
+.action-sheet-message {
+    margin-top: 2px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.action-sheet-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    padding: 0 18px;
+    border: none;
+    border-top: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-primary);
+    font: 500 1.02rem/1.2 var(--font-main);
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.action-sheet-panel>.action-sheet-btn:first-child,
+.action-sheet-header+.action-sheet-btn {
+    border-top: none;
+}
+
+.action-sheet-btn:active:not(:disabled) {
+    background: rgba(99, 102, 241, 0.12);
+}
+
+.action-sheet-btn:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: -2px;
+}
+
+.action-sheet-btn:disabled {
+    color: var(--text-secondary);
+    opacity: 0.55;
+    cursor: default;
+}
+
+.action-sheet-btn.destructive {
+    color: #dc2626;
+}
+
+body.dark .action-sheet-btn.destructive {
+    color: #f87171;
+}
+
+.action-sheet-icon {
+    width: 24px;
+    text-align: center;
+    font-size: 1.1rem;
+}
+
+.action-sheet-label {
+    flex: 1;
+}
+
+.action-sheet-hint {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.action-sheet-check {
+    color: var(--accent-color);
+    font-weight: 700;
+}
+
+.action-sheet-cancel {
+    justify-content: center;
+    border-top: none;
+    border-radius: 16px;
+    font-weight: 600;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+@media (min-width: 700px) {
+    .action-sheet-layer {
+        align-items: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .action-sheet,
+    .action-sheet-backdrop,
+    .tabs-on .fab-menu {
+        transition: none;
+    }
+}
+
+/* ===================================================================
+   Today tab: Focus timer + goals
+   =================================================================== */
+.tabs-on .dashboard-main-layout {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 16px;
+    margin-bottom: 8px;
+    overflow: visible;
+}
+
+.tabs-on .combined-glass-panel {
+    flex-direction: column;
+    width: 100%;
+}
+
+.tabs-on .pomodoro-section {
+    width: 100%;
+    height: auto;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+        "head head"
+        "modes modes"
+        "ring controls"
+        "ring sessions"
+        "ambient ambient";
+    column-gap: 18px;
+    align-items: center;
+}
+
+.tabs-on .pomo-header-row {
+    grid-area: head;
+    margin-bottom: 12px !important;
+}
+
+.tabs-on .pomo-header-row .icon-btn {
+    width: var(--touch-target) !important;
+    height: var(--touch-target) !important;
+    margin-right: -6px !important;
+}
+
+.tabs-on .pomodoro-modes {
+    grid-area: modes;
+    margin: 0 0 14px;
+    justify-content: flex-start;
+}
+
+.tabs-on .pomo-mode-btn {
+    min-height: var(--touch-target);
+    padding: 0 16px;
+    font-size: 0.9rem;
+    flex: 1;
+}
+
+.tabs-on .pomodoro-display {
+    grid-area: ring;
+    width: 132px;
+    height: 132px;
+    margin: 0;
+}
+
+.tabs-on .pomo-time {
+    font-size: 2.1rem;
+}
+
+.tabs-on .pomodoro-controls {
+    grid-area: controls;
+    flex-direction: column;
+    align-self: end;
+    gap: 8px;
+    margin: 0;
+}
+
+.tabs-on .pomo-btn {
+    width: 100%;
+    min-width: 0;
+}
+
+.tabs-on .pomo-sessions {
+    grid-area: sessions;
+    align-self: start;
+    margin-top: 8px;
+    text-align: center;
+}
+
+.tabs-on .ambient-controls {
+    grid-area: ambient;
+    margin-top: 14px;
+    padding: 8px 12px;
+    flex-wrap: nowrap;
+}
+
+.tabs-on .ambient-select {
+    flex: 1;
+    min-height: var(--touch-target);
+    min-width: 0;
+}
+
+html.tabs-on body .ambient-volume {
+    width: 96px;
+    height: var(--touch-target);
+    background: transparent;
+}
+
+.tabs-on .ambient-volume::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--glass-border);
+}
+
+.tabs-on .ambient-volume::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+    margin-top: -9px;
+}
+
+/* Floating mini timer (in-page fallback on iOS): button next to the statistics button */
+.tabs-on .pip-btn {
+    grid-area: head;
+    justify-self: end;
+    align-self: start;
+    width: var(--touch-target);
+    height: var(--touch-target);
+    margin: 0 46px 0 0;
+    padding: 0;
+    border-radius: 50%;
+}
+
+.tabs-on .combined-glass-panel:not(.stats-open) .stats-section {
+    display: none;
+}
+
+.tabs-on .combined-glass-panel.stats-open .stats-section {
+    width: 100%;
+    padding: 16px;
+    white-space: normal;
+    border-top: 1px solid var(--glass-border);
+}
+
+.tabs-on .stats-section>div:first-child {
+    margin-bottom: 16px !important;
+}
+
+.tabs-on .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.tabs-on .dashboard-sidebar {
+    min-width: 0;
+    width: 100%;
+    gap: 8px;
+}
+
+.tabs-on .sidebar-datetime {
+    position: static;
+    margin: 0 4px;
+    text-align: right;
+    font-size: 0.8rem;
+}
+
+.tabs-on .goals-container {
+    padding: 14px;
+}
+
+.tabs-on .goals-container .section-nav {
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 0;
+    margin-bottom: 12px;
+}
+
+.tabs-on .goals-container .section-nav h2 {
+    position: static;
+    transform: none;
+    width: auto;
+    flex: 1;
+    justify-content: center;
+    font-size: 1.15rem;
+    white-space: nowrap;
+}
+
+.tabs-on .section-nav .nav-btn {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    padding: 0;
+    font-size: 0.9rem;
+}
+
+.tabs-on .dashboard-sidebar .goals-list {
+    max-height: none;
+    overflow: visible;
+    margin-bottom: 14px;
+    padding-right: 0;
+}
+
+.tabs-on .focus-item {
+    gap: 12px;
+    min-height: 52px;
+    padding: 10px 12px;
+}
+
+.tabs-on .focus-checkbox {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+}
+
+.tabs-on .focus-text {
+    font-size: 1rem;
+}
+
+/* ===================================================================
+   Week tab: weekly overview + calendar
+   =================================================================== */
+.tabs-on .week-overview-section>h2 {
+    margin-top: 4px !important;
+}
+
+.tabs-on .week-nav-panel {
+    padding: 12px 14px !important;
+}
+
+html.tabs-on .week-nav-panel .section-nav {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0;
+}
+
+.tabs-on .week-nav-panel .section-nav h3 {
+    position: static;
+    transform: none;
+    width: auto;
+    flex: 1 1 auto;
+    text-align: left;
+    font-size: 1rem;
+    white-space: nowrap;
+}
+
+.tabs-on .section-nav-buttons {
+    width: auto !important;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.tabs-on .section-nav-buttons .btn:first-child,
+.tabs-on .calendar-header>div:last-child .btn:first-child {
+    margin-right: 4px !important;
+}
+
+/* Days as a vertical list on phones */
+.tabs-on .week-kanban {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding: 0;
+    overflow: visible;
+}
+
+.tabs-on .kanban-column {
+    min-width: 0;
+    min-height: 0;
+    margin-top: 0;
+    padding: 10px 12px 12px;
+    border-radius: 14px;
+}
+
+.tabs-on .kanban-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    text-align: left;
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+}
+
+.tabs-on .kanban-date {
+    position: static;
+    order: 2;
+    width: auto;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.tabs-on .kanban-holiday {
+    order: 3;
+    margin: 0 0 0 auto;
+    font-size: 0.75rem;
+}
+
+.tabs-on .kanban-column.today::after {
+    content: 'Today';
+    order: 4;
+    margin-left: auto;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent-color);
+    position: absolute;
+    top: 12px;
+    right: 14px;
+}
+
+.tabs-on .kanban-items {
+    min-height: 0;
+    gap: 6px;
+    padding: 0;
+}
+
+.tabs-on .kanban-card {
+    align-items: center;
+    gap: 10px;
+    min-height: 46px;
+    padding: 8px 10px 8px 12px;
+    border-radius: 10px;
+}
+
+.tabs-on .kanban-card-text {
+    font-size: 0.95rem;
+    line-height: 1.35;
+    word-break: normal;
+    overflow-wrap: break-word;
+    -webkit-hyphens: auto;
+    hyphens: auto;
+}
+
+.tabs-on .kanban-card .task-checkbox,
+.tabs-on .task-checkbox {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    margin: 0;
+    border-radius: 6px;
+}
+
+.tabs-on .task-checkbox:checked::after {
+    font-size: 13px;
+}
+
+.tabs-on .kanban-add-btn {
+    min-height: var(--touch-target);
+    margin-top: 8px;
+    padding: 6px;
+    font-size: 0.9rem;
+}
+
+.tabs-on .kanban-add-btn::after {
+    content: ' Add task';
+}
+
+/* Calendar: month grid selects a day, the agenda below lists its entries */
+.tabs-on .calendar-section {
+    margin-top: 8px;
+}
+
+.tabs-on .calendar-header {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0;
+    margin-bottom: 12px;
+}
+
+.tabs-on .calendar-title-group {
+    position: static;
+    transform: none;
+    width: auto;
+    flex: 1 1 auto;
+    align-items: flex-start;
+}
+
+.tabs-on .calendar-header h3 {
+    font-size: 1.05rem;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.tabs-on .calendar-header>div:last-child {
+    width: auto !important;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.tabs-on .calendar-grid-header {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 6px;
+    font-size: 0.72rem;
+}
+
+.tabs-on .calendar-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.tabs-on .day-cell {
+    min-height: 0;
+    aspect-ratio: 1 / 1.05;
+    padding: 0;
+    border-width: 1px;
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.tabs-on .day-cell::before {
+    display: none;
+}
+
+.tabs-on .day-cell.empty {
+    visibility: hidden;
+}
+
+.tabs-on .day-cell .tasks-list,
+.tabs-on .day-cell .add-task-btn,
+.tabs-on .day-cell .holiday-label {
+    display: none;
+}
+
+.tabs-on .day-number {
+    position: static;
+    width: 30px;
+    height: 30px;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.tabs-on .day-number.today {
+    animation: none;
+    box-shadow: none;
+}
+
+.tabs-on .day-cell.holiday .day-number:not(.today) {
+    color: #dc2626;
+}
+
+html.tabs-on body.dark .day-cell.holiday .day-number:not(.today) {
+    color: #f87171;
+}
+
+.tabs-on .day-cell.has-tasks::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    margin-left: -3px;
+    border-radius: 50%;
+    background: var(--accent-color);
+}
+
+.tabs-on .day-cell.selected {
+    border-color: var(--accent-color);
+    border-width: 2px;
+    background: rgba(99, 102, 241, 0.12);
+}
+
+.tabs-on .day-cell:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 1px;
+}
+
+.tabs-on .calendar-agenda {
+    display: block;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--glass-border);
+}
+
+.calendar-agenda-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.calendar-agenda-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.calendar-agenda-holiday {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #dc2626;
+    background: rgba(239, 68, 68, 0.12);
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+body.dark .calendar-agenda-holiday {
+    color: #f87171;
+}
+
+.tabs-on .calendar-agenda-list {
+    margin: 0 0 12px;
+    min-height: 0;
+    gap: 6px;
+    overflow: visible;
+}
+
+.calendar-agenda-empty {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    padding: 6px 2px;
+}
+
+.tabs-on .calendar-agenda .task-item {
+    min-height: 48px;
+    padding: 8px 10px 8px 14px;
+    font-size: 0.95rem;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+}
+
+.tabs-on .calendar-agenda .task-text {
+    font-size: 0.95rem;
+}
+
+.tabs-on .calendar-agenda-add {
+    width: 100%;
+    border-style: dashed;
+}
+
+/* ===================================================================
+   Health tab
+   =================================================================== */
+.tabs-on .gym-hub-section {
+    margin-top: 0;
+}
+
+.tabs-on .gym-hub-header {
+    padding: 4px 0 12px;
+}
+
+.tabs-on .gym-hub-header h2 {
+    font-size: 1.25rem;
+}
+
+.tabs-on .gym-hub-toggle {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tabs-on .gym-hero {
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.tabs-on .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+}
+
+.tabs-on .hero-stat,
+.tabs-on .hero-donut {
+    width: auto;
+    min-width: 0;
+    padding: 10px 12px !important;
+    gap: 10px;
+}
+
+.tabs-on .hero-stat:not(.hero-supps-quick):not(.hero-quick-add) {
+    justify-content: flex-start;
+}
+
+.tabs-on .hero-stat-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.tabs-on .hero-stat .hero-btn:not(.icon-only) {
+    min-height: var(--touch-target);
+    padding: 0 16px;
+    font-size: 0.9rem;
+}
+
+.tabs-on .hero-water-btns-vertical {
+    flex-direction: row;
+    gap: 6px;
+}
+
+.tabs-on .hero-water-btns-vertical .btn {
+    min-height: var(--touch-target);
+    padding: 0 10px;
+    font-size: 0.85rem;
+}
+
+.tabs-on .water-mini-bar {
+    width: 100%;
+    max-width: 120px;
+}
+
+.tabs-on .hero-supps-quick,
+.tabs-on .hero-quick-add {
+    flex-direction: column;
+    align-items: stretch !important;
+}
+
+.tabs-on .hero-supps-btns,
+.tabs-on .hero-quick-add .hero-quick-btns {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+    gap: 8px;
+    max-width: none;
+    justify-items: center;
+}
+
+.tabs-on .hero-btn.icon-only {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    font-size: 1.25rem;
+}
+
+.tabs-on .hero-supps-quick .hero-stat-label,
+.tabs-on .hero-quick-add .hero-stat-label {
+    font-size: 0.72rem;
+    margin-bottom: 8px !important;
+    text-align: left !important;
+}
+
+.tabs-on .hero-donut {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    row-gap: 8px;
+}
+
+.tabs-on .hero-donut-chart {
+    width: 72px;
+    height: 72px;
+}
+
+.tabs-on .hero-donut-value {
+    font-size: 1rem;
+}
+
+.tabs-on .hero-donut-label {
+    font-size: 0.7rem;
+}
+
+.tabs-on .mini-legend-item {
+    font-size: 0.85rem;
+}
+
+.tabs-on .hero-status-group {
+    margin-left: auto;
+}
+
+.tabs-on .status-badge,
+.tabs-on .status-detail {
+    font-size: 0.85rem;
+}
+
+.tabs-on .streak-history {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.tabs-on .gym-hub-grid,
+.tabs-on .gym-hub-grid.pro {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+}
+
+.tabs-on .gym-card {
+    padding: 16px;
+}
+
+.tabs-on .gym-date-nav-compact .btn {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    font-size: 0.85rem;
+}
+
+.tabs-on .gym-date-nav-compact .gym-today-btn {
+    padding: 0 14px !important;
+}
+
+.tabs-on .gym-date-label {
+    font-size: 0.9rem;
+}
+
+.tabs-on .split-day-compact {
+    min-width: 36px;
+    min-height: 36px;
+}
+
+.tabs-on .split-input-clean,
+.tabs-on .add-row input {
+    min-height: var(--touch-target);
+}
+
+.tabs-on .add-row .btn {
+    min-width: var(--touch-target);
+}
+
+.tabs-on .checklist-container {
+    max-height: none;
+    overflow: visible;
+}
+
+.tabs-on .weekly-goal-item {
+    min-height: 48px;
+}
+
+.tabs-on .ring-input {
+    min-height: var(--touch-target);
+}
+
+/* Step Challenge controls (built for 36-40px) get the full touch size on phones */
+.tabs-on .step-icon-btn,
+.tabs-on .step-nav-btn {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+}
+
+.tabs-on .step-date-input {
+    min-height: var(--touch-target);
+}
+
+.tabs-on .ring-label,
+.tabs-on .donut-label {
+    font-size: 0.7rem;
+}
+
+.tabs-on .settings-icon-btn {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    margin-right: -10px;
+}
+
+.tabs-on .quick-add-btn {
+    min-height: var(--touch-target);
+    padding: 0 12px;
+    font-size: 0.9rem;
+}
+
+.tabs-on .water-btns-row .btn {
+    min-height: var(--touch-target);
+    min-width: var(--touch-target);
+}
+
+/* Supplement tracker: name on its own line, 7 day circles across the full width */
+.tabs-on .supp-tracker-header {
+    padding: 0 6px 4px;
+}
+
+.tabs-on .supp-header-spacer {
+    display: none;
+}
+
+.tabs-on .supp-header-days,
+.tabs-on .supp-days-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+    width: 100%;
+}
+
+.tabs-on .supp-header-day {
+    width: auto;
+    font-size: 0.72rem;
+}
+
+.tabs-on .supp-row {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 6px;
+    margin-bottom: 6px;
+}
+
+.tabs-on .supp-row>div:first-child {
+    flex-basis: 100% !important;
+}
+
+.tabs-on .day-circle {
+    width: 34px;
+    height: 34px;
+    justify-self: center;
+}
+
+/* ===================================================================
+   Habits tab: habits + weekly review
+   =================================================================== */
+.tabs-on .habits-section {
+    margin-top: 0;
+    padding-top: 4px;
+    border-top: none;
+}
+
+.tabs-on .habits-header,
+.tabs-on .weekly-review-header,
+.tabs-on .calendar-section-header {
+    min-height: var(--touch-target);
+    margin-bottom: 8px;
+}
+
+.tabs-on .habits-header h2,
+.tabs-on .weekly-review-header h2,
+.tabs-on .calendar-section-header h2 {
+    margin-bottom: 0;
+}
+
+.tabs-on .habit-check {
+    max-width: var(--touch-target);
+}
+
+.tabs-on .habit-check.done::after {
+    font-size: 1rem;
+}
+
+.tabs-on .habit-name-text {
+    overflow-wrap: anywhere;
+}
+
+.tabs-on .weekly-review {
+    min-height: 180px;
+    font-size: 1rem;
+}
+
+.tabs-on .habit-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* ===================================================================
+   Lists tab
+   =================================================================== */
+.tabs-on .lists-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.tabs-on .list-panel {
+    padding: 14px 14px 16px;
+}
+
+.tabs-on .list-panel h3 {
+    padding: 10px 48px !important;
+    margin-bottom: 8px;
+    font-size: 1.05rem;
+}
+
+.tabs-on .simple-list {
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    padding-bottom: 8px;
+}
+
+.tabs-on .simple-list-item {
+    align-items: center;
+    min-height: 48px;
+    padding: 8px 10px 8px 14px;
+    font-size: 0.98rem;
+}
+
+.tabs-on .list-add-item-btn::after {
+    content: ' Add item';
+}
+
+.tabs-on .create-list-btn {
+    margin: 8px auto 16px !important;
+    min-height: 48px;
+}
+
+/* ===================================================================
+   Medium widths: iPhone Duo unfolded (~890 x 626), iPad mini/iPad portrait
+   =================================================================== */
+@media (min-width: 700px) {
+    html.tabs-on body {
+        padding-left: calc(var(--safe-left) + 20px);
+        padding-right: calc(var(--safe-right) + 20px);
+    }
+
+    .tabs-on .mobile-tab {
+        flex-direction: row;
+        gap: 8px;
+        font-size: 0.85rem;
+        min-height: 44px;
+    }
+
+    .tabs-on .mobile-tab svg {
+        width: 22px;
+        height: 22px;
+    }
+
+    .tabs-on .dashboard-main-layout {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+
+    .tabs-on .combined-glass-panel {
+        width: auto;
+        flex: 0 0 300px;
+    }
+
+    .tabs-on .pomodoro-section {
+        display: block;
+        text-align: center;
+    }
+
+    .tabs-on .pip-btn {
+        margin: 16px auto 0;
+    }
+
+    .tabs-on .pomodoro-modes {
+        justify-content: center;
+    }
+
+    .tabs-on .pomodoro-display {
+        width: 168px;
+        height: 168px;
+        margin: 0 auto 16px;
+    }
+
+    .tabs-on .pomo-time {
+        font-size: 2.6rem;
+    }
+
+    .tabs-on .pomodoro-controls {
+        flex-direction: row;
+        margin-bottom: 10px;
+    }
+
+    .tabs-on .dashboard-sidebar {
+        flex: 1;
+    }
+
+    .tabs-on .week-kanban {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        align-items: start;
+    }
+
+    .tabs-on .lists-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+
+    /* Hero tiles: streak + water, supplements + quick add, calories */
+    .tabs-on .hero-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .tabs-on .hero-grid>.hero-stat:nth-child(1) {
+        grid-column: span 2;
+    }
+
+    .tabs-on .hero-grid>.hero-stat.water {
+        grid-column: span 4;
+    }
+
+    .tabs-on .hero-grid>.hero-supps-quick,
+    .tabs-on .hero-grid>.hero-quick-add {
+        grid-column: span 3;
+    }
+
+    .tabs-on .hero-grid>.hero-donut {
+        grid-column: 1 / -1;
+    }
+
+    .tabs-on .gym-hub-grid,
+    .tabs-on .gym-hub-grid.pro {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+
+    .tabs-on .day-cell {
+        aspect-ratio: auto;
+        min-height: 64px;
+    }
+
+    /* Habits and the weekly review side by side would be too narrow; keep them stacked,
+       but give the habit rows the desktop look with the name on the left */
+    .tabs-on .habit-row {
+        grid-template-columns: minmax(140px, 1.6fr) repeat(7, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .tabs-on .habit-name {
+        grid-column: auto;
+    }
+
+    .tabs-on .habit-header-row {
+        grid-template-columns: minmax(140px, 1.6fr) repeat(7, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .tabs-on .habit-header-row>div:first-child {
+        display: block;
+    }
+}
+
+/* Wide medium (iPhone Duo unfolded in landscape, iPad landscape below 1100px):
+   two panes where content allows it */
+@media (min-width: 820px) {
+    .tabs-on .calendar-section-content .glass-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1.45fr) minmax(250px, 1fr);
+        grid-template-areas:
+            "header header"
+            "weekdays agenda"
+            "grid agenda";
+        grid-template-rows: auto auto 1fr;
+        column-gap: 20px;
+    }
+
+    .tabs-on .calendar-section-content .calendar-header {
+        grid-area: header;
+    }
+
+    .tabs-on .calendar-section-content .calendar-grid-header {
+        grid-area: weekdays;
+    }
+
+    .tabs-on .calendar-section-content .calendar-grid {
+        grid-area: grid;
+        align-self: start;
+    }
+
+    .tabs-on .calendar-section-content .calendar-agenda {
+        grid-area: agenda;
+        margin-top: 0;
+        padding: 0 0 0 20px;
+        border-top: none;
+        border-left: 1px solid var(--glass-border);
+        min-width: 0;
+    }
+
+    .tabs-on .day-cell {
+        min-height: 56px;
+    }
+
+}
+
+/* ===================================================================
+   Short screens: phones in landscape (height below 500px)
+   =================================================================== */
+@media (max-height: 500px) {
+    .tabs-on {
+        --tabbar-height: 46px;
+    }
+
+    .tabs-on .mobile-tab {
+        flex-direction: row;
+        gap: 6px;
+        min-height: 36px;
+        font-size: 0.8rem;
+    }
+
+    .tabs-on .mobile-tab svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .tabs-on .quick-capture-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 1.6rem;
+    }
+
+    .tabs-on .brand-header {
+        min-height: 44px;
+        margin-bottom: 6px;
+    }
+}
+
+/* Very narrow phones (iPhone SE, mini; iPhone Duo in a narrow split view) */
+@media (max-width: 380px) {
+    html.tabs-on body {
+        padding-left: calc(var(--safe-left) + 8px);
+        padding-right: calc(var(--safe-right) + 8px);
+    }
+
+    .tabs-on .pomodoro-display {
+        width: 112px;
+        height: 112px;
+    }
+
+    .tabs-on .pomo-time {
+        font-size: 1.8rem;
+    }
+
+    .tabs-on .glass-panel {
+        padding: 12px;
+    }
+
+    .tabs-on .hero-water-btns-vertical .btn {
+        padding: 0 8px;
+    }
+}
