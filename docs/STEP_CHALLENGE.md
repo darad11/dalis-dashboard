@@ -107,7 +107,10 @@ Klammern steht der englische Name. Ein **blasser** Eintrag in einer Aktion ist e
 Platzhalter – er muss angetippt und belegt werden.
 
 1. Health-Messungen suchen (*Find Health Samples*): Typ ist **Steps** (Schritte), Startdatum
-   **ist heute**, Gruppieren nach **Tag**.
+   **ist heute**, über **Filter hinzufügen**: **Quelle ist nicht** – dein iPhone; Gruppieren
+   nach **Ohne**. Ohne diesen Filter zählt der Kurzbefehl iPhone und Apple Watch doppelt: Die
+   Health-App nimmt pro Zeitabschnitt nur eine Quelle (Watch vor iPhone), der Kurzbefehl addiert
+   alle Messungen, auch mit „Gruppieren nach Tag“.
 2. Statistik berechnen (*Calculate Statistics*): **Summe** – erscheint als „Summe von
    Health-Messungen berechnen“.
 3. Datum formatieren (*Format Date*):
@@ -127,8 +130,8 @@ Platzhalter – er muss angetippt und belegt werden.
    | `steps` | Zahl | Summe (aus Schritt 2) |
 
 5. Einmal ausführen (▶︎). Die Antwort lautet `Saved: … steps on …`. **Vergleiche die Zahl mit
-   der Health-App.** Ist sie höher, wurden iPhone und Apple Watch beide gezählt: in Schritt 1
-   zusätzlich nach einer **Quelle** filtern (meist die Watch). Ein zu hoher Wert, der schon
+   der Health-App** – gleich oder knapp darunter ist richtig. Fast doppelt so hoch: Der Filter
+   „Quelle ist nicht“ iPhone aus Schritt 1 fehlt. Ein zu hoher Wert, der schon
    gespeichert ist, wird von späteren Läufen **nicht** gesenkt (siehe Regeln) – den Tag dann im
    Dashboard einmal von Hand korrigieren. Bei einer Fehlermeldung: [Fehlersuche](#fehlersuche).
 
@@ -174,8 +177,9 @@ zusätzlich eine Automation „App → wird geöffnet“ (z. B. Safari oder die 
   Läuft eine Automation dann, kann der Kurzbefehl nichts lesen; der nächste Lauf holt es nach.
 - Übertragen wird nur **heute**. Schritte nach dem letzten erfolgreichen Lauf eines Tages
   (z. B. nach 23:45) fehlen – bei Bedarf von Hand nachtragen.
-- Ob die Summe aus dem Kurzbefehl genau der Zahl der Health-App entspricht, hängt von den
-  Quellen ab (iPhone, Watch, andere Apps) – beim ersten Lauf vergleichen (Schritt 5).
+- Mit „Quelle ist nicht“ iPhone zählt der Kurzbefehl nur die übrigen Quellen (die Watch). Die
+  Health-App ergänzt iPhone-Schritte aus Zeiten ohne Watch – deshalb liegt der Wert gleich oder
+  knapp darunter. Ein Tag ganz ohne Watch ergibt 0 (ändert nichts) – dann von Hand eintragen.
 - Ein Kurzbefehl auf einem echten iPhone erreicht die Edge Function (Log vom 16.10.2026, erster
   Lauf mit leerem Datum, siehe [Fehlersuche](#fehlersuche)); ein erfolgreicher Upload und die
   Automation sind noch nicht bestätigt. Geprüft sind Datenbank, Edge Function und Dashboard
@@ -208,7 +212,12 @@ ohne Quellenfilter zählt der Kurzbefehl iPhone und Apple Watch doppelt (die Hea
 mit Quellenfilter „Apple Watch“ schickte nur eine einstellige Zahl (Anfrage 85 Bytes); die
 Antwort zeigte aber nur den gespeicherten Wert („29341 steps … already stored“) und sah aus wie
 das Ergebnis dieses Laufs. Deshalb nennt die Antwort beides: `received` (dieser Lauf) und
-`steps` (gespeichert).
+`steps` (gespeichert). Mit „Hinweis zeigen“ (Variable Summe) direkt nach der Summe
+ergab sich am selben Abend: Filter „Quelle ist Apple Watch von Dalibor“ → keine einzige Messung
+(mit und ohne Gruppieren), „Quelle ist“ iPhone → 14.499, „Quelle ist nicht“ iPhone → 14.988
+(Health-App: 15.073). Daher der Filter „ist nicht“ iPhone; der Watch-Eintrag in der
+Quellenliste traf die Messungen der Watch nicht (Ursache offen, z. B. zwei gleichnamige
+Einträge).
 
 ### Technik
 

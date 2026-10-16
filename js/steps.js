@@ -935,13 +935,13 @@
 
   function renderHealthSteps() {
     return h('ol', { class: 'step-health-steps' },
-      h('li', null, 'Shortcuts app → +. Add “Find Health Samples” (search “Health”): Type Steps, Start Date is today, Group By Day.'),
+      h('li', null, 'Shortcuts app → +. Add “Find Health Samples” (search “Health”): Type Steps, Start Date is today, Add Filter: Source is not your iPhone, Group By None. Without that filter iPhone and Apple Watch are counted twice.'),
       h('li', null, 'Add “Calculate Statistics”: Sum.'),
       h('li', null, 'Add “Format Date”: tap the pale “Date” and choose Current Date (pale = empty); Date Format ISO 8601.'),
       h('li', null, 'Add “Get Contents of URL” with the address, Method POST, Request Body JSON: ',
         h('code', null, 'token'), ' (Text: your key), ', h('code', null, 'date'), ' (Text: Formatted Date), ',
         h('code', null, 'steps'), ' (Number: the Sum).'),
-      h('li', null, 'Run it once: it answers “Saved: … steps”. More than the Health app shows? Then iPhone and Apple Watch were both counted – limit “Find Health Samples” to one source.'),
+      h('li', null, 'Run it once: it answers “Saved: … steps”. Compare with the Health app: the same or slightly less is right; almost twice as much means the Source filter is missing.'),
       h('li', null, 'Automation → + → Time of Day (e.g. 12:00, 18:00, 21:00, 23:45) → Run Immediately → your Shortcut. While the iPhone is locked, Health cannot be read; the next run catches up.'));
   }
 
