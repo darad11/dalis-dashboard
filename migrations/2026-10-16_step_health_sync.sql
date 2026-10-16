@@ -1,7 +1,7 @@
 -- ============================================================
 -- Step Challenge: automatic upload from Apple Health (iOS Shortcut)
 -- Run once in the Supabase SQL Editor. Safe to run again: every statement is
--- idempotent and nothing existing is changed or deleted.
+-- idempotent, nothing existing is changed and nothing is dropped.
 -- Requires migrations/2026-10-16_step_entries.sql.
 --
 -- A Shortcut on the iPhone reads the day's steps from Apple Health and posts
@@ -29,17 +29,25 @@ create index if not exists step_upload_tokens_user_id_idx on public.step_upload_
 alter table public.step_upload_tokens enable row level security;
 
 -- Users see, add and revoke their own tokens; nobody changes one
-drop policy if exists "Users can view own upload tokens" on public.step_upload_tokens;
-create policy "Users can view own upload tokens" on public.step_upload_tokens
-    for select to authenticated using ((select auth.uid()) = user_id);
-
-drop policy if exists "Users can add own upload tokens" on public.step_upload_tokens;
-create policy "Users can add own upload tokens" on public.step_upload_tokens
-    for insert to authenticated with check ((select auth.uid()) = user_id);
-
-drop policy if exists "Users can revoke own upload tokens" on public.step_upload_tokens;
-create policy "Users can revoke own upload tokens" on public.step_upload_tokens
-    for delete to authenticated using ((select auth.uid()) = user_id);
+do $$
+begin
+    if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'step_upload_tokens'
+                   and policyname = 'Users can view own upload tokens') then
+        create policy "Users can view own upload tokens" on public.step_upload_tokens
+            for select to authenticated using ((select auth.uid()) = user_id);
+    end if;
+    if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'step_upload_tokens'
+                   and policyname = 'Users can add own upload tokens') then
+        create policy "Users can add own upload tokens" on public.step_upload_tokens
+            for insert to authenticated with check ((select auth.uid()) = user_id);
+    end if;
+    if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'step_upload_tokens'
+                   and policyname = 'Users can revoke own upload tokens') then
+        create policy "Users can revoke own upload tokens" on public.step_upload_tokens
+            for delete to authenticated using ((select auth.uid()) = user_id);
+    end if;
+end;
+$$;
 
 -- The hash is never read back through the API; anon gets nothing
 revoke all on public.step_upload_tokens from anon, authenticated;
@@ -60,8 +68,7 @@ begin
 end;
 $$;
 
-drop trigger if exists step_upload_tokens_limit on public.step_upload_tokens;
-create trigger step_upload_tokens_limit
+create or replace trigger step_upload_tokens_limit
     before insert on public.step_upload_tokens
     for each row execute function public.step_upload_tokens_limit();
 
