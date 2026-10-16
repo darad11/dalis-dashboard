@@ -289,6 +289,12 @@ scenario('multi-device: realtime update and newest change wins', async (env) => 
   await logSteps(a.page, '13.000');
   await waitFor(async () => (await heroValue(b.page)) === fmt(BASELINE + 13000), 'realtime update on device B');
 
+  // Changing the goal on device A reaches device B without a reload
+  await a.page.click('#stepChallenge .step-icon-btn[aria-label="Challenge settings"]');
+  await a.page.fill('#step-setup-goal', fmt(4200000));
+  await a.page.click('#stepChallenge .step-setup button[type=submit]');
+  await waitFor(async () => /4\.200\.000/.test(await text(b.page, '#stepChallenge .step-hero-label')), 'goal change on device B', 12000);
+
   // Device B goes offline and edits first; device A edits later -> A's value wins everywhere
   b.context.__offline = true;
   await logSteps(b.page, '10.000');

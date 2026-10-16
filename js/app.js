@@ -1376,6 +1376,8 @@ function scheduleRemoteRefresh(delay = 500) {
     console.log('[Realtime] Refreshing after remote change...');
     await db.loadFromCloud();
     refreshAllViews();
+    // Step Challenge settings live in the settings table: pick up changes from other devices
+    if (window.stepCounter) window.stepCounter.sync();
   }, delay);
 }
 
