@@ -2,9 +2,10 @@
  * Phone, tablet and foldable support (iPhone, iPhone Duo folded and unfolded, iPad).
  *
  * - Touch layout on touch screens narrower than 1100 CSS px (html.touch-layout). The page is
- *   one continuous scroll (Today, Week, Health, Habits, Lists); the floating section bar at the
- *   bottom marks the section on screen and jumps to a section when tapped. A finger on the bar
- *   lifts the selection into a glass lens that can be dragged to a section (as in iOS 26).
+ *   one continuous scroll (Week, Today, Health, Habits, Lists - the calendar first, the focus
+ *   timer after today's goals); the floating section bar at the bottom marks the section on
+ *   screen and jumps to a section when tapped. A finger on the bar lifts the selection into a
+ *   glass lens that can be dragged to a section (as in iOS 26).
  *   The desktop layout (mouse/trackpad, or 1100px and wider) is not affected.
  * - App bar with "+" (new calendar event) and "⋯" (more), and menus anchored to the button
  *   that opened them (pull-down menus as in iOS). On touch screens of any width "⋯" menus
@@ -22,7 +23,9 @@
 
   // Keep in sync with the inline script in index.html
   const TOUCH_LAYOUT_QUERY = '(pointer: coarse) and (max-width: 1099px)';
-  const SECTIONS = ['today', 'week', 'health', 'habits', 'lists'];
+  // In the order of the page in the touch layout (placeTouchOrder), the only layout with the
+  // section bar
+  const SECTIONS = ['week', 'today', 'health', 'habits', 'lists'];
 
   const root = document.documentElement;
   const layoutMedia = window.matchMedia(TOUCH_LAYOUT_QUERY);
@@ -103,10 +106,21 @@
     if (focused && document.activeElement !== focused) focusWithoutScroll(focused);
   }
 
+  // Phones and tablets: Calendar, Weekly Overview, Today's Goals, Focus. The order is set by
+  // window.placePageOrder (inline in index.html, so it is right before the first paint); this
+  // keeps it when the layout changes. Moving a node takes the focus out of it.
+  function placeTouchOrder() {
+    if (typeof window.placePageOrder !== 'function') return;
+    const focused = document.activeElement;
+    window.placePageOrder();
+    if (focused && focused !== document.body && document.activeElement !== focused) focusWithoutScroll(focused);
+  }
+
   function applyTouchLayout() {
     const was = isTouchLayout();
     root.classList.toggle('touch-layout', layoutMedia.matches);
     placeStepCard();
+    placeTouchOrder();
     if (was !== layoutMedia.matches) {
       syncThemeColor();
       window.dispatchEvent(new CustomEvent('dashboard:layoutchange', { detail: { touch: layoutMedia.matches } }));

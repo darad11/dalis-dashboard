@@ -10,17 +10,27 @@ neue Abschnittsreihenfolge und die Kalender-Funktionen (siehe [CALENDAR.md](CALE
 **Touch-Geräte schmaler als 1100 px** (iPhone, iPhone Duo in beiden Zuständen, iPad hochkant,
 iPhone quer):
 
-- **Eine durchgehende Seite** in der Reihenfolge Today → Week → Health → Habits → Lists. Beim
+- **Eine durchgehende Seite** in der Reihenfolge Week → Today → Health → Habits → Lists: ganz
+  oben der **Kalender**, dann **Weekly Overview & Tasks**, **Today's Goals** und zuletzt der
+  **Focus-Timer** (ab 700 px Breite stehen Ziele und Focus nebeneinander, die Ziele links). Beim
   Scrollen springt die Markierung in der Leiste unten von selbst zum Abschnitt, der gerade auf
-  dem Bildschirm ist. Antippen springt zum Anfang des Abschnitts.
+  dem Bildschirm ist; die Leiste hat dieselbe Reihenfolge. Antippen springt zum Anfang des
+  Abschnitts.
 
   | Abschnitt | Inhalt |
   |---|---|
-  | Today | Focus-Timer, Today's Goals |
-  | Week | Weekly Overview & Tasks, Kalender |
+  | Week | Kalender, Weekly Overview & Tasks |
+  | Today | Today's Goals, Focus-Timer |
   | Health | Health Hub, Step Challenge ganz oben |
   | Habits | Habits, Weekly Review |
   | Lists | eigene Listen |
+
+  Am Desktop bleibt die Reihenfolge: Focus-Timer und Ziele oben nebeneinander, dann die Woche,
+  dann der Kalender. Die Blöcke werden im DOM verschoben (`window.placePageOrder`, Inline-Skript
+  in `index.html`), nicht per CSS `order` – VoiceOver und Tastatur folgen dem Bildschirm. Das
+  Skript läuft direkt unter dem Week-Abschnitt, also vor dem ersten Zeichnen: Auch bei langsam
+  ladenden Skripten springt die Seite nicht um. Beim Drehen des iPad (quer = Desktop) wechselt
+  die Reihenfolge mit, der Fokus bleibt.
 
 - **Woche (Handy, unter 700 px):** Oben im Kopf der Woche eine **Tagesleiste** wie in Apple
   Kalender – Wochentag, Datum, heute in der Akzentfarbe, der gezeigte Tag gefüllt, darunter bis
@@ -131,7 +141,7 @@ Safari meldet nicht, ob das Gerät auf- oder zugeklappt ist – das Layout häng
 | Zustand (geschätzt) | Layout |
 |---|---|
 | zugeklappt ~466 px, Split View ~445 px | eine Spalte wie auf dem iPhone (Woche: Tagesleiste + ein Tag pro Wisch) |
-| aufgeklappt quer ~890 px | Focus neben den Zielen, Woche in 3 Spalten, Kalender neben der Tagesliste, Habits als Tabelle, Leiste mit Symbol neben Text |
+| aufgeklappt quer ~890 px | Ziele neben dem Focus-Timer (Ziele links), Woche in 3 Spalten, Kalender neben der Tagesliste, Habits als Tabelle, Leiste mit Symbol neben Text |
 | aufgeklappt hochkant ~626 px | eine Spalte, Listen zweispaltig |
 
 Beim Auf-/Zuklappen bleibt die Stelle, die oben auf dem Bildschirm war, dort (seitlich
@@ -145,7 +155,7 @@ an allen vier Seiten berücksichtigt.
 |---|---|
 | `js/mobile.js` | Touch-Layout (`html.touch-layout`), Abschnittsleiste mit Scroll-Spy und Glas-Linse, Leiste oben, Menüs (`MobileUI.showMenu`, `moreButton`, `priorityMenu`), Lesepositions-Erhalt, sichtbare Höhe über der Tastatur (`--vv-height`), Theme-Farbe |
 | `css/mobile.css` | iOS-Design im Touch-Layout (Farb- und Schrift-Tokens, Glas, Karten, Controls, Menüs, Alerts, Sheets) |
-| `index.html` | fünf `section.page-section` (`#section-today` … `#section-lists`) in neuer Reihenfolge, Abschnittsleiste als Links, Leiste oben |
+| `index.html` | fünf `section.page-section` (`#section-today` … `#section-lists`) in der Desktop-Reihenfolge; `window.placePageOrder` (Inline-Skript) stellt auf Handy/Tablet Kalender, Woche, Ziele, Focus vor dem ersten Zeichnen um; Abschnittsleiste als Links (Week zuerst), Leiste oben |
 | `js/calendar-ui.js`, `css/calendar.css` | Kalender-Editor und Kalenderliste (Sheet bzw. Dialog), siehe CALENDAR.md |
 
 - Touch-Layout = `(pointer: coarse) and (max-width: 1099px)`; steht im Inline-Skript in
@@ -179,7 +189,7 @@ Chromium (Playwright) mit Touch-Emulation und Beispieldaten nur im lokalen Test-
   Screenshots aller Abschnitte, Menüs, Editor, Kalenderliste, Alerts; kein horizontales Scrollen.
 - Textgrößen 17/19/21/23 px (Standard bis xxxLarge) und 28/33 px (Bedienungshilfen-Größen):
   kein horizontales Scrollen, Timer-Ziffern bleiben im Ring.
-- Scroll-Spy über die ganze Seite: Today → Week → Health → Habits → Lists.
+- Scroll-Spy über die ganze Seite: Week → Today → Health → Habits → Lists.
 - Glas-Linse: Bild-für-Bild-Sequenzen (60 fps, angehaltene Uhr) von Antippen und Ziehen in hell
   und dunkel, neben die Einzelbilder deiner Aufnahme gelegt; 402 × 874, 890 × 626, 852 × 393;
   „Bewegung reduzieren“, „Transparenz reduzieren“, „Kontrast erhöhen“ (emuliert).

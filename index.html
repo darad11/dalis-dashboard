@@ -24,6 +24,31 @@
         document.documentElement.classList.toggle('touch-layout', touch);
       } catch (e) { }
     })();
+
+    // Phones and tablets start with the calendar, then the weekly overview, today's goals and
+    // the focus timer; Health, Habits and Lists follow as before. The desktop keeps the HTML
+    // order (focus timer and goals side by side at the top, then the week, then the calendar).
+    // Moved in the DOM rather than with CSS `order`, so VoiceOver and the keyboard follow the
+    // order on screen. Runs right below the Week section (before the first paint) and from
+    // js/mobile.js when the layout changes.
+    window.placePageOrder = function () {
+      var touch = document.documentElement.classList.contains('touch-layout');
+      var today = document.getElementById('section-today');
+      var week = document.getElementById('section-week');
+      var calendar = week && week.querySelector(':scope > .calendar-section');
+      var overview = week && week.querySelector(':scope > .week-overview-section');
+      var timer = document.getElementById('pomoStatsWrapper');
+      var goals = today && today.querySelector('.dashboard-sidebar');
+      if (!today || !week || !calendar || !overview || !timer || !goals) return;
+      // [first, second] on phones and tablets; the other way round on the desktop
+      [[week, today], [calendar, overview], [goals, timer]].forEach(function (pair) {
+        var first = touch ? pair[0] : pair[1];
+        var second = touch ? pair[1] : pair[0];
+        if (!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)) {
+          second.parentNode.insertBefore(first, second);
+        }
+      });
+    };
   </script>
 
   <!-- Fonts -->
@@ -34,7 +59,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="css/style.css?v=20261016i">
   <link rel="stylesheet" href="css/calendar.css?v=20261016c">
-  <link rel="stylesheet" href="css/mobile.css?v=20261016j">
+  <link rel="stylesheet" href="css/mobile.css?v=20261016k">
   <style>
     /* Nutrition Settings Styles */
     .settings-icon-btn {
@@ -318,7 +343,9 @@
     </div>
 
     <!-- The page is one continuous scroll in this order; on phones and tablets the tab bar
-         (#mobileTabbar) follows the section on screen and jumps to a section (js/mobile.js) -->
+         (#mobileTabbar) follows the section on screen and jumps to a section, and the page
+         starts with the calendar: Calendar, Weekly Overview, Today's Goals, Focus, then Health,
+         Habits, Lists (moved by placeTouchOrder in js/mobile.js) -->
     <section class="page-section" id="section-today" aria-label="Today">
       <!-- 1. POMODORO + STATS + SIDEBAR -->
       <div class="dashboard-main-layout">
@@ -497,6 +524,9 @@
         </div>
       </div>
     </section>
+    <script>
+      if (document.documentElement.classList.contains('touch-layout')) window.placePageOrder();
+    </script>
 
     <div class="divider"></div>
 
@@ -1044,19 +1074,20 @@
     </div>
   </div>
 
-  <!-- Phone/tablet: section bar. The page scrolls continuously; the bar marks the section on
-       screen and jumps to a section; a finger on the bar lifts the selection into a glass lens
-       (js/mobile.js). Plain links, so it also works without JS. -->
+  <!-- Phone/tablet: section bar, in the order of the page there (Week with the calendar
+       first). The page scrolls continuously; the bar marks the section on screen and jumps to
+       a section; a finger on the bar lifts the selection into a glass lens (js/mobile.js).
+       Plain links, so it also works without JS. -->
   <nav class="mobile-tabbar" id="mobileTabbar" aria-label="Sections" data-mobile-only>
     <span class="tabbar-indicator" aria-hidden="true"></span>
     <div class="tabbar-items">
-      <a class="mobile-tab" href="#section-today" data-section="today">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zm4.6 7.2-5.3 5.9a1 1 0 0 1-1.45.04l-2.6-2.6a1 1 0 1 1 1.42-1.42l1.85 1.86 4.6-5.12a1 1 0 0 1 1.48 1.34z"/></svg>
-        <span class="mobile-tab-label">Today</span>
-      </a>
       <a class="mobile-tab" href="#section-week" data-section="week">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2.25a1 1 0 0 1 1 1V4h6v-.75a1 1 0 1 1 2 0V4h.75A3.25 3.25 0 0 1 21 7.25V9H3V7.25A3.25 3.25 0 0 1 6.25 4H7v-.75a1 1 0 0 1 1-1zM3 10.5h18v7.25A3.25 3.25 0 0 1 17.75 21H6.25A3.25 3.25 0 0 1 3 17.75V10.5zm4 2.75a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm5 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5zm5 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5z"/></svg>
         <span class="mobile-tab-label">Week</span>
+      </a>
+      <a class="mobile-tab" href="#section-today" data-section="today">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zm4.6 7.2-5.3 5.9a1 1 0 0 1-1.45.04l-2.6-2.6a1 1 0 1 1 1.42-1.42l1.85 1.86 4.6-5.12a1 1 0 0 1 1.48 1.34z"/></svg>
+        <span class="mobile-tab-label">Today</span>
       </a>
       <a class="mobile-tab" href="#section-health" data-section="health">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.2c-.3 0-.6-.1-.85-.27C7.9 18.7 2.5 14.6 2.5 9.3 2.5 6.3 4.8 4 7.6 4c1.8 0 3.4.9 4.4 2.3C13 4.9 14.6 4 16.4 4c2.8 0 5.1 2.3 5.1 5.3 0 5.3-5.4 9.4-8.65 11.63-.25.17-.55.27-.85.27z"/></svg>
@@ -1081,7 +1112,7 @@
   <script src="js/supabase.js?v=20261016d"></script>
   <script src="js/steps-core.js?v=20261016"></script>
   <script src="js/steps.js?v=20261016g"></script>
-  <script src="js/mobile.js?v=20261016h"></script>
+  <script src="js/mobile.js?v=20261016i"></script>
   <script src="js/app.js?v=20261016h"></script>
   <script src="js/calendar-ui.js?v=20261016c"></script>
 </body>

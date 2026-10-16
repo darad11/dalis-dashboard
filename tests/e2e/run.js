@@ -663,6 +663,20 @@ async function openPhone(env, extra = {}) {
   return open(env, Object.assign({}, PHONE, extra));
 }
 
+// Calendar, weekly overview, today's goals, focus timer: their order on screen (top to bottom,
+// then left to right) and for VoiceOver and the keyboard (DOM order)
+const PAGE_BLOCKS = { calendar: '.calendar-section', week: '.week-overview-section', goals: '.goals-container', focus: '#pomoStatsWrapper' };
+const PHONE_ORDER = ['calendar', 'week', 'goals', 'focus'];
+const DESKTOP_ORDER = ['focus', 'goals', 'week', 'calendar'];
+const pageOrder = (page) => page.evaluate(blocks => {
+  const els = Object.entries(blocks).map(([name, sel]) => [name, document.querySelector(sel)]);
+  const box = el => el.getBoundingClientRect();
+  return {
+    screen: els.slice().sort(([, a], [, b]) => (Math.abs(box(a).top - box(b).top) > 30 ? box(a).top - box(b).top : box(a).left - box(b).left)).map(([name]) => name),
+    dom: els.slice().sort(([, a], [, b]) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1)).map(([name]) => name)
+  };
+}, PAGE_BLOCKS);
+
 const displayed = (page, selector) => page.evaluate(sel => {
   const el = document.querySelector(sel);
   return !!el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0;
@@ -738,19 +752,24 @@ scenario('scroll: phones show one continuous page; the section bar follows and j
   assert.equal(await touchLayoutOn(page), true);
   assert.equal(await page.getAttribute('html', 'data-tab'), null, 'no tab state that hides sections');
 
-  // Every section is displayed, in the order Today, Week, Health, Habits, Lists
+  // Every section is displayed, in the order Week, Today, Health, Habits, Lists; the page starts
+  // with the calendar, then the weekly overview, today's goals and the focus timer - on screen
+  // and for VoiceOver
   const sections = await page.evaluate(() => window.MobileUI.SECTIONS.map(n => {
     const el = document.getElementById('section-' + n);
     return [n, getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0, Math.round(el.getBoundingClientRect().top + window.scrollY)];
   }));
-  assert.deepEqual(sections.map(s => s[0]), ['today', 'week', 'health', 'habits', 'lists']);
+  assert.deepEqual(sections.map(s => s[0]), ['week', 'today', 'health', 'habits', 'lists']);
+  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
+  assert.deepEqual(await page.$$eval('.mobile-tab', els => els.map(e => e.dataset.section)), ['week', 'today', 'health', 'habits', 'lists'], 'bar in the order of the page');
+  assert.ok(await page.evaluate(() => document.querySelector('.calendar-section').getBoundingClientRect().top - document.querySelector('.app-bar').getBoundingClientRect().bottom < 12), 'calendar right below the app bar');
   sections.forEach(([name, shown]) => assert.ok(shown, `${name} displayed`));
   for (let i = 1; i < sections.length; i++) assert.ok(sections[i][2] > sections[i - 1][2], `${sections[i][0]} below ${sections[i - 1][0]}`);
   assert.ok(await page.evaluate(() => !!document.querySelector('#section-week .calendar-section') &&
     !!document.querySelector('#section-habits .weekly-review-section') && !!document.querySelector('#section-lists .lists-section')),
   'calendar in Week, weekly review in Habits, lists last');
-  assert.equal(await currentSection(page), 'today');
-  assert.equal(await page.getAttribute('.mobile-tab[data-section="today"]', 'aria-current'), 'location');
+  assert.equal(await currentSection(page), 'week');
+  assert.equal(await page.getAttribute('.mobile-tab[data-section="week"]', 'aria-current'), 'location');
 
   // Scrolling through the page marks one section after the other, without tapping
   const seen = [];
@@ -761,9 +780,9 @@ scenario('scroll: phones show one continuous page; the section bar follows and j
     const name = await currentSection(page);
     if (seen[seen.length - 1] !== name) seen.push(name);
   }
-  assert.deepEqual(seen, ['today', 'week', 'health', 'habits', 'lists'], 'marker follows the scroll position');
+  assert.deepEqual(seen, ['week', 'today', 'health', 'habits', 'lists'], 'marker follows the scroll position');
   await page.evaluate(() => window.scrollTo(0, 0));
-  await waitFor(async () => (await currentSection(page)) === 'today', 'back to today at the top');
+  await waitFor(async () => (await currentSection(page)) === 'week', 'back to week at the top');
 
   // Tapping a section jumps to its start, the selection pill moves under it
   for (const name of ['habits', 'week', 'lists', 'health', 'today']) await goToSection(page, name);
@@ -801,6 +820,31 @@ scenario('scroll: phones show one continuous page; the section bar follows and j
     .filter(([, w, h]) => w < 44 || h < 36));
   assert.deepEqual(small, [], 'controls smaller than 44pt');
   assert.deepEqual(errors, []);
+  await context.close();
+});
+
+// The order is set before the first paint (inline in index.html): while the scripts at the end
+// of the page are still loading, the calendar already stands first - no jump when they run
+scenario('phones: the calendar stands first already while the scripts load', async (env) => {
+  const context = await env.browser.newContext(Object.assign({ locale: 'de-AT', timezoneId: 'Europe/Vienna' }, PHONE));
+  openContexts.add(context);
+  const page = await context.newPage();
+  let release;
+  const held = new Promise(resolve => { release = resolve; });
+  const mock = fs.readFileSync(path.join(__dirname, 'mock-supabase.js'), 'utf8');
+  await page.route(/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/, async route => {
+    await held;
+    await route.fulfill({ status: 200, contentType: 'application/javascript', body: mock }).catch(() => { });
+  });
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, route => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  const loading = page.goto(env.url).catch(() => { });
+  await page.waitForSelector('#section-lists', { state: 'attached' });
+  assert.equal(await page.evaluate(() => !!window.MobileUI), false, 'js/mobile.js has not run yet');
+  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
+  release();
+  await loading;
+  await page.waitForFunction(() => !!window.MobileUI);
+  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
   await context.close();
 });
 
@@ -853,12 +897,12 @@ scenario('section bar: a finger lifts the selection into a glass lens, a drag se
   const { tabs } = finger.geo;
 
   // Touch: the selection lifts into a lens taller than the bar, the bar swells
-  await finger.down(tabs.today);
+  await finger.down(tabs.week);
   await waitFor(async () => (await lensBox(page)).lift > 0.99, 'lens lifted');
   const lifted = await lensBox(page);
   assert.ok(lifted.barWidth > finger.geo.width + 10, `bar swells while touched (${lifted.barWidth})`);
   assert.ok(lifted.barTop - lifted.top > 2 && lifted.bottom - lifted.barBottom > 2, 'lens reaches past the bar');
-  assert.ok(Math.abs(lifted.center - lifted.tabs.today) < 1, 'lens over the touched item');
+  assert.ok(Math.abs(lifted.center - lifted.tabs.week) < 1, 'lens over the touched item');
   const parts = await page.evaluate(() => {
     const bar = document.getElementById('mobileTabbar');
     const lens = bar.querySelector('.tabbar-lens');
@@ -873,19 +917,19 @@ scenario('section bar: a finger lifts the selection into a glass lens, a drag se
   });
   assert.equal(parts.hidden, 'true', 'the lens is decoration');
   assert.equal(parts.focusable, 0);
-  assert.deepEqual(parts.links, ['today', 'week', 'health', 'habits', 'lists'], 'the five links stay the only links');
+  assert.deepEqual(parts.links, ['week', 'today', 'health', 'habits', 'lists'], 'the five links stay the only links');
   assert.equal(parts.pill, '0', 'resting pill hidden under the lens');
   assert.notEqual(parts.hole, 'none', 'the real items get a hole under the lens');
 
   // Drag to Habits and hold: the lens follows the finger, nothing is selected yet
-  await finger.move(tabs.today, tabs.habits, 12);
+  await finger.move(tabs.week, tabs.habits, 12);
   const candidate = () => page.evaluate(() => {
     const t = document.querySelector('.tabbar-lens-core .tabbar-lens-tab.candidate');
     return t && t.dataset.section;
   });
   await waitFor(async () => (await candidate()) === 'habits' && Math.abs((await lensBox(page)).center - tabs.habits) < 1.5,
     'lens over habits, under the finger');
-  assert.equal(await currentSection(page), 'today');
+  assert.equal(await currentSection(page), 'week');
   assert.equal(await page.evaluate(() => window.scrollY), 0, 'no jump before release');
 
   // Release: Habits is selected and the page jumps there; the lens drops into the pill
@@ -929,13 +973,13 @@ scenario('section bar: a finger lifts the selection into a glass lens, a drag se
 
   // A tap at the rounded end of the bar selects the nearest section
   await page.touchscreen.tap(finger.geo.left + 4, finger.geo.y);
-  await waitFor(async () => (await currentSection(page)) === 'today' && await sectionAtTop(page, 'today'), 'end of the bar selects today');
+  await waitFor(async () => (await currentSection(page)) === 'week' && await sectionAtTop(page, 'week'), 'end of the bar selects week');
   await waitFor(async () => !(await lensUp(page)), 'lens dropped after the tap');
 
   // Keyboard: the links select without a lens
-  await page.focus('.mobile-tab[data-section="week"]');
+  await page.focus('.mobile-tab[data-section="today"]');
   await page.keyboard.press('Enter');
-  await waitFor(async () => (await currentSection(page)) === 'week', 'Enter selects week');
+  await waitFor(async () => (await currentSection(page)) === 'today', 'Enter selects today');
   assert.equal(await lensUp(page), false, 'no lens without a finger');
   assert.deepEqual(errors, []);
   await context.close();
@@ -1080,10 +1124,15 @@ scenario('foldable: unfolding and folding keeps the reading position and open me
   assert.equal(await page.getAttribute('#weekStrip .week-strip-day:nth-child(6)', 'aria-current'), 'true');
   assert.equal(await page.evaluate(sel => { const r = document.querySelector(sel).getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }, saturday), true, 'Saturday on screen after folding');
 
-  // iPad rotated to landscape (1180px): the desktop layout, then back
+  // iPad rotated to landscape (1180px): the desktop layout and its order, then back; the
+  // goals move with the order and keep the focus
+  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
+  await page.focus('.goals-container > .btn');
   await page.setViewportSize({ width: 1180, height: 820 });
   await settle(page, 300);
   assert.equal(await touchLayoutOn(page), false);
+  assert.deepEqual(await pageOrder(page), { screen: DESKTOP_ORDER, dom: DESKTOP_ORDER });
+  assert.equal(await page.evaluate(() => document.activeElement.matches('.goals-container > .btn')), true, 'focus kept on the desktop');
   assert.equal(await displayed(page, '#mobileTabbar'), false);
   assert.equal(await displayed(page, '.app-bar-actions'), false);
   for (const sel of ['.dashboard-main-layout', '.week-overview-section', '.gym-hub-section', '.lists-section', '.calendar-section', '.habits-section']) {
@@ -1092,6 +1141,8 @@ scenario('foldable: unfolding and folding keeps the reading position and open me
   await page.setViewportSize(DUO_FOLDED);
   await settle(page, 300);
   assert.equal(await touchLayoutOn(page), true);
+  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
+  assert.equal(await page.evaluate(() => document.activeElement.matches('.goals-container > .btn')), true, 'focus kept on the phone');
   assert.deepEqual(errors, []);
   await context.close();
 });
@@ -1422,6 +1473,8 @@ scenario('desktop with mouse: no section bar, no touch buttons, hover effects un
   for (const sel of ['.dashboard-main-layout', '.week-overview-section', '.gym-hub-section', '.lists-section', '.calendar-section', '.habits-section', '.weekly-review-section']) {
     assert.equal(await displayed(page, sel), true, `${sel} visible`);
   }
+  // The order stays: focus timer and goals side by side at the top, then the week, the calendar
+  assert.deepEqual(await pageOrder(page), { screen: DESKTOP_ORDER, dom: DESKTOP_ORDER });
   // Hover styles still apply with a mouse
   const addGoal = page.locator('.goals-container > .btn');
   const before = await addGoal.evaluate(el => getComputedStyle(el).backgroundColor);

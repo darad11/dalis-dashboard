@@ -42,13 +42,14 @@ Szenarien für Apple Health, Handy/Tablet und Kalender (`tests/e2e/run.js`):
 | `16 Apple Health: upload key…` | Schlüssel entsteht im Browser (43 Zeichen), in der Cloud nur der SHA-256-Hash, nicht im localStorage; Kopieren; Upload des Kurzbefehls erscheint sofort (Realtime), niedrigerer Wert ändert nichts; „Done“ vergisst den Schlüssel, Status „last upload today, 10:10“; Liste unter „Manage“; Widerrufen mit Rückfrage, danach wird der Schlüssel abgelehnt, Schritte bleiben |
 | `17 Apple Health without the database update…` | ohne Migration klarer Hinweis, kein Schlüssel erzeugbar, manuelle Eingabe und Upload laufen weiter |
 | `setup: a rebuild while typing…` | Neuaufbau der Schritte-Karte (Daten von einem anderen Gerät) während des Tippens: Auswahl und Cursor bleiben, Tippen ersetzt den markierten Vorschlag (vorher hing es ihn an, z. B. `4.018.4052.233.411`; daran scheiterte `7+8` gelegentlich, wenn der erste Sync während `page.fill` fertig wurde) |
-| `scroll: phones show one continuous page…` | alle Abschnitte sichtbar in der Reihenfolge Today → Lists, Markierung folgt dem Scrollen, Antippen springt (Fokus wandert mit), „+“/„⋯“ oben, Dark Mode aus dem Menü, Bedienelemente ≥ 44 pt |
+| `scroll: phones show one continuous page…` | alle Abschnitte sichtbar in der Reihenfolge Week → Lists; Kalender direkt unter der Leiste oben, dann Weekly Overview, Today's Goals, Focus (auf dem Bildschirm und im DOM, Leiste unten in derselben Reihenfolge), Markierung folgt dem Scrollen, Antippen springt (Fokus wandert mit), „+“/„⋯“ oben, Dark Mode aus dem Menü, Bedienelemente ≥ 44 pt |
+| `phones: the calendar stands first already while the scripts load` | Reihenfolge steht schon, solange die Skripte am Seitenende noch laden (Supabase-Skript zurückgehalten) – kein Umspringen |
 | `scroll: a short last section…` | Seitenende markiert den kurzen letzten Abschnitt; ein gewählter Abschnitt bleibt markiert |
 | `scroll: the steps link and #section- links…` | `?steps=` öffnet Health, `#section-lists` öffnet Lists |
 | `section bar: a finger lifts the selection…` | Glas-Linse: hebt sich beim Berühren (größer als die Leiste, Leiste wächst), nur Dekoration (`aria-hidden`, keine zusätzlichen Links), folgt beim Ziehen dem Finger, wählt erst beim Loslassen (Sprung + Fokus), fällt in die Markierung zurück; kurzes Ziehen auf dem gewählten Abschnitt springt nicht (auch nicht durch den Klick, den Chromium danach schickt); Abbruch durch das System wählt nichts; Tipp ans runde Ende wählt den nächsten; Tastatur ohne Linse |
 | `section bar: with Reduce Motion…` | Linse hebt sich weiter, aber Leiste wächst nicht, kein Nachschwingen/Dehnen |
 | `touch: menus replace hover…` | Menü am Knopf, Untermenüs, Escape/Tipp daneben schließt ohne Aktion, Fokus zurück (und bleibt dort, wenn die Liste neu aufgebaut wird), Verschieben (Tag, Liste), Editor aus der Tagesliste, Rückfrage mit „Delete“ |
-| `foldable: …` | Leseposition beim Auf-/Zuklappen (der in der Tagesleiste gewählte Samstag bleibt an seiner Stelle und bleibt nach dem Zuklappen der gezeigte Tag), offenes Menü bleibt im Bild, iPad quer = Desktop |
+| `foldable: …` | Leseposition beim Auf-/Zuklappen (der in der Tagesleiste gewählte Samstag bleibt an seiner Stelle und bleibt nach dem Zuklappen der gezeigte Tag), offenes Menü bleibt im Bild, iPad quer = Desktop mit Desktop-Reihenfolge (Focus, Ziele, Woche, Kalender) und zurück, der Fokus auf „+ Add Goal“ bleibt |
 | `calendar on phones: …` | farbige Punkte, Tagesliste mit Zeiten, neuer Eintrag mit Uhrzeit in eigenem Kalender (Upload `16:30:00`), Dauer bleibt beim Verschieben des Beginns, Ende vor Beginn gesperrt, „Discard Changes“, Monatswechsel am 31. |
 | `calendar: own calendars … (desktop)` | Kalender anlegen, Eintrag mit Zeit/Kalender/Priorität, Sortierung, Woche, Datum ändern = verschieben, Kalender löschen → Standardkalender, Löschen mit Rückfrage |
 | `calendar: without the database migration…` | Eintrag mit Uhrzeit bleibt lokal (Fehler sichtbar), Tage ohne Uhrzeit laufen weiter, nach Migration hochgeladen |
@@ -65,6 +66,7 @@ Today's Goals ohne Fokus-Erhalt beim Neuaufbau der Liste.
 Schritte-Karte: Cursor nach dem Neuaufbau wieder ans Ende (alte Logik) → `setup: a rebuild while typing…` rot.
 Health Hub: ohne Verschieben der Karte bzw. ohne Fokus-Erhalt → `health hub: Step Challenge first…` rot; alte
 KPI-CSS (`overflow-wrap: anywhere`) → dieselbe Szene rot („1.794.99“ / „4“).
+Reihenfolge auf Handy/Tablet: ohne Aufruf vor dem ersten Zeichnen → `phones: the calendar stands first…` rot; ohne Fokus-Erhalt beim Verschieben → `foldable…` rot; Kalender mit altem Abstand oben bzw. Leiste noch mit Today zuerst → `scroll: phones…` rot.
 Woche auf dem Handy: ohne Höhenanpassung → `week on phones…` rot; Leseposition ohne die Regel für seitlich
 weggewischte Karten → `foldable…` rot (Samstag landet nach dem Aufklappen bei 336 px statt 120 px).
 `openDashboard` nimmt dafür zusätzlich `reducedMotion` an.

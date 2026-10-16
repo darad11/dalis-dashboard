@@ -1559,6 +1559,16 @@ html.touch-layout .week-overview-section>h2 {
     margin-top: 0 !important;
 }
 
+/* The calendar opens the page (placePageOrder in index.html): no gap above it; the weekly
+   overview below it keeps the gap the calendar had when it came second */
+html.touch-layout #section-week>.calendar-section:first-child {
+    margin-top: 0;
+}
+
+html.touch-layout .calendar-section+.week-overview-section {
+    margin-top: 24px;
+}
+
 html.touch-layout .week-nav-panel {
     padding: 10px 12px 10px 16px !important;
 }
