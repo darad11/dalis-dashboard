@@ -112,3 +112,8 @@ Aufwand: S ≤ 1 h, M ≈ ½ Tag, L ≥ 1 Tag. Risiko = Risiko der Änderung.
 - Anon-Key im Frontend ist zulässig; Schutz hängt an RLS → mit dem Health-Check prüfen, dass `rls_enabled = true` für **alle** Tabellen gilt und keine „Allow all“-Policy übrig ist.
 - Die Übergabedatei nennt einen gekürzten PAT (`ghp_pnNf…`). Sie ist nicht im Repository – so lassen; Token mit minimalen Rechten und Ablaufdatum verwenden.
 - XSS-Senken beseitigt; Backups enthalten keine Login-Tokens mehr.
+
+## Nachträge
+
+- Handy/Tablet/iPhone Duo, iOS-Gestaltung und durchgehende Seite: [MOBILE.md](MOBILE.md)
+- Kalender mit Uhrzeiten und eigenen Kalendern (inkl. Migration): [CALENDAR.md](CALENDAR.md)

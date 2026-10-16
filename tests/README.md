@@ -5,10 +5,10 @@ Keiner der Tests spricht mit dem echten Supabase-Projekt.
 
 | Suite | Prüft | Befehl |
 |---|---|---|
-| Unit | Berechnungslogik Step Challenge (`js/steps-core.js`) | `node --test "tests/unit/*.test.js"` |
-| Vertrag | `js/supabase.js` erzeugt die erwarteten PostgREST-Requests (echte supabase-js, abgefangenes `fetch`) | `npm install --no-save @supabase/supabase-js@2.117.2 && node --test "tests/contract/*.test.js"` |
-| SQL | Migration, RLS, Trigger, Constraints gegen ein **lokales Wegwerf-PostgreSQL** | `tests/sql/run.sh "host=/tmp port=5432 user=postgres"` |
-| E2E | Dashboard in Chromium mit In-Memory-Supabase-Mock (Step Challenge, Sync, bestehende Funktionen, iPhone/iPhone-Duo/iPad-Layout, Touch-Aktionen, Desktop unverändert) | `node tests/e2e/run.js` (optional Filter: `node tests/e2e/run.js foldable`) |
+| Unit | Berechnungslogik Step Challenge (`js/steps-core.js`); Kalender-Regeln: Uhrzeiten, Kalender, Reihenfolge, Farben, Editor-Eingaben (`js/calendar-core.js`); Sync-Fingerabdruck mit Uhrzeiten (`js/data-utils.js`) | `node --test "tests/unit/*.test.js"` |
+| Vertrag | `js/supabase.js` erzeugt die erwarteten PostgREST-Requests (echte supabase-js, abgefangenes `fetch`), u. a. Uhrzeit-Spalten nur wenn gesetzt, `"HH:MM:SS"` → `"HH:MM"` | `npm install --no-save @supabase/supabase-js@2.117.2 && node --test "tests/contract/*.test.js"` |
+| SQL | Migrationen (Step Challenge, Kalender-Uhrzeiten), RLS, Trigger, Constraints gegen ein **lokales Wegwerf-PostgreSQL** | `tests/sql/run.sh "host=/tmp port=5432 user=postgres"` |
+| E2E | Dashboard in Chromium mit In-Memory-Supabase-Mock (Step Challenge, Sync, bestehende Funktionen, durchgehende Seite mit Abschnittsleiste, Menüs, iPhone/iPhone-Duo/iPad-Layout, Kalender mit Uhrzeiten und eigenen Kalendern, Desktop unverändert) | `node tests/e2e/run.js` (optional Filter: `node tests/e2e/run.js foldable`) |
 
 Voraussetzungen:
 - Node.js ≥ 20 (Unit, Vertrag, E2E)
@@ -25,3 +25,23 @@ E2E-Hinweise:
   (`pointer: coarse` wird falsch); für lange Seiten den Viewport vergrößern.
 - Das iPhone Duo wird über geschätzte Viewports simuliert (466×678 zugeklappt, 890×626
   aufgeklappt); Auf-/Zuklappen = `page.setViewportSize`.
+- Der Mock gibt Zeitspalten wie Postgres zurück (`"10:00:00"`); `store.missingColumns`
+  simuliert eine Datenbank ohne Migration (PostgREST-Fehler `PGRST204`).
+
+Szenarien für Handy/Tablet und Kalender (`tests/e2e/run.js`):
+
+| Szenario | Prüft |
+|---|---|
+| `scroll: phones show one continuous page…` | alle Abschnitte sichtbar in der Reihenfolge Today → Lists, Markierung folgt dem Scrollen, Antippen springt (Fokus wandert mit), „+“/„⋯“ oben, Dark Mode aus dem Menü, Bedienelemente ≥ 44 pt |
+| `scroll: a short last section…` | Seitenende markiert den kurzen letzten Abschnitt; ein gewählter Abschnitt bleibt markiert |
+| `scroll: the steps link and #section- links…` | `?steps=` öffnet Health, `#section-lists` öffnet Lists |
+| `touch: menus replace hover…` | Menü am Knopf, Untermenüs, Escape/Tipp daneben schließt ohne Aktion, Fokus zurück, Verschieben (Tag, Liste), Editor aus der Tagesliste, Rückfrage mit „Delete“ |
+| `foldable: …` | Leseposition beim Auf-/Zuklappen, offenes Menü bleibt im Bild, iPad quer = Desktop |
+| `calendar on phones: …` | farbige Punkte, Tagesliste mit Zeiten, neuer Eintrag mit Uhrzeit in eigenem Kalender (Upload `16:30:00`), Dauer bleibt beim Verschieben des Beginns, Ende vor Beginn gesperrt, „Discard Changes“, Monatswechsel am 31. |
+| `calendar: own calendars … (desktop)` | Kalender anlegen, Eintrag mit Zeit/Kalender/Priorität, Sortierung, Woche, Datum ändern = verschieben, Kalender löschen → Standardkalender, Löschen mit Rückfrage |
+| `calendar: without the database migration…` | Eintrag mit Uhrzeit bleibt lokal (Fehler sichtbar), Tage ohne Uhrzeit laufen weiter, nach Migration hochgeladen |
+| `habits: "+ New Habit" keeps a gap…` | ≥ 16 px Abstand zu den Wochentagen (Desktop und Handy) |
+
+Gegenproben (Fehler absichtlich eingebaut, Test muss rot werden): Schließen des Editors am
+Desktop, Seitenende-Regel, gewählter Abschnitt am Seitenende, alter Habit-Abstand,
+fehlende Umrechnung `"HH:MM:SS"` (Vertragstest).

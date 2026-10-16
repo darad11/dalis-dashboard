@@ -3,7 +3,8 @@
  * e2e tests. It implements just enough PostgREST semantics for the dashboard:
  * filters, ordering, single()/maybeSingle(), insert/update/delete/upsert,
  * row-level security on user_id, the unique key and last-write-wins trigger of
- * step_entries, failure injection and realtime change events.
+ * step_entries, the time columns of goals (returned as "HH:MM:SS" like Postgres),
+ * failure injection (incl. columns missing before a migration) and realtime change events.
  */
 'use strict';
 
@@ -28,6 +29,7 @@ class CloudStore {
     this.offline = false;
     this.failTables = new Set();
     this.missingTables = new Set();
+    this.missingColumns = new Set(); // e.g. 'goals.start_time': database without that migration
     this.latencyMs = 5;
     this.log = [];
     this.clock = Date.parse('2026-01-04T12:00:00Z');
@@ -68,7 +70,28 @@ class CloudStore {
       if (row.deleted === undefined) row.deleted = false;
       row.updated_at = row.updated_at ? nowIso(Date.parse(row.updated_at)) : nowIso(Date.now());
     }
+    if (table === 'goals') {
+      // time columns (migrations/2026-10-16_calendar_times.sql): NULL when not sent, "HH:MM:SS" out
+      for (const col of ['start_time', 'end_time']) {
+        const v = row[col];
+        row[col] = typeof v === 'string' && /^\d{2}:\d{2}$/.test(v) ? v + ':00' : (v === undefined ? null : v);
+      }
+      if (row.calendar_id === undefined) row.calendar_id = null;
+    }
     return row;
+  }
+
+  // PostgREST rejects columns the table does not have (before a migration)
+  checkColumns(op, values) {
+    for (const v of values) {
+      for (const col of Object.keys(v)) {
+        if (this.missingColumns.has(`${op.table}.${col}`)) {
+          const err = new Error(`Could not find the '${col}' column of '${op.table}' in the schema cache`);
+          err.code = 'PGRST204';
+          throw err;
+        }
+      }
+    }
   }
 
   async handle(op) {
@@ -190,6 +213,7 @@ class CloudStore {
   }
 
   insert(op) {
+    this.checkColumns(op, op.values);
     const created = op.values.map(v => {
       this.checkRls(op, v);
       return this.withDefaults(op.table, v);
