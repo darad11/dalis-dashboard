@@ -1365,6 +1365,14 @@ scenario('health hub: Step Challenge first on phones and tablets, below the hero
   const { page, errors, context } = await open(env, PHONE);
   await waitFor(() => page.locator('#stepChallenge .step-hero-value').count(), 'phone step card');
   assert.deepEqual(await order(page), { after: 'gym-hub-header', above: true }, 'phone: first in the Health Hub');
+  // KPI numbers stay whole: one line and inside their tile ("1.794.99" / "4" before)
+  const kpis = await page.$$eval('#stepChallenge .step-kpi-value', els => els.map(el => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return { text: el.textContent, lines: new Set([...range.getClientRects()].map(r => Math.round(r.top))).size, fits: el.scrollWidth <= el.clientWidth + 1 };
+  }));
+  assert.ok(kpis.some(k => k.text === '1.794.994'), JSON.stringify(kpis));
+  assert.deepEqual(kpis.filter(k => k.lines !== 1 || !k.fits), [], 'KPI values on one line, inside the tile');
 
   // Tablet turned to landscape (desktop layout) and back; the focus stays in the card
   await page.setViewportSize({ width: 820, height: 1180 });

@@ -48,7 +48,7 @@ Szenarien für Apple Health, Handy/Tablet und Kalender (`tests/e2e/run.js`):
 | `calendar: own calendars … (desktop)` | Kalender anlegen, Eintrag mit Zeit/Kalender/Priorität, Sortierung, Woche, Datum ändern = verschieben, Kalender löschen → Standardkalender, Löschen mit Rückfrage |
 | `calendar: without the database migration…` | Eintrag mit Uhrzeit bleibt lokal (Fehler sichtbar), Tage ohne Uhrzeit laufen weiter, nach Migration hochgeladen |
 | `week on phones: day strip…` | Tagesleiste (7 Tage, heute markiert, Punkte in Kalenderfarben + grau für offene Aufgaben, VoiceOver-Texte), genau ein Tag auf dem Bildschirm, Zeile so hoch wie dieser Tag (weniger als halb so hoch wie alle Tage untereinander); Wischen → nächster Tag; Tipp in der Leiste → Montag; neue Aufgabe dort lässt die Zeile wachsen; nächste Woche behält den Wochentag, „Today“ springt zurück; aufgeklappt: Spalten ohne Leiste und ohne feste Höhe |
-| `health hub: Step Challenge first…` | Handy/Tablet: Step Challenge direkt unter „Health Hub“, über der Hero-Zeile; Desktop unverändert darunter; iPad hochkant ↔ quer verschiebt die Karte hin und zurück, der Fokus im Eingabefeld bleibt |
+| `health hub: Step Challenge first…` | Handy/Tablet: Step Challenge direkt unter „Health Hub“, über der Hero-Zeile; KPI-Zahlen („1.794.994“) einzeilig und innerhalb ihrer Kachel; Desktop unverändert darunter; iPad hochkant ↔ quer verschiebt die Karte hin und zurück, der Fokus im Eingabefeld bleibt |
 | `habits: "+ New Habit" keeps a gap…` | ≥ 16 px Abstand zu den Wochentagen (Desktop und Handy) |
 
 Gegenproben (Fehler absichtlich eingebaut, Test muss rot werden): Schließen des Editors am
@@ -58,7 +58,8 @@ Ziehen, ohne Prüfung „schon gewählt“, ohne Tipp-Ersatz an den Enden, Leist
 „Bewegung reduzieren“, ohne Abbruch-Behandlung (`pointercancel` und `lostpointercapture`);
 Today's Goals ohne Fokus-Erhalt beim Neuaufbau der Liste.
 Schritte-Karte: Cursor nach dem Neuaufbau wieder ans Ende (alte Logik) → `setup: a rebuild while typing…` rot.
-Health Hub: ohne Verschieben der Karte bzw. ohne Fokus-Erhalt → `health hub: Step Challenge first…` rot.
+Health Hub: ohne Verschieben der Karte bzw. ohne Fokus-Erhalt → `health hub: Step Challenge first…` rot; alte
+KPI-CSS (`overflow-wrap: anywhere`) → dieselbe Szene rot („1.794.99“ / „4“).
 Woche auf dem Handy: ohne Höhenanpassung → `week on phones…` rot; Leseposition ohne die Regel für seitlich
 weggewischte Karten → `foldable…` rot (Samstag landet nach dem Aufklappen bei 336 px statt 120 px).
 `openDashboard` nimmt dafür zusätzlich `reducedMotion` an.

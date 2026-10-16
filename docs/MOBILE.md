@@ -36,6 +36,10 @@ iPhone quer):
   (`placeStepCard` in `js/mobile.js`), nicht per CSS `order` umsortiert – so entsprechen
   VoiceOver- und Tab-Reihenfolge dem Bildschirm, und der Fokus bleibt beim Wechsel der Ansicht
   (Drehen, Aufklappen) erhalten.
+- **Zahlen in der Step Challenge** (Remaining, Needed per day, Today) brechen nicht mehr mitten
+  in der Zahl um (vorher „1.794.99“ / „4“ auf iPhone-Breite): Sie bleiben einzeilig, und die
+  Schriftgröße folgt der Kachelbreite (18 % per Container-Query, höchstens so groß wie am
+  Desktop) – wie UIKit-Labels mit „adjustsFontSizeToFitWidth“.
 - **Leiste oben** (bleibt stehen, Inhalt läuft weich darunter aus): Logo und Name, rechts eine
   Glas-Kapsel mit **+** (neuer Kalendereintrag für heute) und **⋯** (Dark Mode, Focus Mode,
   Sync & Backup, Abmelden). Ein Punkt am ⋯ zeigt ausstehende Uploads (orange) oder einen

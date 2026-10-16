@@ -6714,18 +6714,29 @@ body.dark .step-card {
     min-width: 0;
 }
 
+/* The KPI value scales to its tile (container query units) */
+.step-kpi {
+    container-type: inline-size;
+}
+
 .step-kpi-label {
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--text-secondary);
 }
 
+/* A number is never broken ("1.794.99" / "4" on a phone): it stays on one line and its
+   size follows the tile width, as UIKit labels shrink to fit (adjustsFontSizeToFitWidth).
+   18% of the tile fits up to eight digits with separators ("12.345.678", SF Pro Bold); all
+   three tiles have the same width, so all three values get the same size. */
 .step-kpi-value {
     font-size: 1.35rem;
+    font-size: min(1.35rem, 18cqi);
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
     color: var(--text-primary);
     margin-top: 2px;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
 }
 
 .step-tile-value {
@@ -7676,6 +7687,7 @@ body.dark .heat-6 { color: var(--heat-ink-dark); }
 
     .step-kpi-value {
         font-size: 1.05rem;
+        font-size: min(1.35rem, 18cqi);
     }
 
     .step-setup-grid {
