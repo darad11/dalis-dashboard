@@ -935,7 +935,7 @@
 
   function renderHealthSteps() {
     return h('ol', { class: 'step-health-steps' },
-      h('li', null, 'Shortcuts app → +. Add “Find Health Samples” (search “Health”): Type Steps, Start Date is today, Add Filter: Source is not your iPhone, Group By None. Without that filter iPhone and Apple Watch are counted twice.'),
+      h('li', null, 'Shortcuts app → +. Add “Find Health Samples” (search “Health”): Type Steps, Start Date is today, Add Filter: Source is Apple Watch (with several Watch entries, the one that matches the Health app), Group By None. Without that filter iPhone and Apple Watch are counted twice.'),
       h('li', null, 'Add “Calculate Statistics”: Sum.'),
       h('li', null, 'Add “Format Date”: tap the pale “Date” and choose Current Date (pale = empty); Date Format ISO 8601.'),
       h('li', null, 'Add “Get Contents of URL” with the address, Method POST, Request Body JSON: ',
