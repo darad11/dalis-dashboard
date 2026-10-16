@@ -312,6 +312,18 @@ html.touch-layout body {
     --glass-blur: blur(18px) saturate(180%);
     --selection-pill: rgba(120, 120, 128, 0.16);
     --press: rgba(120, 120, 128, 0.16);
+    /* Glass lens of the section bar: dark items, colour channels multiplied */
+    --lens-fill: rgba(255, 255, 255, 0.2);
+    --lens-hairline: rgba(0, 0, 0, 0.1);
+    --lens-specular: rgba(255, 255, 255, 0.95);
+    --lens-specular-low: rgba(255, 255, 255, 0.6);
+    --lens-shadow: rgba(0, 0, 0, 0.16);
+    --lens-glow-core: rgba(255, 255, 255, 0.55);
+    --lens-glow-floor: rgba(255, 255, 255, 0);
+    --lens-blend: multiply;
+    --lens-r: #00ffff;
+    --lens-g: #ff00ff;
+    --lens-b: #ffff00;
     --font-main: var(--ios-font);
     --page-bg: #f2f2f7;
     background: var(--bg-color);
@@ -348,8 +360,21 @@ html.touch-layout body.dark {
     --glass-edge: rgba(255, 255, 255, 0.14);
     --glass-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.6), 0 10px 32px rgba(0, 0, 0, 0.5);
     --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.14);
-    --selection-pill: rgba(255, 255, 255, 0.14);
+    /* Darker than the bar, as in the iOS 26 tab bar */
+    --selection-pill: rgba(0, 0, 0, 0.5);
     --press: rgba(255, 255, 255, 0.12);
+    /* Light items, colour channels added */
+    --lens-fill: rgba(255, 255, 255, 0.025);
+    --lens-hairline: rgba(255, 255, 255, 0.2);
+    --lens-specular: rgba(255, 255, 255, 0.6);
+    --lens-specular-low: rgba(255, 255, 255, 0.3);
+    --lens-shadow: rgba(0, 0, 0, 0.35);
+    --lens-glow-core: rgba(255, 255, 255, 0.07);
+    --lens-glow-floor: rgba(255, 255, 255, 0.035);
+    --lens-blend: screen;
+    --lens-r: #ff0000;
+    --lens-g: #00ff00;
+    --lens-b: #0000ff;
     --page-bg: #000000;
 }
 
@@ -363,6 +388,8 @@ html.touch-layout:has(body.dark) {
         --separator: rgba(60, 60, 67, 0.5);
         --control-border: rgba(60, 60, 67, 0.75);
         --glass-edge: rgba(0, 0, 0, 0.28);
+        --selection-pill: rgba(120, 120, 128, 0.28);
+        --lens-hairline: rgba(0, 0, 0, 0.35);
     }
 
     html.touch-layout body.dark {
@@ -371,6 +398,8 @@ html.touch-layout:has(body.dark) {
         --control-border: rgba(235, 235, 245, 0.7);
         --accent-color: rgb(167, 170, 255);
         --glass-edge: rgba(255, 255, 255, 0.4);
+        --selection-pill: rgba(0, 0, 0, 0.7);
+        --lens-hairline: rgba(255, 255, 255, 0.5);
     }
 }
 
@@ -383,6 +412,16 @@ html.touch-layout:has(body.dark) {
 
     html.touch-layout body.dark {
         --glass-bg: #1c1c1e;
+    }
+
+    /* Frosted lens: no see-through rim */
+    html.touch-layout .tabbar-lens-fill {
+        background: var(--surface-color);
+    }
+
+    html.touch-layout .tabbar-lens-ring,
+    html.touch-layout .tabbar-lens-rim::before {
+        display: none;
     }
 }
 
@@ -573,6 +612,23 @@ html.touch-layout .mobile-tabbar {
     padding: 4px;
     border-radius: 999px;
     transform: translateX(-50%);
+    /* A finger on the bar moves the selection (glass lens below), so no scrolling, zooming,
+       text selection or link preview starts here */
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+/* Inset by as much as the selection pill reaches past its item (PILL_OUTSET, js/mobile.js) */
+.tabbar-items {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: stretch;
+    padding: 0 4px;
 }
 
 .tabbar-indicator {
@@ -596,7 +652,9 @@ html.touch-layout .mobile-tabbar {
     transition: none;
 }
 
-.mobile-tab {
+/* .tabbar-lens-tab: copies of the items inside the lens, laid out the same way */
+.mobile-tab,
+.tabbar-lens-tab {
     position: relative;
     z-index: 1;
     flex: 1 1 0;
@@ -612,12 +670,16 @@ html.touch-layout .mobile-tabbar {
     text-decoration: none;
     font: 600 10px/1.15 var(--ios-font);
     letter-spacing: 0.01em;
-    cursor: pointer;
-    touch-action: manipulation;
     transition: color 0.2s;
 }
 
-.mobile-tab svg {
+.mobile-tab {
+    cursor: pointer;
+    -webkit-user-drag: none;
+}
+
+.mobile-tab svg,
+.tabbar-lens-tab svg {
     width: 26px;
     height: 26px;
     fill: currentColor;
@@ -630,11 +692,13 @@ html.touch-layout .mobile-tabbar {
     white-space: nowrap;
 }
 
-.mobile-tab.active {
+.mobile-tab.active,
+.tabbar-lens-tab.candidate {
     color: var(--accent-color);
 }
 
-.mobile-tab:active {
+/* Without the lens (no JS) a pressed item shrinks a little */
+.mobile-tabbar:not(.lens-ready) .mobile-tab:active {
     transform: scale(0.94);
     transition: transform 0.12s;
 }
@@ -642,6 +706,176 @@ html.touch-layout .mobile-tabbar {
 .mobile-tab:focus-visible {
     outline: 2px solid var(--accent-color);
     outline-offset: -3px;
+}
+
+/* ---- Glass lens while a finger is on the bar (geometry from js/mobile.js) ----
+   As in the iOS 26 tab bar the selection lifts into a clear lens that follows the finger:
+   the items under it are drawn magnified, at its rim slightly shrunk and split into colours
+   (refraction), with a thin specular edge. The bar swells a little and lights up under the
+   finger. The lens shows copies of the items (aria-hidden); the real items get a hole of the
+   lens' shape, so nothing is drawn twice. --lift: 0 = resting selection, 1 = lifted lens. */
+.tabbar-glow,
+.tabbar-lens {
+    display: none;
+    pointer-events: none;
+}
+
+.mobile-tabbar.lens-active .tabbar-glow,
+.mobile-tabbar.lens-active .tabbar-lens {
+    display: block;
+}
+
+.mobile-tabbar.lens-active .tabbar-indicator {
+    opacity: 0;
+    transition: none;
+}
+
+/* The selection travels with the lens; meanwhile the real items show none */
+.mobile-tabbar.lens-active .mobile-tab.active {
+    color: var(--text-primary);
+}
+
+.mobile-tabbar.lens-active .mobile-tab,
+.mobile-tabbar.lens-settling .mobile-tab {
+    transition: none;
+}
+
+/* Hole of the lens' shape in the real items: a capsule = two circles and the rectangle between */
+.mobile-tabbar.lens-active>.tabbar-items {
+    -webkit-mask-image: linear-gradient(#000 0 0), radial-gradient(closest-side, #000 calc(100% - 0.5px), transparent), radial-gradient(closest-side, #000 calc(100% - 0.5px), transparent), linear-gradient(#000 0 0);
+    mask-image: linear-gradient(#000 0 0), radial-gradient(closest-side, #000 calc(100% - 0.5px), transparent), radial-gradient(closest-side, #000 calc(100% - 0.5px), transparent), linear-gradient(#000 0 0);
+    -webkit-mask-size: 100% 100%, var(--hole-h) var(--hole-h), var(--hole-h) var(--hole-h), max(0px, calc(var(--hole-w) - var(--hole-h))) var(--hole-h);
+    mask-size: 100% 100%, var(--hole-h) var(--hole-h), var(--hole-h) var(--hole-h), max(0px, calc(var(--hole-w) - var(--hole-h))) var(--hole-h);
+    -webkit-mask-position: 0 0, var(--hole-x) var(--hole-y), calc(var(--hole-x) + var(--hole-w) - var(--hole-h)) var(--hole-y), calc(var(--hole-x) + var(--hole-h) / 2) var(--hole-y);
+    mask-position: 0 0, var(--hole-x) var(--hole-y), calc(var(--hole-x) + var(--hole-w) - var(--hole-h)) var(--hole-y), calc(var(--hole-x) + var(--hole-h) / 2) var(--hole-y);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-composite: source-out, source-over, source-over, source-over;
+    mask-composite: subtract, add, add, add;
+}
+
+/* Light under the finger */
+.tabbar-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: var(--lift, 0);
+    background: radial-gradient(circle 150px at var(--glow-x, 50%) 50%, var(--lens-glow-core), var(--lens-glow-floor));
+}
+
+.tabbar-lens {
+    position: absolute;
+    z-index: 2;
+    left: 0;
+    top: 0;
+    border-radius: 999px;
+    overflow: hidden;
+    isolation: isolate;
+    box-shadow: 0 calc(var(--lift, 0) * 3px) calc(var(--lift, 0) * 14px) var(--lens-shadow);
+}
+
+.tabbar-lens-pill,
+.tabbar-lens-fill,
+.tabbar-lens-ring,
+.tabbar-lens-rim {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+}
+
+/* At rest the lens is the selection pill; lifted it is clear glass */
+.tabbar-lens-pill {
+    background: var(--selection-pill, rgba(120, 120, 128, 0.16));
+    opacity: calc(1 - var(--lift, 0));
+}
+
+.tabbar-lens-fill {
+    background: var(--lens-fill);
+    opacity: var(--lift, 0);
+}
+
+/* Middle: items magnified */
+.tabbar-lens-core {
+    position: absolute;
+    inset: var(--rw, 0px);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+/* Rim (--rw wide): items slightly shrunk, colour channels apart. Hole: the middle capsule. */
+.tabbar-lens-ring {
+    --ih: max(0px, calc(var(--lh, 0px) - 2 * var(--rw, 0px)));
+    isolation: isolate;
+    -webkit-mask-image: linear-gradient(#000 0 0), radial-gradient(closest-side, #000 calc(100% - 1px), transparent), radial-gradient(closest-side, #000 calc(100% - 1px), transparent), linear-gradient(#000 0 0);
+    mask-image: linear-gradient(#000 0 0), radial-gradient(closest-side, #000 calc(100% - 1px), transparent), radial-gradient(closest-side, #000 calc(100% - 1px), transparent), linear-gradient(#000 0 0);
+    -webkit-mask-size: 100% 100%, var(--ih) var(--ih), var(--ih) var(--ih), max(0px, calc(var(--lw, 0px) - 2 * var(--rw, 0px) - var(--ih))) var(--ih);
+    mask-size: 100% 100%, var(--ih) var(--ih), var(--ih) var(--ih), max(0px, calc(var(--lw, 0px) - 2 * var(--rw, 0px) - var(--ih))) var(--ih);
+    -webkit-mask-position: 0 0, var(--rw, 0px) var(--rw, 0px), calc(var(--lw, 0px) - var(--rw, 0px) - var(--ih)) var(--rw, 0px), calc(var(--rw, 0px) + var(--ih) / 2) var(--rw, 0px);
+    mask-position: 0 0, var(--rw, 0px) var(--rw, 0px), calc(var(--lw, 0px) - var(--rw, 0px) - var(--ih)) var(--rw, 0px), calc(var(--rw, 0px) + var(--ih) / 2) var(--rw, 0px);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-composite: source-out, source-over, source-over, source-over;
+    mask-composite: subtract, add, add, add;
+}
+
+.tabbar-lens-view {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+}
+
+.tabbar-lens-ring>.tabbar-lens-view {
+    filter: blur(0.35px);
+}
+
+.tabbar-items-copy {
+    position: absolute;
+    display: flex;
+    align-items: stretch;
+}
+
+/* Light mode: dark items, so the channels are multiplied (cyan, magenta, yellow -> black);
+   dark mode: light items, channels added (red, green, blue -> white) */
+.tabbar-lens-ring>.tabbar-lens-view+.tabbar-lens-view {
+    mix-blend-mode: var(--lens-blend, multiply);
+}
+
+.tabbar-lens-ring>.channel-r .tabbar-lens-tab {
+    color: var(--lens-r, #0ff);
+}
+
+.tabbar-lens-ring>.channel-g .tabbar-lens-tab {
+    color: var(--lens-g, #f0f);
+}
+
+.tabbar-lens-ring>.channel-b .tabbar-lens-tab {
+    color: var(--lens-b, #ff0);
+}
+
+/* Specular edge: hairline, light from the top left, colour fringes at both ends */
+.tabbar-lens-rim {
+    opacity: var(--lift, 0);
+    box-shadow:
+        inset 0 0 0 0.5px var(--lens-hairline),
+        inset 1.5px 1.5px 1px -0.5px var(--lens-specular),
+        inset -1.5px -1.5px 1px -0.5px var(--lens-specular-low);
+}
+
+.tabbar-lens-rim::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1.5px;
+    border-radius: inherit;
+    background: conic-gradient(transparent 0deg 72deg,
+            rgba(255, 70, 70, 0.3) 80deg, rgba(255, 214, 60, 0.3) 86deg, rgba(70, 230, 140, 0.3) 94deg, rgba(70, 140, 255, 0.3) 100deg,
+            transparent 108deg 252deg,
+            rgba(70, 140, 255, 0.3) 260deg, rgba(70, 230, 140, 0.3) 266deg, rgba(255, 214, 60, 0.3) 274deg, rgba(255, 70, 70, 0.3) 280deg,
+            transparent 288deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
 }
 
 /* ===================================================================
@@ -2648,13 +2882,15 @@ html.touch-layout .sheet-confirm-cancel {
         --gutter: 24px;
     }
 
-    html.touch-layout .mobile-tab {
+    html.touch-layout .mobile-tab,
+    html.touch-layout .tabbar-lens-tab {
         flex-direction: row;
         gap: 8px;
         font-size: 13px;
     }
 
-    html.touch-layout .mobile-tab svg {
+    html.touch-layout .mobile-tab svg,
+    html.touch-layout .tabbar-lens-tab svg {
         width: 22px;
         height: 22px;
     }
@@ -2822,13 +3058,15 @@ html.touch-layout .sheet-confirm-cancel {
         height: 48px;
     }
 
-    html.touch-layout .mobile-tab {
+    html.touch-layout .mobile-tab,
+    html.touch-layout .tabbar-lens-tab {
         flex-direction: row;
         gap: 6px;
         font-size: 12px;
     }
 
-    html.touch-layout .mobile-tab svg {
+    html.touch-layout .mobile-tab svg,
+    html.touch-layout .tabbar-lens-tab svg {
         width: 20px;
         height: 20px;
     }

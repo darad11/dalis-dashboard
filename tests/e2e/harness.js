@@ -66,7 +66,7 @@ async function createEnv(options = {}) {
 /**
  * Opens the dashboard in a fresh page.
  * opts.context  reuse an existing BrowserContext (shares localStorage = same device)
- * opts.viewport {width,height}; opts.colorScheme; opts.now (ms epoch) fixes the clock
+ * opts.viewport {width,height}; opts.colorScheme; opts.reducedMotion; opts.now (ms epoch) fixes the clock
  */
 async function openDashboard(env, opts = {}) {
   const context = opts.context || await env.browser.newContext({
@@ -76,7 +76,8 @@ async function openDashboard(env, opts = {}) {
     hasTouch: !!opts.hasTouch,
     locale: 'de-AT',
     timezoneId: opts.timezoneId || 'Europe/Vienna',
-    colorScheme: opts.colorScheme || 'light'
+    colorScheme: opts.colorScheme || 'light',
+    reducedMotion: opts.reducedMotion || 'no-preference'
   });
   const page = await context.newPage();
   const errors = [];

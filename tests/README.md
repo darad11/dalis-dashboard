@@ -8,7 +8,7 @@ Keiner der Tests spricht mit dem echten Supabase-Projekt.
 | Unit | Berechnungslogik Step Challenge (`js/steps-core.js`); Kalender-Regeln: Uhrzeiten, Kalender, Reihenfolge, Farben, Editor-Eingaben (`js/calendar-core.js`); Sync-Fingerabdruck mit Uhrzeiten (`js/data-utils.js`) | `node --test "tests/unit/*.test.js"` |
 | Vertrag | `js/supabase.js` erzeugt die erwarteten PostgREST-Requests (echte supabase-js, abgefangenes `fetch`), u. a. Uhrzeit-Spalten nur wenn gesetzt, `"HH:MM:SS"` → `"HH:MM"` | `npm install --no-save @supabase/supabase-js@2.117.2 && node --test "tests/contract/*.test.js"` |
 | SQL | Migrationen (Step Challenge, Kalender-Uhrzeiten), RLS, Trigger, Constraints gegen ein **lokales Wegwerf-PostgreSQL** | `tests/sql/run.sh "host=/tmp port=5432 user=postgres"` |
-| E2E | Dashboard in Chromium mit In-Memory-Supabase-Mock (Step Challenge, Sync, bestehende Funktionen, durchgehende Seite mit Abschnittsleiste, Menüs, iPhone/iPhone-Duo/iPad-Layout, Kalender mit Uhrzeiten und eigenen Kalendern, Desktop unverändert) | `node tests/e2e/run.js` (optional Filter: `node tests/e2e/run.js foldable`) |
+| E2E | Dashboard in Chromium mit In-Memory-Supabase-Mock (Step Challenge, Sync, bestehende Funktionen, durchgehende Seite mit Abschnittsleiste und Glas-Linse, Menüs, iPhone/iPhone-Duo/iPad-Layout, Kalender mit Uhrzeiten und eigenen Kalendern, Desktop unverändert) | `node tests/e2e/run.js` (optional Filter: `node tests/e2e/run.js foldable`) |
 
 Voraussetzungen:
 - Node.js ≥ 20 (Unit, Vertrag, E2E)
@@ -35,7 +35,9 @@ Szenarien für Handy/Tablet und Kalender (`tests/e2e/run.js`):
 | `scroll: phones show one continuous page…` | alle Abschnitte sichtbar in der Reihenfolge Today → Lists, Markierung folgt dem Scrollen, Antippen springt (Fokus wandert mit), „+“/„⋯“ oben, Dark Mode aus dem Menü, Bedienelemente ≥ 44 pt |
 | `scroll: a short last section…` | Seitenende markiert den kurzen letzten Abschnitt; ein gewählter Abschnitt bleibt markiert |
 | `scroll: the steps link and #section- links…` | `?steps=` öffnet Health, `#section-lists` öffnet Lists |
-| `touch: menus replace hover…` | Menü am Knopf, Untermenüs, Escape/Tipp daneben schließt ohne Aktion, Fokus zurück, Verschieben (Tag, Liste), Editor aus der Tagesliste, Rückfrage mit „Delete“ |
+| `section bar: a finger lifts the selection…` | Glas-Linse: hebt sich beim Berühren (größer als die Leiste, Leiste wächst), nur Dekoration (`aria-hidden`, keine zusätzlichen Links), folgt beim Ziehen dem Finger, wählt erst beim Loslassen (Sprung + Fokus), fällt in die Markierung zurück; kurzes Ziehen auf dem gewählten Abschnitt springt nicht (auch nicht durch den Klick, den Chromium danach schickt); Abbruch durch das System wählt nichts; Tipp ans runde Ende wählt den nächsten; Tastatur ohne Linse |
+| `section bar: with Reduce Motion…` | Linse hebt sich weiter, aber Leiste wächst nicht, kein Nachschwingen/Dehnen |
+| `touch: menus replace hover…` | Menü am Knopf, Untermenüs, Escape/Tipp daneben schließt ohne Aktion, Fokus zurück (und bleibt dort, wenn die Liste neu aufgebaut wird), Verschieben (Tag, Liste), Editor aus der Tagesliste, Rückfrage mit „Delete“ |
 | `foldable: …` | Leseposition beim Auf-/Zuklappen, offenes Menü bleibt im Bild, iPad quer = Desktop |
 | `calendar on phones: …` | farbige Punkte, Tagesliste mit Zeiten, neuer Eintrag mit Uhrzeit in eigenem Kalender (Upload `16:30:00`), Dauer bleibt beim Verschieben des Beginns, Ende vor Beginn gesperrt, „Discard Changes“, Monatswechsel am 31. |
 | `calendar: own calendars … (desktop)` | Kalender anlegen, Eintrag mit Zeit/Kalender/Priorität, Sortierung, Woche, Datum ändern = verschieben, Kalender löschen → Standardkalender, Löschen mit Rückfrage |
@@ -44,4 +46,8 @@ Szenarien für Handy/Tablet und Kalender (`tests/e2e/run.js`):
 
 Gegenproben (Fehler absichtlich eingebaut, Test muss rot werden): Schließen des Editors am
 Desktop, Seitenende-Regel, gewählter Abschnitt am Seitenende, alter Habit-Abstand,
-fehlende Umrechnung `"HH:MM:SS"` (Vertragstest).
+fehlende Umrechnung `"HH:MM:SS"` (Vertragstest); Glas-Linse: ohne Klick-Unterdrückung nach dem
+Ziehen, ohne Prüfung „schon gewählt“, ohne Tipp-Ersatz an den Enden, Leiste wächst trotz
+„Bewegung reduzieren“, ohne Abbruch-Behandlung (`pointercancel` und `lostpointercapture`);
+Today's Goals ohne Fokus-Erhalt beim Neuaufbau der Liste.
+`openDashboard` nimmt dafür zusätzlich `reducedMotion` an.

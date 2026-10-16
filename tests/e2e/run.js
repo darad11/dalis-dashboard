@@ -573,11 +573,50 @@ const sectionAtTop = (page, name) => page.evaluate(n => {
   return Math.abs(top - bar - 4) <= 6 || (atEnd && top >= bar);
 }, name);
 
+const lensUp = (page) => page.evaluate(() => document.getElementById('mobileTabbar').classList.contains('lens-active'));
+
 async function goToSection(page, name) {
   await page.locator(`.mobile-tab[data-section="${name}"]`).tap();
   await waitFor(async () => (await currentSection(page)) === name && await sectionAtTop(page, name), `jump to ${name}`);
+  await waitFor(async () => !(await lensUp(page)), 'lens dropped into the selection');
   await settle(page, 200);
 }
+
+// A finger on the section bar, through the DevTools protocol (Playwright's touchscreen only taps)
+async function barFinger(page) {
+  const client = await page.context().newCDPSession(page);
+  const geo = await page.evaluate(() => {
+    const bar = document.getElementById('mobileTabbar');
+    const r = bar.getBoundingClientRect();
+    const tabs = {};
+    bar.querySelectorAll('.mobile-tab').forEach(t => { const b = t.getBoundingClientRect(); tabs[t.dataset.section] = b.left + b.width / 2; });
+    return { left: r.left, y: r.top + r.height / 2, width: r.width, padHeight: bar.clientHeight, tabWidth: bar.querySelector('.mobile-tab').getBoundingClientRect().width, tabs };
+  });
+  const send = (type, x) => client.send('Input.dispatchTouchEvent',
+    { type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ x, y: geo.y, id: 1 }] });
+  return {
+    geo,
+    down: (x) => send('touchStart', x),
+    async move(from, to, steps) {
+      for (let i = 1; i <= steps; i++) {
+        await send('touchMove', from + (to - from) * i / steps);
+        await page.waitForTimeout(16);
+      }
+    },
+    up: () => send('touchEnd'),
+    cancel: () => send('touchCancel')
+  };
+}
+
+const lensBox = (page) => page.evaluate(() => {
+  const bar = document.getElementById('mobileTabbar');
+  const l = bar.querySelector('.tabbar-lens').getBoundingClientRect();
+  const b = bar.getBoundingClientRect();
+  // Item centres as they are now (the bar swells while touched)
+  const tabs = {};
+  bar.querySelectorAll('.mobile-tab').forEach(t => { const r = t.getBoundingClientRect(); tabs[t.dataset.section] = r.left + r.width / 2; });
+  return { lift: +(bar.style.getPropertyValue('--lift') || 0), center: l.left + l.width / 2, width: l.width, height: l.height, top: l.top, bottom: l.bottom, barTop: b.top, barBottom: b.bottom, barWidth: b.width, tabs };
+});
 
 async function menuAction(page, id) {
   await page.locator(`.menu-layer.open .menu-item[data-action="${id}"]`).tap();
@@ -627,7 +666,7 @@ scenario('scroll: phones show one continuous page; the section bar follows and j
     const t = document.querySelector('.mobile-tab.active').getBoundingClientRect();
     return [Math.round(i.left - t.left), Math.round(i.width - t.width)];
   });
-  assert.deepEqual(pill, [0, 0], 'selection pill under the active section');
+  assert.deepEqual(pill, [-4, 8], 'selection pill under the active section, 4px wider on both sides');
   assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), 'section-week', 'focus moved into the section');
 
   assert.equal(await horizontalOverflow(page), 0, 'no horizontal scrolling');
@@ -700,6 +739,123 @@ scenario('scroll: the steps link and #section- links open at their section', asy
   await context.close();
 });
 
+scenario('section bar: a finger lifts the selection into a glass lens, a drag selects on release', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await openPhone(env);
+  const finger = await barFinger(page);
+  const { tabs } = finger.geo;
+
+  // Touch: the selection lifts into a lens taller than the bar, the bar swells
+  await finger.down(tabs.today);
+  await waitFor(async () => (await lensBox(page)).lift > 0.99, 'lens lifted');
+  const lifted = await lensBox(page);
+  assert.ok(lifted.barWidth > finger.geo.width + 10, `bar swells while touched (${lifted.barWidth})`);
+  assert.ok(lifted.barTop - lifted.top > 2 && lifted.bottom - lifted.barBottom > 2, 'lens reaches past the bar');
+  assert.ok(Math.abs(lifted.center - lifted.tabs.today) < 1, 'lens over the touched item');
+  const parts = await page.evaluate(() => {
+    const bar = document.getElementById('mobileTabbar');
+    const lens = bar.querySelector('.tabbar-lens');
+    const items = getComputedStyle(bar.querySelector('.tabbar-items'));
+    return {
+      hidden: lens.getAttribute('aria-hidden'),
+      focusable: lens.querySelectorAll('a, button, input, [tabindex]').length,
+      links: [...bar.querySelectorAll('a[href]')].map(a => a.dataset.section),
+      pill: getComputedStyle(bar.querySelector('.tabbar-indicator')).opacity,
+      hole: items.maskImage || items.webkitMaskImage
+    };
+  });
+  assert.equal(parts.hidden, 'true', 'the lens is decoration');
+  assert.equal(parts.focusable, 0);
+  assert.deepEqual(parts.links, ['today', 'week', 'health', 'habits', 'lists'], 'the five links stay the only links');
+  assert.equal(parts.pill, '0', 'resting pill hidden under the lens');
+  assert.notEqual(parts.hole, 'none', 'the real items get a hole under the lens');
+
+  // Drag to Habits and hold: the lens follows the finger, nothing is selected yet
+  await finger.move(tabs.today, tabs.habits, 12);
+  const candidate = () => page.evaluate(() => {
+    const t = document.querySelector('.tabbar-lens-core .tabbar-lens-tab.candidate');
+    return t && t.dataset.section;
+  });
+  await waitFor(async () => (await candidate()) === 'habits' && Math.abs((await lensBox(page)).center - tabs.habits) < 1.5,
+    'lens over habits, under the finger');
+  assert.equal(await currentSection(page), 'today');
+  assert.equal(await page.evaluate(() => window.scrollY), 0, 'no jump before release');
+
+  // Release: Habits is selected and the page jumps there; the lens drops into the pill
+  await finger.up();
+  await waitFor(async () => (await currentSection(page)) === 'habits' && await sectionAtTop(page, 'habits'), 'jump to habits');
+  await waitFor(async () => !(await lensUp(page)), 'lens dropped');
+  const rest = await page.evaluate(() => {
+    const bar = document.getElementById('mobileTabbar');
+    const i = bar.querySelector('.tabbar-indicator');
+    const ir = i.getBoundingClientRect();
+    const t = bar.querySelector('.mobile-tab.active');
+    const tr = t.getBoundingClientRect();
+    return { width: bar.getBoundingClientRect().width, pill: [Math.round(ir.left - tr.left), Math.round(ir.width - tr.width)], opacity: getComputedStyle(i).opacity, active: t.dataset.section, transform: bar.style.transform };
+  });
+  assert.ok(Math.abs(rest.width - finger.geo.width) < 0.5, 'bar back to its size');
+  assert.deepEqual(rest.pill, [-4, 8], 'pill under Habits');
+  assert.equal(rest.opacity, '1');
+  assert.equal(rest.active, 'habits');
+  assert.equal(rest.transform, '', 'no inline transform left behind');
+  assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.id), 'section-habits', 'focus moved into the section');
+
+  // A short drag that ends on the selected section changes nothing - also not through the
+  // click Chromium still sends for a movement this short
+  await page.evaluate(() => window.scrollBy(0, 150));
+  await settle(page, 250);
+  const before = await page.evaluate(() => window.scrollY);
+  await finger.down(tabs.habits + 20);
+  await finger.move(tabs.habits + 20, tabs.habits + 8, 2);
+  await finger.up();
+  await settle(page, 700);
+  assert.equal(await page.evaluate(() => window.scrollY), before, 'no jump to the start of the section');
+  assert.equal(await currentSection(page), 'habits');
+
+  // The system takes the touch: back to the selection, nothing chosen
+  await finger.down(tabs.lists);
+  await finger.move(tabs.lists, tabs.week, 10);
+  await finger.cancel();
+  await waitFor(async () => !(await lensUp(page)), 'lens back in the selection');
+  assert.equal(await currentSection(page), 'habits');
+  assert.equal(await page.evaluate(() => window.scrollY), before);
+
+  // A tap at the rounded end of the bar selects the nearest section
+  await page.touchscreen.tap(finger.geo.left + 4, finger.geo.y);
+  await waitFor(async () => (await currentSection(page)) === 'today' && await sectionAtTop(page, 'today'), 'end of the bar selects today');
+  await waitFor(async () => !(await lensUp(page)), 'lens dropped after the tap');
+
+  // Keyboard: the links select without a lens
+  await page.focus('.mobile-tab[data-section="week"]');
+  await page.keyboard.press('Enter');
+  await waitFor(async () => (await currentSection(page)) === 'week', 'Enter selects week');
+  assert.equal(await lensUp(page), false, 'no lens without a finger');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+scenario('section bar: with Reduce Motion the lens neither swells the bar nor overshoots', async (env) => {
+  const { page, errors, context } = await openPhone(env, { reducedMotion: 'reduce' });
+  const finger = await barFinger(page);
+  const lensW = (finger.geo.tabWidth + 8) * 1.22;
+  const lensH = finger.geo.padHeight + 7;
+  const samples = [];
+  await finger.down(finger.geo.tabs.lists); // from Today across the whole bar
+  for (let i = 0; i < 14; i++) {
+    samples.push(await lensBox(page));
+    await page.waitForTimeout(20);
+  }
+  await finger.up();
+  await waitFor(async () => (await currentSection(page)) === 'lists', 'the tap selects lists');
+  await waitFor(async () => !(await lensUp(page)), 'lens dropped');
+  assert.ok(samples[samples.length - 1].lift > 0.95, 'the lens still lifts');
+  assert.ok(samples.every(s => Math.abs(s.barWidth - finger.geo.width) < 0.5), 'bar keeps its size');
+  assert.ok(samples.every(s => s.width <= lensW + 0.5 && s.height <= lensH + 0.5),
+    `lens never larger than lifted: ${JSON.stringify(samples.map(s => [Math.round(s.width), Math.round(s.height)]))}`);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 scenario('touch: menus replace hover, double-click, right-click and drag & drop', async (env) => {
   seedDemo(env.store, { steps: false });
   const { page, errors, context } = await openPhone(env);
@@ -731,6 +887,12 @@ scenario('touch: menus replace hover, double-click, right-click and drag & drop'
   await page.keyboard.press('Escape');
   await waitFor(async () => (await page.locator('.menu-layer').count()) === 0, 'menu closed by Escape');
   assert.equal(await page.evaluate(() => document.activeElement && document.activeElement.classList.contains('item-more-btn')), true, 'focus back on the ⋯ button');
+  // ... and stays there when the list is rebuilt (re-sort after ticking, refresh after a sync)
+  await page.evaluate(() => renderGoals());
+  assert.equal(await page.evaluate(() => {
+    const a = document.activeElement;
+    return !!a && a.classList.contains('item-more-btn') && a.closest('.focus-item').textContent.includes('Steuererklärung');
+  }), true, 'focus kept on the same ⋯ button after a re-render');
   await goal.locator('.item-more-btn').tap();
   await page.touchscreen.tap(20, 300);
   await waitFor(async () => (await page.locator('.menu-layer').count()) === 0, 'menu closed by a tap outside');

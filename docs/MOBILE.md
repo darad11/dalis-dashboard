@@ -1,6 +1,6 @@
 # Mobil, Tablet und iPhone Duo
 
-Stand 16.10.2026 (zweite Ausbaustufe). Ziel: auf iPhone, iPhone Duo (zu- und aufgeklappt) und
+Stand 16.10.2026 (dritte Ausbaustufe: Glas-Linse in der Leiste unten). Ziel: auf iPhone, iPhone Duo (zu- und aufgeklappt) und
 iPad bedienbar wie eine iOS-App – durchgehend scrollbar, Bedienelemente im Stil von iOS 26/27
 (Liquid Glass) nach den Apple Human Interface Guidelines (HIG). Der Desktop bleibt bis auf die
 neue Abschnittsreihenfolge und die Kalender-Funktionen (siehe [CALENDAR.md](CALENDAR.md)) gleich.
@@ -27,7 +27,14 @@ iPhone quer):
   Sync & Backup, Abmelden). Ein Punkt am ⋯ zeigt ausstehende Uploads (orange) oder einen
   Sync-Fehler (rot), im Menü steht der Grund unter „Sync & Backup“.
 - **Leiste unten**: schwebende Glas-Kapsel mit gefüllten Symbolen, die Markierung gleitet zum
-  aktuellen Abschnitt (iOS 26 Tab Bar).
+  aktuellen Abschnitt (iOS 26 Tab Bar). Die Markierung ist im Dark Mode dunkler als die Leiste.
+- **Glas-Linse** wie in deiner Bildschirmaufnahme der iOS-26-Tab-Bar: Finger auf die Leiste →
+  die Markierung hebt sich als klare Linse ab (etwas größer als die Leiste, Symbole darunter
+  vergrößert, am Rand leicht verzerrt mit Farbsäumen und Lichtkante), die Leiste wird kurz etwas
+  größer und hellt unter dem Finger auf. **Ziehen** über die Leiste: die Linse folgt dem Finger;
+  **Loslassen** wählt den Abschnitt unter der Linse, sie fällt dort in die Markierung zurück.
+  **Antippen**: die Linse wandert zum getippten Abschnitt (≈ 0,3 s wie im Video). Ziehen und
+  Loslassen auf dem schon gewählten Abschnitt springt nicht.
 - **⋯ bei Einträgen** öffnet ein Menü direkt am Knopf (wie in iOS), mit Untermenüs für Priorität,
   Tag und Liste. Ein Tipp daneben schließt es nur, ohne etwas auszulösen.
 - **Kalender** wie in Apple Kalender: Monatsraster mit farbigen Punkten, darunter die Einträge des
@@ -55,6 +62,10 @@ iPhone quer):
 - Hover-Effekte gelten nur mit Maus/Trackpad. Bedienelemente mindestens 44 × 44 pt,
   Eingabefelder mindestens 16 px (kein automatisches Zoomen in iOS). Pinch-Zoom bleibt erlaubt.
 - „+ New Habit“ hat jetzt Abstand zu den Wochentagen (vorher 4 px, jetzt 20 px – auch am Desktop).
+- Tastatur/VoiceOver: In „Today's Goals“ bleibt der Fokus auf demselben Knopf, wenn die Liste
+  neu aufgebaut wird (Umsortieren 0,4 s nach dem Abhaken, Aktualisieren nach einem Sync) –
+  vorher fiel er auf den Seitenanfang zurück (auch am Desktop). Gefunden, weil der Menü-Test
+  dadurch zufällig rot wurde (auch schon vor der Glas-Linse, 2 von 5 Läufen).
 
 ## Gestaltung nach den Apple-Richtlinien
 
@@ -62,6 +73,7 @@ iPhone quer):
 |---|---|---|
 | Liquid Glass nur für die Navigationsebene | Leiste oben (Knöpfe), Leiste unten, Menüs, Sheet-Knöpfe, Mini-Timer; Inhalt auf festen Karten ohne Glas | [Adopting Liquid Glass](https://developer.apple.com/tutorials/data/documentation/technologyoverviews/adopting-liquid-glass.md), [Materials](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/materials.md) |
 | Tab Bar | schwebend, Glas, Beschriftung je ein Wort, gefüllte Symbole, immer sichtbar, nur Navigation (das „+“ sitzt deshalb oben) | [Tab bars](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/tab-bars.md) |
+| Glas reagiert auf Berührung | Linse unter dem Finger, Leiste wächst und hellt auf; Maße und Zeiten aus deiner Bildschirmaufnahme gemessen (Apple beschreibt nur, *dass* Liquid Glass in Echtzeit auf Berührung reagiert, nicht wie genau) | [Applying Liquid Glass to custom views](https://developer.apple.com/documentation/swiftui/applying-liquid-glass-to-custom-views), [`Glass.interactive(_:)`](https://developer.apple.com/documentation/swiftui/glass/interactive(_:)) |
 | Menüs | Titel-Schreibweise („Move to Day“), „…“ wenn danach eine Eingabe folgt, Symbole vorne und einheitlich je Gruppe, Untermenü mit Pfeil, Haken bei Auswahl, Löschen rot, Gruppen mit Trennlinie | [Menus](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/menus.md), [Apple Developer Forums: Symbol vorne ab iOS 26](https://developer.apple.com/forums/thread/793069) |
 | Auswahl im Editor | Kalender und Priorität als Pop-up-Button (natives `<select>`: iOS zeigt sein eigenes Menü) | [Pop-up buttons](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/pop-up-buttons.md) |
 | Datum/Uhrzeit | native Felder `type="date"`/`type="time"` – Safari zeigt die kompakten iOS-Picker | [Pickers](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/pickers.md) |
@@ -76,10 +88,13 @@ iPhone quer):
 dem WCAG-AA-Kontrast von 4,5 : 1. Verwendet werden daher etwas kräftigere Werte: Sekundärtext
 5,6 : 1, Indigo hell = Systemvariante „erhöhter Kontrast“ (6,1 : 1 auf Weiß), Indigo dunkel
 heller (6,4 : 1 auf #1C1C1E), Löschen-Rot hell 5,4 : 1. Rahmen leerer Kreise ≥ 3 : 1.
-„Kontrast erhöhen“ und „Bewegung reduzieren“ von iOS werden berücksichtigt.
+„Kontrast erhöhen“ und „Bewegung reduzieren“ von iOS werden berücksichtigt (die Linse
+bewegt sich dann ohne Nachschwingen und Dehnen, die Leiste wächst nicht).
 
-**Nicht nachbildbar im Web:** die Lichtbrechung von Liquid Glass (WebKit unterstützt keine
-SVG-Filter für `backdrop-filter`); verwendet wird Unschärfe + Sättigung + Lichtkante.
+**Nicht nachbildbar im Web:** die echte Lichtbrechung von Liquid Glass (WebKit unterstützt keine
+SVG-Filter für `backdrop-filter`); verwendet wird Unschärfe + Sättigung + Lichtkante. Die
+Linse bricht deshalb nur die Symbole der Leiste (Kopien, vergrößert bzw. am Rand verkleinert und
+in Farbkanäle versetzt), nicht den Seiteninhalt dahinter.
 Die Emojis in den Überschriften (🎯, ⚡, 📅 …) sind Teil deines Designs und bleiben.
 
 ## iPhone Duo
@@ -106,7 +121,7 @@ an allen vier Seiten berücksichtigt.
 
 | Datei | Inhalt |
 |---|---|
-| `js/mobile.js` | Touch-Layout (`html.touch-layout`), Abschnittsleiste mit Scroll-Spy, Leiste oben, Menüs (`MobileUI.showMenu`, `moreButton`, `priorityMenu`), Lesepositions-Erhalt, sichtbare Höhe über der Tastatur (`--vv-height`), Theme-Farbe |
+| `js/mobile.js` | Touch-Layout (`html.touch-layout`), Abschnittsleiste mit Scroll-Spy und Glas-Linse, Leiste oben, Menüs (`MobileUI.showMenu`, `moreButton`, `priorityMenu`), Lesepositions-Erhalt, sichtbare Höhe über der Tastatur (`--vv-height`), Theme-Farbe |
 | `css/mobile.css` | iOS-Design im Touch-Layout (Farb- und Schrift-Tokens, Glas, Karten, Controls, Menüs, Alerts, Sheets) |
 | `index.html` | fünf `section.page-section` (`#section-today` … `#section-lists`) in neuer Reihenfolge, Abschnittsleiste als Links, Leiste oben |
 | `js/calendar-ui.js`, `css/calendar.css` | Kalender-Editor und Kalenderliste (Sheet bzw. Dialog), siehe CALENDAR.md |
@@ -118,6 +133,20 @@ an allen vier Seiten berücksichtigt.
   stehen (kein Flackern), danach folgt sie wieder dem Inhalt.
 - Links `#section-week` usw. funktionieren auch ohne JavaScript; ein Link mit `?steps=` öffnet
   auf dem Handy direkt Health.
+- Glas-Linse (`js/mobile.js`, Abschnitt „Section bar: glass lens“; `css/mobile.css`):
+  - Gemessen aus der Aufnahme (iPhone, 3×): Linse 1,22 × so breit wie die Markierung und 3,5 px
+    über die Leiste hinaus, Inhalt 1,15 × vergrößert, Leiste beim Berühren ≈ 4 % größer,
+    Markierung 4 px breiter als ihr Eintrag (an den Enden bis zum Rand der Leiste).
+  - Bewegung über Federn (Ansprechzeit/Dämpfung wie SwiftUI `spring(response:dampingFraction:)`);
+    die Kante in Bewegungsrichtung ist schneller → die Linse dehnt sich und holt auf.
+  - Die Linse zeigt Kopien der Einträge (`aria-hidden`, nicht fokussierbar); die echten Links
+    bekommen darunter ein Loch in Linsenform (CSS-Maske) und bleiben die einzigen Links.
+  - Antippen läuft weiter über den `click` des Links (auch Tastatur, VoiceOver); Ziehen wählt beim
+    Loslassen. Ein Klick, den der Browser nach kurzem Ziehen trotzdem schickt, wird ignoriert –
+    sonst würde zweimal gewählt (Chromium schickte ihn im Test nach 10 und 12 px Bewegung noch,
+    nach 16 px nicht mehr).
+  - Bricht das System die Berührung ab (z. B. Wisch-Geste vom Rand), kehrt die Linse ohne
+    Auswahl zurück. Tippen zwischen die Einträge oder an die runden Enden wählt den nächsten.
 - Neue Inhalte gehören in eine der fünf `page-section`s.
 
 ## Geprüft
@@ -129,6 +158,9 @@ Chromium (Playwright) mit Touch-Emulation und Beispieldaten nur im lokalen Test-
 - Textgrößen 17/19/21/23 px (Standard bis xxxLarge) und 28/33 px (Bedienungshilfen-Größen):
   kein horizontales Scrollen, Timer-Ziffern bleiben im Ring.
 - Scroll-Spy über die ganze Seite: Today → Week → Health → Habits → Lists.
+- Glas-Linse: Bild-für-Bild-Sequenzen (60 fps, angehaltene Uhr) von Antippen und Ziehen in hell
+  und dunkel, neben die Einzelbilder deiner Aufnahme gelegt; 402 × 874, 890 × 626, 852 × 393;
+  „Bewegung reduzieren“, „Transparenz reduzieren“, „Kontrast erhöhen“ (emuliert).
 - Desktop 1440/1280/1180, hell/dunkel, je Abschnitt verglichen: unverändert bis auf
   Reihenfolge, Kalender-Punkte/Uhrzeiten und den Habit-Abstand.
 - E2E-Szenarien und Gegenproben siehe [tests/README.md](../tests/README.md).
@@ -137,7 +169,13 @@ Chromium (Playwright) mit Touch-Emulation und Beispieldaten nur im lokalen Test-
 
 - **Kein Test auf echten Geräten und nicht in Safari/WebKit** – nur Chromium-Emulation. Nur auf
   dem iPhone zu sehen und daher noch zu prüfen: nativer Schalter, iOS-Picker, Dynamic Type,
-  Glas-Darstellung, Tastatur über Alerts, Safe Areas im Home-Bildschirm-Modus.
+  Glas-Darstellung, Glas-Linse (Flüssigkeit der Bewegung, Farbsäume, Masken), Tastatur über
+  Alerts, Safe Areas im Home-Bildschirm-Modus. Die verwendeten CSS-Funktionen unterstützt
+  Safari laut MDN-Kompatibilitätsdaten (`mask-composite` ab 15.4, `mix-blend-mode` ab 8,
+  `touch-action: none` ab 13).
+- Keine Haptik beim Wechsel zwischen Abschnitten (Safari unterstützt `navigator.vibrate` nicht).
+- „Transparenz reduzieren“ kennt Safari als Media-Query nicht (`prefers-reduced-transparency`,
+  MDN); dort bleibt die Linse durchsichtig.
 - Duo-Viewport-Größen sind Schätzungen Dritter; Scharnier/halb aufgeklappt wird nicht erkannt.
 - iPad hochkant nutzt wie das iPhone die Leiste unten (iPadOS platziert Tab Bars oben); das
   Web erkennt iPad und iPhone Duo nicht zuverlässig auseinander.

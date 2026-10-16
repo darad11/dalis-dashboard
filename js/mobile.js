@@ -3,8 +3,9 @@
  *
  * - Touch layout on touch screens narrower than 1100 CSS px (html.touch-layout). The page is
  *   one continuous scroll (Today, Week, Health, Habits, Lists); the floating section bar at the
- *   bottom marks the section on screen and jumps to a section when tapped. The desktop layout
- *   (mouse/trackpad, or 1100px and wider) is not affected.
+ *   bottom marks the section on screen and jumps to a section when tapped. A finger on the bar
+ *   lifts the selection into a glass lens that can be dragged to a section (as in iOS 26).
+ *   The desktop layout (mouse/trackpad, or 1100px and wider) is not affected.
  * - App bar with "+" (new calendar event) and "⋯" (more), and menus anchored to the button
  *   that opened them (pull-down menus as in iOS). On touch screens of any width "⋯" menus
  *   replace hover-only buttons, double-click, right-click and drag & drop.
@@ -27,6 +28,7 @@
   const layoutMedia = window.matchMedia(TOUCH_LAYOUT_QUERY);
   const touchMedia = window.matchMedia('(hover: none)');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const reducedTransparency = window.matchMedia('(prefers-reduced-transparency: reduce)');
   // Read before js/steps.js removes the parameters from the address bar
   const openedWithStepsLink = /[?&]steps=/.test(window.location.search);
 
@@ -99,6 +101,10 @@
   // short to reach that line wins if it was chosen in the bar, else the last section.
   // While the page scrolls to a chosen section, the bar keeps showing that section.
 
+  // The selection pill reaches this far past its item on both sides: at the ends of the bar
+  // up to the bar's padding, as in the iOS 26 tab bar (the items are inset by as much)
+  const PILL_OUTSET = 4;
+
   let activeSection = null;
   let spyTarget = null;   // section chosen in the bar, until the person scrolls themselves
   let spyLocked = false;  // a jump to spyTarget is running
@@ -152,8 +158,8 @@
     const tabBox = tab.getBoundingClientRect();
     if (tabBox.width === 0) return;
     indicator.classList.toggle('no-transition', !animate || reducedMotion.matches);
-    indicator.style.width = `${tabBox.width}px`;
-    indicator.style.transform = `translateX(${tabBox.left - barBox.left - bar.clientLeft}px)`;
+    indicator.style.width = `${tabBox.width + 2 * PILL_OUTSET}px`;
+    indicator.style.transform = `translateX(${tabBox.left - barBox.left - bar.clientLeft - PILL_OUTSET}px)`;
     indicator.classList.add('ready');
   }
 
@@ -224,20 +230,405 @@
     }
   }
 
+  // =================================================== Section bar: glass lens
+  // As in the iOS 26 tab bar, a finger on the bar lifts the selection into a Liquid Glass lens:
+  // it follows the finger, magnifies the items under it and refracts at its rim, while the bar
+  // swells a little and lights up under the finger. On release it drops onto the nearest
+  // section. A tap still selects through the link's click (as the keyboard, VoiceOver and
+  // Switch Control do); a drag selects on release. Apple says Liquid Glass reacts to touch in
+  // real time but documents neither this lens nor numbers for it: sizes and timings below are
+  // measured from a screen recording of an iOS 26 tab bar.
+  // The lens shows copies of the items (aria-hidden, css/mobile.css) and is moved by springs
+  // integrated per frame; with Reduce Motion they settle without overshoot, stretch or swell.
+
+  const LENS = {
+    grow: 1.22,        // lifted lens: 1.22 x the width of the selection ...
+    overhang: 3.5,     // ... and 3.5px taller than the bar above and below
+    magnify: 0.15,     // items under the lens: 1.15 x
+    rimWidth: 0.1,     // rim: 10% of the lens height; items seen through it ...
+    rimShrink: 0.08,   // ... 0.92 x, with the colour channels ...
+    dispersion: 0.012, // ... 1.2% apart
+    swell: 14,         // the bar grows by about 14px in width while touched
+    slop: 8            // px a finger moves before a touch counts as a drag
+  };
+  // [response (s), damping fraction], as SwiftUI's spring(response:dampingFraction:).
+  // A tap takes about 0.3s from touch to resting selection, as in the recording.
+  const SPRINGS = {
+    lead: [0.12, 0.82],    // the edge on the side the lens moves to ...
+    trail: [0.22, 0.86],   // ... and the other one: the lens stretches, then catches up
+    dragLead: [0.07, 0.9], // under a moving finger: close behind it
+    dragTrail: [0.14, 0.9],
+    rest: [0.18, 0.82],
+    lift: [0.16, 0.7],     // lifting overshoots a little
+    drop: [0.2, 0.9],
+    reduced: [0.12, 1]
+  };
+  const SPRING_STEP = 1 / 240;
+
+  const lens = {
+    bar: null, items: null, node: null, glow: null, views: [],
+    geo: null,          // layout of the bar, measured on the first touch
+    active: false,      // lens on screen (lifted, moving or dropping)
+    pressed: false, dragging: false, dropping: false,
+    pointerId: null, startX: 0, fingerX: 0, touched: null,
+    pendingTap: null, pendingTimer: 0, suppressClick: false, suppressTimer: 0,
+    left: { x: 0, v: 0 }, right: { x: 0, v: 0 }, lift: { x: 0, v: 0 },
+    scale: 1,           // swelling of the bar
+    releasedAt: 0, frame: 0, last: 0, candidate: null
+  };
+
+  function springTo(state, target, spec, dt) {
+    const stiffness = Math.pow(2 * Math.PI / spec[0], 2);
+    const damping = 4 * Math.PI * spec[1] / spec[0];
+    state.v += (stiffness * (target - state.x) - damping * state.v) * dt;
+    state.x += state.v * dt;
+  }
+
+  // Copy of the items for the lens, laid out like the real ones
+  function lensCopy(cls) {
+    const view = el('span', cls ? 'tabbar-lens-view ' + cls : 'tabbar-lens-view');
+    const copy = el('span', 'tabbar-items-copy');
+    lens.items.querySelectorAll('.mobile-tab').forEach(tab => {
+      const item = el('span', 'tabbar-lens-tab');
+      item.dataset.section = tab.dataset.section;
+      tab.childNodes.forEach(n => item.appendChild(n.cloneNode(true)));
+      copy.appendChild(item);
+    });
+    view.appendChild(copy);
+    return view;
+  }
+
+  function buildLens(bar) {
+    lens.items = bar.querySelector('.tabbar-items');
+    if (!lens.items) return;
+    lens.bar = bar;
+    lens.glow = el('span', 'tabbar-glow');
+    lens.glow.setAttribute('aria-hidden', 'true');
+    bar.insertBefore(lens.glow, lens.items);
+    const node = el('span', 'tabbar-lens');
+    node.setAttribute('aria-hidden', 'true');
+    const ring = el('span', 'tabbar-lens-ring');
+    const core = el('span', 'tabbar-lens-core');
+    lens.views = ['r', 'g', 'b'].map(channel => ({ node: ring.appendChild(lensCopy('channel-' + channel)), channel }));
+    lens.views.push({ node: core.appendChild(lensCopy()), channel: null });
+    node.append(el('span', 'tabbar-lens-pill'), el('span', 'tabbar-lens-fill'), ring, core, el('span', 'tabbar-lens-rim'));
+    bar.appendChild(node);
+    lens.node = node;
+    bar.classList.add('lens-ready');
+  }
+
+  // Layout in px of the bar's padding box, without the swelling
+  function measureLens() {
+    const bar = lens.bar;
+    const box = bar.getBoundingClientRect();
+    if (!box.width) return null;
+    const scale = lens.scale;
+    const style = getComputedStyle(bar);
+    const borderLeft = parseFloat(style.borderLeftWidth) || 0;
+    const borderTop = parseFloat(style.borderTopWidth) || 0;
+    const x = v => (v - box.left) / scale - borderLeft;
+    const y = v => (v - box.top) / scale - borderTop;
+    const tabs = [];
+    lens.items.querySelectorAll('.mobile-tab').forEach(tab => {
+      const r = tab.getBoundingClientRect();
+      if (r.width) tabs.push({ name: tab.dataset.section, center: x(r.left + r.width / 2), width: r.width / scale });
+    });
+    if (!tabs.length) return null;
+    const items = lens.items.getBoundingClientRect();
+    const height = box.height / scale - borderTop - (parseFloat(style.borderBottomWidth) || 0);
+    const width = box.width / scale - borderLeft - (parseFloat(style.borderRightWidth) || 0);
+    const indicator = bar.querySelector('.tabbar-indicator');
+    const pillW = tabs[0].width + 2 * PILL_OUTSET;
+    const geo = {
+      tabs, width, height, borderLeft, cy: height / 2,
+      outerWidth: box.width / scale, outerHeight: box.height / scale,
+      pillW, pillH: indicator && indicator.offsetHeight ? indicator.offsetHeight : height - 8,
+      lensW: pillW * LENS.grow, lensH: height + 2 * LENS.overhang,
+      items: { left: x(items.left), top: y(items.top), width: items.width / scale, height: items.height / scale }
+    };
+    lens.views.forEach(v => {
+      const copy = v.node.firstChild.style;
+      copy.left = `${geo.items.left}px`;
+      copy.top = `${geo.items.top}px`;
+      copy.width = `${geo.items.width}px`;
+      copy.height = `${geo.items.height}px`;
+    });
+    return geo;
+  }
+
+  function lensTab(name) {
+    return lens.geo.tabs.find(t => t.name === name) || lens.geo.tabs[0];
+  }
+
+  function nearestLensTab(x) {
+    return lens.geo.tabs.reduce((best, t) => (Math.abs(t.center - x) < Math.abs(best.center - x) ? t : best));
+  }
+
+  // Lens centre for a finger position: over the items, with a little give past both ends
+  function dragCenter(x) {
+    const tabs = lens.geo.tabs;
+    const first = tabs[0].center;
+    const last = tabs[tabs.length - 1].center;
+    const give = d => 18 * d / (d + 54);
+    if (x < first) return first - give(first - x);
+    if (x > last) return last + give(x - last);
+    return x;
+  }
+
+  function lensTarget() {
+    if (lens.pressed) return lens.dragging ? dragCenter(lens.fingerX) : lensTab(lens.touched).center;
+    return lensTab(lens.pendingTap || activeSection).center;
+  }
+
+  function renderLens() {
+    const g = lens.geo;
+    const lift = Math.max(0, lens.lift.x);
+    const lifted = Math.min(lift, 1);
+    const left = lens.left.x;
+    const width = Math.max(1, lens.right.x - left);
+    const center = left + width / 2;
+    // Stretched by the springs: a little flatter (not with Reduce Motion)
+    const stretch = reducedMotion.matches ? 0
+      : Math.min(Math.max(width / (g.pillW + (g.lensW - g.pillW) * lifted) - 1, -0.3), 0.6);
+    const height = (g.pillH + (g.lensH - g.pillH) * lift) * (1 - 0.18 * stretch);
+    const top = g.cy - height / 2;
+    // Reduce Transparency: a frosted lens without the see-through rim (css/mobile.css)
+    const rim = reducedTransparency.matches ? 0 : height * LENS.rimWidth * lifted;
+    const bar = lens.bar;
+    bar.style.setProperty('--lift', lifted.toFixed(4));
+    lens.scale = reducedMotion.matches ? 1 : 1 + LENS.swell / g.width * lift;
+    bar.style.transform = lens.scale === 1 ? '' : `translateX(-50%) scale(${lens.scale})`;
+    const node = lens.node.style;
+    node.width = `${width}px`;
+    node.height = `${height}px`;
+    node.transform = `translate(${left}px, ${top}px)`;
+    node.setProperty('--lw', `${width}px`);
+    node.setProperty('--lh', `${height}px`);
+    node.setProperty('--rw', `${rim}px`);
+    // A point p of the bar appears at  (centre of the layer) + scale * (p - centre of the lens)
+    const magnify = 1 + LENS.magnify * lift;
+    const shrink = 1 - LENS.rimShrink * lifted;
+    const spread = LENS.dispersion * lifted;
+    lens.views.forEach(v => {
+      const scale = !v.channel ? magnify : shrink + (v.channel === 'r' ? -spread : v.channel === 'b' ? spread : 0);
+      const cx = v.channel ? width / 2 : width / 2 - rim;  // the middle layer is inset by the rim
+      const cy = v.channel ? height / 2 : height / 2 - rim;
+      v.node.style.transform = `translate(${cx - scale * center}px, ${cy - scale * g.cy}px) scale(${scale})`;
+    });
+    const items = lens.items.style;
+    items.setProperty('--hole-x', `${left - g.items.left}px`);
+    items.setProperty('--hole-y', `${top - g.items.top}px`);
+    items.setProperty('--hole-w', `${width}px`);
+    items.setProperty('--hole-h', `${height}px`);
+    lens.glow.style.setProperty('--glow-x', `${lens.pressed ? lens.fingerX : center}px`);
+    // Selected look: while dragging the item under the lens, else the item it is heading for
+    const candidate = lens.dragging ? nearestLensTab(center).name
+      : lens.pressed ? lens.touched : lens.pendingTap || activeSection;
+    if (candidate !== lens.candidate) {
+      lens.candidate = candidate;
+      lens.node.querySelectorAll('.tabbar-lens-core .tabbar-lens-tab').forEach(t =>
+        t.classList.toggle('candidate', t.dataset.section === candidate));
+    }
+  }
+
+  function lensFrame(now) {
+    lens.frame = 0;
+    if (!lens.active) return;
+    const dt = Math.min(0.05, Math.max(0, (now - lens.last) / 1000));
+    lens.last = now;
+    const g = lens.geo;
+    const reduced = reducedMotion.matches;
+    const target = lensTarget();
+    const current = (lens.left.x + lens.right.x) / 2;
+    // After release the lens stays up until it (nearly) arrived, then drops into the selection
+    if (!lens.pressed && !lens.dropping && (Math.abs(target - current) < 2 || now - lens.releasedAt > 160)) lens.dropping = true;
+    const liftTarget = lens.dropping ? 0 : 1;
+    const half = (g.pillW + (g.lensW - g.pillW) * Math.min(Math.max(lens.lift.x, 0), 1)) / 2;
+    const toward = target - current;
+    const leads = lens.dragging ? SPRINGS.dragLead : SPRINGS.lead;
+    const trails = lens.dragging ? SPRINGS.dragTrail : SPRINGS.trail;
+    const edge = side => (reduced ? SPRINGS.reduced
+      : Math.abs(toward) < 2 ? SPRINGS.rest : side * toward > 0 ? leads : trails);
+    const leftSpring = edge(-1);
+    const rightSpring = edge(1);
+    const liftSpring = reduced ? SPRINGS.reduced : liftTarget > lens.lift.x ? SPRINGS.lift : SPRINGS.drop;
+    for (let t = dt; t > 0; t -= SPRING_STEP) {
+      const h = Math.min(SPRING_STEP, t);
+      springTo(lens.left, target - half, leftSpring, h);
+      springTo(lens.right, target + half, rightSpring, h);
+      springTo(lens.lift, liftTarget, liftSpring, h);
+    }
+    renderLens();
+    const settled = lens.dropping && Math.abs(lens.lift.x) < 0.002 && Math.abs(lens.lift.v) < 0.02 &&
+      Math.abs(lens.left.x - (target - half)) < 0.2 && Math.abs(lens.right.x - (target + half)) < 0.2 &&
+      Math.abs(lens.left.v) < 4 && Math.abs(lens.right.v) < 4;
+    if (settled) endLens();
+    else lens.frame = window.requestAnimationFrame(lensFrame);
+  }
+
+  function startLens() {
+    if (!lens.active) {
+      // Starts as the resting selection
+      const home = lensTab(activeSection);
+      lens.left = { x: home.center - lens.geo.pillW / 2, v: 0 };
+      lens.right = { x: home.center + lens.geo.pillW / 2, v: 0 };
+      lens.lift = { x: 0, v: 0 };
+      lens.candidate = null;
+      lens.active = true;
+      renderLens();
+      lens.bar.classList.remove('lens-settling');
+      lens.bar.classList.add('lens-active');
+    }
+    if (!lens.frame) {
+      lens.last = performance.now();
+      lens.frame = window.requestAnimationFrame(lensFrame);
+    }
+  }
+
+  // Back to the resting selection, exactly where the lens dropped
+  function endLens() {
+    if (lens.frame) window.cancelAnimationFrame(lens.frame);
+    lens.frame = 0;
+    lens.pressed = false;
+    lens.dragging = false;
+    if (!lens.active) return;
+    lens.active = false;
+    lens.dropping = false;
+    const bar = lens.bar;
+    bar.classList.add('lens-settling'); // the real item takes the selection colour at once
+    bar.classList.remove('lens-active');
+    bar.style.removeProperty('transform');
+    bar.style.removeProperty('--lift');
+    lens.scale = 1;
+    moveIndicator(false);
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      if (!lens.active) bar.classList.remove('lens-settling');
+    }));
+  }
+
+  // The bar changed size (rotation, fold, split view): measure again on the next touch.
+  // Window resizes that leave the bar as it is (Safari's toolbar) do not interrupt the lens.
+  function resetLens(force) {
+    if (!lens.geo) return;
+    const bar = lens.bar;
+    if (force !== true && Math.abs(bar.offsetWidth - lens.geo.outerWidth) < 1 &&
+        Math.abs(bar.offsetHeight - lens.geo.outerHeight) < 1) return;
+    lens.geo = null;
+    endLens();
+  }
+
+  function lensX(e) {
+    return (e.clientX - lens.bar.getBoundingClientRect().left) / lens.scale - lens.geo.borderLeft;
+  }
+
+  function onLensDown(e) {
+    if (!isTouchLayout() || lens.pressed || !e.isPrimary || e.button !== 0) return;
+    if (!lens.geo) lens.geo = measureLens();
+    if (!lens.geo) return;
+    clearTimeout(lens.pendingTimer);
+    clearTimeout(lens.suppressTimer);
+    lens.pendingTap = null;
+    lens.suppressClick = false;
+    const tab = e.target.closest('.mobile-tab');
+    lens.pressed = true;
+    lens.dragging = false;
+    lens.dropping = false;
+    lens.pointerId = e.pointerId;
+    lens.startX = lens.fingerX = lensX(e);
+    lens.touched = tab ? tab.dataset.section : nearestLensTab(lens.fingerX).name;
+    startLens();
+  }
+
+  function onLensMove(e) {
+    if (!lens.pressed || e.pointerId !== lens.pointerId) return;
+    lens.fingerX = lensX(e);
+    if (!lens.dragging && Math.abs(lens.fingerX - lens.startX) > LENS.slop) {
+      lens.dragging = true;
+      // Keep the moves coming when the finger leaves the bar
+      try { lens.bar.setPointerCapture(e.pointerId); } catch (err) { /* pointer already gone */ }
+    }
+  }
+
+  function onLensUp(e) {
+    if (!lens.pressed || e.pointerId !== lens.pointerId) return;
+    lens.fingerX = lensX(e);
+    lens.pressed = false;
+    lens.releasedAt = performance.now();
+    if (lens.dragging) {
+      lens.dragging = false;
+      // A drag selects on release; a click the browser may still send is not a second choice
+      lens.suppressClick = true;
+      lens.suppressTimer = setTimeout(() => { lens.suppressClick = false; }, 500);
+      const name = nearestLensTab(dragCenter(lens.fingerX)).name;
+      if (name !== activeSection) scrollToSection(name, { focus: true });
+    } else {
+      // A tap selects through the click that follows; until then the lens heads for the tab
+      lens.pendingTap = lens.touched;
+      lens.pendingTimer = setTimeout(() => { lens.pendingTap = null; }, 400);
+    }
+  }
+
+  // The system took the touch (or the window lost focus): back to the selection, no choice
+  function onLensCancel(e) {
+    if (!lens.pressed || (e && e.pointerId !== undefined && e.pointerId !== lens.pointerId)) return;
+    lens.pressed = false;
+    lens.dragging = false;
+    lens.releasedAt = performance.now();
+  }
+
+  function setupLens(bar) {
+    buildLens(bar);
+    if (!lens.bar) return;
+    bar.addEventListener('pointerdown', onLensDown);
+    bar.addEventListener('pointermove', onLensMove);
+    bar.addEventListener('pointerup', onLensUp);
+    bar.addEventListener('pointercancel', onLensCancel);
+    bar.addEventListener('lostpointercapture', (e) => { if (e.target === bar) onLensCancel(e); });
+    // Long press: no link menu (Android) while the lens is up
+    bar.addEventListener('contextmenu', (e) => { if (lens.pressed) e.preventDefault(); });
+    window.addEventListener('blur', () => onLensCancel());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) endLens(); });
+    window.addEventListener('dashboard:layoutchange', () => resetLens(true));
+  }
+
+  // A click between the items or at the rounded ends of the bar counts for the nearest item
+  function clickedTab(bar, e) {
+    const tab = e.target.closest('.mobile-tab');
+    if (tab) return tab;
+    let nearest = null;
+    let distance = Infinity;
+    bar.querySelectorAll('.tabbar-items > .mobile-tab').forEach(t => {
+      const r = t.getBoundingClientRect();
+      const d = Math.abs(r.left + r.width / 2 - e.clientX);
+      if (d < distance) {
+        nearest = t;
+        distance = d;
+      }
+    });
+    return nearest;
+  }
+
   function setupSections() {
     const bar = document.getElementById('mobileTabbar');
     if (bar) {
       bar.addEventListener('click', (e) => {
-        const tab = e.target.closest('.mobile-tab');
+        const tab = clickedTab(bar, e);
         if (!tab) return;
         e.preventDefault(); // no "#section-…" in the address bar; the bar shows where we are
+        if (lens.suppressClick) { // the drag already chose
+          lens.suppressClick = false;
+          return;
+        }
+        lens.pendingTap = null;
         scrollToSection(tab.dataset.section, { focus: true });
       });
+      setupLens(bar);
     }
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('scrollend', () => { if (spyLocked) unlockSoon(0); });
     window.addEventListener('resize', () => {
       scheduleSpy();
+      resetLens();
       window.requestAnimationFrame(() => moveIndicator(false));
     });
     // The person scrolls (or types) again: the bar follows the content again
@@ -246,7 +637,12 @@
     // Content can grow or shrink without scrolling (sync, collapsing a section)
     const container = document.getElementById('mainContainer');
     if (container && window.ResizeObserver) new ResizeObserver(scheduleSpy).observe(container);
-    if (bar && window.ResizeObserver) new ResizeObserver(() => moveIndicator(false)).observe(bar);
+    if (bar && window.ResizeObserver) {
+      new ResizeObserver(() => {
+        resetLens();
+        moveIndicator(false);
+      }).observe(bar);
+    }
 
     setActiveSection(SECTIONS[0], false);
     scheduleSpy();

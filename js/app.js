@@ -3186,6 +3186,12 @@ function renderGoals() {
   const displayGoals = rawGoals.map((g, i) => ({ task: g, idx: i }));
   displayGoals.sort((a, b) => (b.task.done ? 1 : 0) - (a.task.done ? 1 : 0));
 
+  // The list is rebuilt (re-sort after ticking, refresh after a sync): keyboard and VoiceOver
+  // focus stays on the same control of the same goal instead of falling back to the page
+  const active = document.activeElement;
+  const focusedItem = active && active !== els.goalsList && els.goalsList.contains(active) ? active.closest('.focus-item') : null;
+  const refocus = focusedItem && active.classList[0] ? { idx: focusedItem.dataset.idx, control: active.classList[0] } : null;
+
   els.goalsList.innerHTML = "";
 
   if (rawGoals.length === 0) {
@@ -3320,6 +3326,11 @@ function renderGoals() {
     }
     els.goalsList.appendChild(item);
   });
+
+  if (refocus) {
+    const control = els.goalsList.querySelector(`.focus-item[data-idx="${refocus.idx}"] .${CSS.escape(refocus.control)}`);
+    if (control) control.focus({ preventScroll: true });
+  }
 }
 
 window.addGoal = async () => {
