@@ -89,6 +89,38 @@ test('supabase.js request contract', { skip: supabaseJs ? false : '@supabase/sup
     assert.deepEqual(req.body, [{ user_id: USER, date: '2026-10-16', steps: 12345, deleted: false, updated_at: '2026-10-16T18:00:00.000Z' }]);
   });
 
+  await t.test('upload keys: only the hash is sent, the hash is never read back', async () => {
+    const hash = 'a'.repeat(64);
+    requests.length = 0;
+    responder = () => ({ status: 201, body: { id: 'k1', label: 'iPhone Shortcut', created_at: '2026-10-16T08:00:00+00:00', last_used_at: null } });
+    const created = await api.createStepUploadToken(hash, 'iPhone Shortcut');
+    assert.equal(created.error, null);
+    assert.equal(created.data.id, 'k1');
+    let [req] = requests;
+    assert.equal(req.method, 'POST');
+    assert.equal(req.path, '/rest/v1/step_upload_tokens');
+    assert.deepEqual(req.body, { user_id: USER, token_hash: hash, label: 'iPhone Shortcut' });
+    assert.equal(req.params.select, 'id,label,created_at,last_used_at');
+
+    requests.length = 0;
+    responder = () => ({ status: 200, body: [] });
+    await api.listStepUploadTokens();
+    [req] = requests;
+    assert.equal(req.method, 'GET');
+    assert.equal(req.params.select, 'id,label,created_at,last_used_at', 'token_hash is not requested');
+    assert.equal(req.params.user_id, `eq.${USER}`);
+    assert.equal(req.params.order, 'created_at.asc');
+
+    requests.length = 0;
+    responder = () => ({ status: 204, body: null });
+    await api.deleteStepUploadToken('k1');
+    [req] = requests;
+    assert.equal(req.method, 'DELETE');
+    assert.equal(req.params.id, 'eq.k1');
+    assert.equal(req.params.user_id, `eq.${USER}`);
+    assert.equal(api.healthStepsUrl, 'https://jbkufpyyfmbxjeswagli.supabase.co/functions/v1/health-steps');
+  });
+
   await t.test('missing table errors reach the caller unchanged', async () => {
     responder = () => ({ status: 404, body: { code: 'PGRST205', message: "Could not find the table 'public.step_entries' in the schema cache" } });
     const res = await api.getStepEntries();

@@ -5,9 +5,9 @@ Keiner der Tests spricht mit dem echten Supabase-Projekt.
 
 | Suite | Prüft | Befehl |
 |---|---|---|
-| Unit | Berechnungslogik Step Challenge (`js/steps-core.js`); Kalender-Regeln: Uhrzeiten, Kalender, Reihenfolge, Farben, Editor-Eingaben (`js/calendar-core.js`); Sync-Fingerabdruck mit Uhrzeiten (`js/data-utils.js`) | `node --test "tests/unit/*.test.js"` |
-| Vertrag | `js/supabase.js` erzeugt die erwarteten PostgREST-Requests (echte supabase-js, abgefangenes `fetch`), u. a. Uhrzeit-Spalten nur wenn gesetzt, `"HH:MM:SS"` → `"HH:MM"` | `npm install --no-save @supabase/supabase-js@2.117.2 && node --test "tests/contract/*.test.js"` |
-| SQL | Migrationen (Step Challenge, Kalender-Uhrzeiten), RLS, Trigger, Constraints gegen ein **lokales Wegwerf-PostgreSQL** | `tests/sql/run.sh "host=/tmp port=5432 user=postgres"` |
+| Unit | Berechnungslogik Step Challenge (`js/steps-core.js`); Kalender-Regeln: Uhrzeiten, Kalender, Reihenfolge, Farben, Editor-Eingaben (`js/calendar-core.js`); Sync-Fingerabdruck mit Uhrzeiten (`js/data-utils.js`); Edge Function `health-steps` (Anfragen prüfen, Zahlen/Daten aus dem Kurzbefehl, Aufruf der Datenbankfunktion, Antworten ohne interne Details) | `node --test "tests/unit/*.test.js"` |
+| Vertrag | `js/supabase.js` erzeugt die erwarteten PostgREST-Requests (echte supabase-js, abgefangenes `fetch`), u. a. Uhrzeit-Spalten nur wenn gesetzt, `"HH:MM:SS"` → `"HH:MM"`, Upload-Schlüssel: nur der Hash wird gesendet und nie zurückgelesen | `npm install --no-save @supabase/supabase-js@2.117.2 && node --test "tests/contract/*.test.js"` |
+| SQL | Migrationen (Step Challenge, Kalender-Uhrzeiten, Apple-Health-Upload), RLS, Trigger, Constraints, Rechte der Funktion `submit_health_steps` (nur `service_role`) gegen ein **lokales Wegwerf-PostgreSQL** | `tests/sql/run.sh "host=/tmp port=5432 user=postgres"` |
 | E2E | Dashboard in Chromium mit In-Memory-Supabase-Mock (Step Challenge, Sync, bestehende Funktionen, durchgehende Seite mit Abschnittsleiste und Glas-Linse, Menüs, iPhone/iPhone-Duo/iPad-Layout, Kalender mit Uhrzeiten und eigenen Kalendern, Desktop unverändert) | `node tests/e2e/run.js` (optional Filter: `node tests/e2e/run.js foldable`) |
 
 Voraussetzungen:
@@ -23,15 +23,19 @@ E2E-Hinweise:
 - Touch-Geräte werden mit `isMobile` + `hasTouch` emuliert (`pointer: coarse`, `hover: none`).
   Keine `fullPage`-Screenshots in diesen Tests: Chromium verliert dabei die Touch-Emulation
   (`pointer: coarse` wird falsch); für lange Seiten den Viewport vergrößern.
+- `store.healthUpload(token, date, steps)` spielt die Edge Function `health-steps` samt
+  `submit_health_steps` nach (Upload aus dem Kurzbefehl, „niedriger ersetzt nie höher“).
 - Das iPhone Duo wird über geschätzte Viewports simuliert (466×678 zugeklappt, 890×626
   aufgeklappt); Auf-/Zuklappen = `page.setViewportSize`.
 - Der Mock gibt Zeitspalten wie Postgres zurück (`"10:00:00"`); `store.missingColumns`
   simuliert eine Datenbank ohne Migration (PostgREST-Fehler `PGRST204`).
 
-Szenarien für Handy/Tablet und Kalender (`tests/e2e/run.js`):
+Szenarien für Apple Health, Handy/Tablet und Kalender (`tests/e2e/run.js`):
 
 | Szenario | Prüft |
 |---|---|
+| `16 Apple Health: upload key…` | Schlüssel entsteht im Browser (43 Zeichen), in der Cloud nur der SHA-256-Hash, nicht im localStorage; Kopieren; Upload des Kurzbefehls erscheint sofort (Realtime), niedrigerer Wert ändert nichts; „Done“ vergisst den Schlüssel, Status „last upload today, 10:10“; Liste unter „Manage“; Widerrufen mit Rückfrage, danach wird der Schlüssel abgelehnt, Schritte bleiben |
+| `17 Apple Health without the database update…` | ohne Migration klarer Hinweis, kein Schlüssel erzeugbar, manuelle Eingabe und Upload laufen weiter |
 | `scroll: phones show one continuous page…` | alle Abschnitte sichtbar in der Reihenfolge Today → Lists, Markierung folgt dem Scrollen, Antippen springt (Fokus wandert mit), „+“/„⋯“ oben, Dark Mode aus dem Menü, Bedienelemente ≥ 44 pt |
 | `scroll: a short last section…` | Seitenende markiert den kurzen letzten Abschnitt; ein gewählter Abschnitt bleibt markiert |
 | `scroll: the steps link and #section- links…` | `?steps=` öffnet Health, `#section-lists` öffnet Lists |
@@ -51,3 +55,7 @@ Ziehen, ohne Prüfung „schon gewählt“, ohne Tipp-Ersatz an den Enden, Leist
 „Bewegung reduzieren“, ohne Abbruch-Behandlung (`pointercancel` und `lostpointercapture`);
 Today's Goals ohne Fokus-Erhalt beim Neuaufbau der Liste.
 `openDashboard` nimmt dafür zusätzlich `reducedMotion` an.
+Apple Health: Klartext-Schlüssel statt Hash gespeichert, Schlüssel nach „Done“ noch sichtbar,
+keine Aktualisierung von „last upload“ nach einem Upload (E2E); „niedriger ersetzt nie
+höher“ entfernt, Funktion für API-Rollen aufrufbar, Schlüssel-Limit entfernt, Schutz gegen
+vorgehende Geräteuhr entfernt (SQL).

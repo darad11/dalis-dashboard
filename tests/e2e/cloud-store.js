@@ -5,6 +5,8 @@
  * row-level security on user_id, the unique key and last-write-wins trigger of
  * step_entries, the time columns of goals (returned as "HH:MM:SS" like Postgres),
  * failure injection (incl. columns missing before a migration) and realtime change events.
+ * healthUpload() plays the Edge Function "health-steps" + submit_health_steps() (upload
+ * from the Apple Health Shortcut), so tests can check what the dashboard shows afterwards.
  */
 'use strict';
 
@@ -24,7 +26,7 @@ class CloudStore {
   reset() {
     this.tables = {
       goals: [], habits: [], notes: [], kanban_tasks: [], backlog_tasks: [],
-      lists: [], pomodoro_stats: [], settings: [], step_entries: []
+      lists: [], pomodoro_stats: [], settings: [], step_entries: [], step_upload_tokens: []
     };
     this.offline = false;
     this.failTables = new Set();
@@ -156,6 +158,12 @@ class CloudStore {
     });
   }
 
+  // Rows written by insert/upsert/update/delete, as PostgREST returns them (single() = one object)
+  written(rows, op) {
+    if (!op.returning) return { data: null, error: null };
+    return op.single ? this.finish(this.project(rows, '*'), op) : { data: this.project(rows, '*'), error: null };
+  }
+
   finish(rows, op) {
     if (op.single === 'single' || op.single === 'maybe') {
       if (rows.length === 1) return { data: rows[0], error: null };
@@ -232,7 +240,7 @@ class CloudStore {
       this.tables[op.table].push(row);
       this.emit({ eventType: 'INSERT', schema: 'public', table: op.table, new: { ...row }, old: {} });
     });
-    return { data: op.returning ? this.project(created, '*') : null, error: null };
+    return this.written(created, op);
   }
 
   upsert(op) {
@@ -255,7 +263,7 @@ class CloudStore {
         this.emit({ eventType: 'INSERT', schema: 'public', table: op.table, new: { ...row }, old: {} });
       }
     }
-    return { data: op.returning ? this.project(affected, '*') : null, error: null };
+    return this.written(affected, op);
   }
 
   update(op) {
@@ -272,14 +280,36 @@ class CloudStore {
         this.emit({ eventType: 'UPDATE', schema: 'public', table: op.table, new: { ...row }, old: { id: row.id } });
       }
     }
-    return { data: op.returning ? this.project(changed, '*') : null, error: null };
+    return this.written(changed, op);
+  }
+
+  // Server side of an Apple Health upload (migrations/2026-10-16_step_health_sync.sql):
+  // the token's hash identifies the user, a lower count never replaces a higher one.
+  healthUpload(token, date, steps, atIso) {
+    const hash = crypto.createHash('sha256').update(token, 'utf8').digest('hex');
+    const key = this.tables.step_upload_tokens.find(t => t.token_hash === hash);
+    if (!key) return { status: 401 };
+    const at = atIso || nowIso(Date.now());
+    key.last_used_at = at; // step_upload_tokens is not in the realtime publication
+    const existing = this.tables.step_entries.find(r => r.user_id === key.user_id && r.date === date);
+    if (existing && !existing.deleted && existing.steps >= steps) return { status: 200, steps: existing.steps, updated: false };
+    if (existing) {
+      const next = Math.max(Date.parse(at), Date.parse(existing.updated_at) + 1);
+      Object.assign(existing, { steps, deleted: false, updated_at: nowIso(next) });
+      this.emit({ eventType: 'UPDATE', schema: 'public', table: 'step_entries', new: { ...existing }, old: { id: existing.id } });
+    } else {
+      const row = this.withDefaults('step_entries', { user_id: key.user_id, date, steps, deleted: false, updated_at: at });
+      this.tables.step_entries.push(row);
+      this.emit({ eventType: 'INSERT', schema: 'public', table: 'step_entries', new: { ...row }, old: {} });
+    }
+    return { status: 200, steps, updated: true };
   }
 
   remove(op) {
     const rows = this.visible(op);
     this.tables[op.table] = this.tables[op.table].filter(r => !rows.includes(r));
     rows.forEach(row => this.emit({ eventType: 'DELETE', schema: 'public', table: op.table, new: {}, old: { id: row.id } }));
-    return { data: op.returning ? this.project(rows, '*') : null, error: null };
+    return this.written(rows, op);
   }
 }
 

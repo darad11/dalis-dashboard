@@ -7076,6 +7076,160 @@ body.dark .step-setup input[type="date"] {
     }
 }
 
+/* Apple Health: automatic upload by an iOS Shortcut */
+.step-health {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+}
+
+.step-health-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.step-health-text {
+    min-width: 0;
+}
+
+.step-health-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.step-health-status {
+    margin: 2px 0 0;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: var(--text-secondary);
+}
+
+.step-health-toggle {
+    flex: none;
+}
+
+.step-health-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.step-health-note {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: var(--text-secondary);
+}
+
+.step-health-note a {
+    color: var(--step-accent);
+    font-weight: 600;
+}
+
+.step-health-secret {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    background: var(--step-accent-soft);
+}
+
+.step-health-warning {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text-primary);
+}
+
+.step-health-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.step-health-copy {
+    display: flex;
+    gap: 8px;
+}
+
+.step-health-code {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+}
+
+.step-health-create {
+    align-self: flex-start;
+}
+
+.step-health-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding-left: 1.3em;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: var(--text-primary);
+}
+
+.step-health-steps code {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--step-accent-soft);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+}
+
+.step-health-details summary {
+    display: list-item; /* keeps the disclosure triangle */
+    padding: 12px 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--step-accent);
+    cursor: pointer;
+}
+
+.step-health-details[open] summary {
+    margin-bottom: 4px;
+}
+
+.step-health-keys {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.step-health-key {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: var(--text-secondary);
+}
+
+.step-health-key-text {
+    min-width: 0;
+}
+
+.step-health-revoke {
+    flex: none;
+}
+
 /* Details */
 .step-details {
     display: flex;

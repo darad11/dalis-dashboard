@@ -6,6 +6,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -342,6 +343,77 @@ scenario('15 export contains step data but no login tokens; import restores and 
   await waitFor(() => stepRows(env).length === 1 && stepRows(env)[0].steps === 14000, 'restored data uploaded');
   assert.equal(await page.evaluate(() => localStorage.getItem('sb-test-auth-token')), '{"refresh_token":"secret"}', 'login kept');
   assert.equal(await page.evaluate(() => localStorage.getItem('goals-2026-9-16')), null, 'data not in the backup removed');
+  await context.close();
+});
+
+scenario('16 Apple Health: upload key for the Shortcut, automatic uploads, revoke', async (env) => {
+  const { page, errors, context } = await open(env);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await confirmSetup(page);
+  const status = () => text(page, '#stepChallenge [data-role="health-status"]');
+  await waitFor(async () => /Not set up/.test(await status()), 'status: not set up');
+
+  // Set up: the key is made in the browser; only its SHA-256 hash goes to the cloud
+  await page.click('#stepChallenge .step-health-toggle');
+  assert.equal(await page.getAttribute('#stepChallenge .step-health-toggle', 'aria-expanded'), 'true');
+  await page.click('#stepChallenge .step-health-create');
+  await waitFor(() => page.locator('#stepHealthKey').count(), 'key shown');
+  const key = await page.inputValue('#stepHealthKey');
+  assert.match(key, /^[A-Za-z0-9_-]{43}$/, 'base64url of 32 random bytes');
+  assert.equal(await page.inputValue('#stepHealthUrl'), 'https://jbkufpyyfmbxjeswagli.supabase.co/functions/v1/health-steps');
+  const stored = env.store.rows('step_upload_tokens');
+  assert.equal(stored.length, 1);
+  assert.equal(stored[0].user_id, USER);
+  assert.equal(stored[0].token_hash, crypto.createHash('sha256').update(key).digest('hex'));
+  assert.ok(!JSON.stringify(stored).includes(key), 'the key itself is not stored in the cloud');
+  assert.equal(await page.evaluate(k => Object.keys(localStorage).some(n => String(localStorage.getItem(n)).includes(k)), key), false,
+    'nor on the device');
+  await page.click('#stepChallenge .step-health-copy button >> nth=0');
+  await waitFor(async () => (await page.evaluate(() => navigator.clipboard.readText())) === key, 'key copied');
+  assert.match(await text(page, '#stepChallenge .step-health-copy button'), /Copied/);
+
+  // The Shortcut uploads today's total: the card shows it at once (realtime), no reload
+  assert.equal(env.store.healthUpload(key, '2026-10-16', 8123, '2026-10-16T08:05:00+00:00').status, 200);
+  await waitFor(async () => (await heroValue(page)) === fmt(BASELINE + 8123), 'upload counted');
+  // A lower count later (e.g. a run on the locked iPhone) changes nothing
+  assert.equal(env.store.healthUpload(key, '2026-10-16', 0, '2026-10-16T08:10:00+00:00').updated, false);
+  await settle(page, 400);
+  assert.equal(await heroValue(page), fmt(BASELINE + 8123));
+
+  // "Done" forgets the key (shown only once); the status says when the last upload came
+  await page.click('#stepChallenge .step-health-toggle');
+  assert.equal(await page.locator('#stepHealthKey').count(), 0, 'key gone from the page');
+  await waitFor(async () => /last upload today, 10:10/.test(await status()), 'last upload in the status');
+
+  // Manage: the key with its last upload; revoking asks first
+  await page.click('#stepChallenge .step-health-toggle');
+  await waitFor(() => page.locator('#stepChallenge .step-health-key').count(), 'key listed');
+  assert.equal(await page.locator('#stepHealthKey').count(), 0, 'the key is not shown a second time');
+  assert.match(await text(page, '#stepChallenge .step-health-key-text'), /^iPhone Shortcut · created .+ · last upload today, 10:10$/);
+  await page.click('#stepChallenge .step-health-revoke');
+  await waitFor(() => page.locator('#confirmModal.active').count(), 'confirmation');
+  assert.equal((await page.textContent('#confirmModalConfirm')).trim(), 'Revoke');
+  await page.click('#confirmModalConfirm');
+  await waitFor(() => env.store.rows('step_upload_tokens').length === 0, 'key revoked in the cloud');
+  assert.equal(env.store.healthUpload(key, '2026-10-16', 9000).status, 401, 'a revoked key is rejected');
+  await waitFor(async () => /Not set up/.test(await status()), 'status after revoking');
+  assert.equal(await heroValue(page), fmt(BASELINE + 8123), 'uploaded steps stay');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+scenario('17 Apple Health without the database update: a clear hint, manual entries unaffected', async (env) => {
+  env.store.missingTables.add('step_upload_tokens');
+  const { page, errors, context } = await open(env);
+  await confirmSetup(page);
+  await waitFor(async () => /database update/.test(await text(page, '#stepChallenge [data-role="health-status"]')), 'hint shown');
+  await page.click('#stepChallenge .step-health-toggle');
+  assert.equal(await page.locator('#stepChallenge .step-health-create').count(), 0, 'no key can be created');
+  assert.match(await text(page, '#stepHealthPanel'), /2026-10-16_step_health_sync\.sql/);
+  await logSteps(page, '5.000');
+  await waitFor(async () => (await heroValue(page)) === fmt(BASELINE + 5000), 'manual entry still works');
+  await waitFor(() => stepRows(env).length === 1, 'manual entry uploaded');
+  assert.deepEqual(errors, []);
   await context.close();
 });
 

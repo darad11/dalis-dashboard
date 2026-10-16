@@ -698,6 +698,41 @@
                 });
         },
 
+        // ===== STEP UPLOAD TOKENS (migrations/2026-10-16_step_health_sync.sql) =====
+        // Upload keys of the Apple Health Shortcut. Only the SHA-256 hash of a key is sent
+        // and stored; the key itself stays on the device that created it (js/steps.js).
+        healthStepsUrl: SUPABASE_URL + '/functions/v1/health-steps',
+
+        listStepUploadTokens() {
+            const userId = getUserId();
+            if (!userId) return Promise.resolve({ data: null, error: { message: 'Not logged in' } });
+            return supabase
+                .from('step_upload_tokens')
+                .select('id, label, created_at, last_used_at')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: true });
+        },
+
+        createStepUploadToken(tokenHash, label) {
+            const userId = getUserId();
+            if (!userId) return Promise.resolve({ data: null, error: { message: 'Not logged in' } });
+            return supabase
+                .from('step_upload_tokens')
+                .insert({ user_id: userId, token_hash: tokenHash, label: label })
+                .select('id, label, created_at, last_used_at')
+                .single();
+        },
+
+        deleteStepUploadToken(id) {
+            const userId = getUserId();
+            if (!userId) return Promise.resolve({ data: null, error: { message: 'Not logged in' } });
+            return supabase
+                .from('step_upload_tokens')
+                .delete()
+                .eq('user_id', userId)
+                .eq('id', id);
+        },
+
         // ===== REALTIME SUBSCRIPTIONS =====
         subscribeToChanges(onGoalsChange, onHabitsChange, onKanbanChange, onSettingsChange) {
             const userId = getUserId();

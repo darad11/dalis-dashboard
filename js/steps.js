@@ -67,8 +67,14 @@
     lastChange: null,    // { date, previous } for undo
     postRender: [],
     resizeObserver: null,
-    lastWidth: 0
+    lastWidth: 0,
+    health: freshHealthState()
   };
+
+  // Apple Health Shortcut (upload keys); the new key lives only in memory until "Done"
+  function freshHealthState() {
+    return { open: false, keys: null, problem: null, error: null, busy: false, newKey: null, copied: null, loaded: false, reloadTimer: null };
+  }
 
   // ===== Storage =====
   function storageKey(name) {
@@ -272,6 +278,10 @@
           if (state.cloud === 'syncing' || state.cloud === 'ok') await syncEntries();
           if (state.cloud === 'syncing') state.cloud = 'ok';
           if (state.cloud === 'ok') state.lastSyncAt = Date.now();
+          if (state.cloud === 'ok' && !state.health.loaded) {
+            state.health.loaded = true;
+            loadHealthKeys();
+          }
           if (snapshotSignature() !== before) render();
         } while (state.syncAgain);
       } catch (e) {
@@ -425,6 +435,7 @@
       }
       if (snapshotSignature() !== before) render();
       notifyGlobalStatus();
+      if (state.health.keys && state.health.keys.length > 0) scheduleHealthReload();
     });
   }
 
@@ -457,6 +468,142 @@
         if (pending > 0) return `${pending} change(s) waiting for upload`;
         return state.lastSyncAt ? 'all changes are in the cloud' : 'saved on this device';
     }
+  }
+
+  // ===== Apple Health: automatic upload by an iOS Shortcut =====
+  // A web page cannot read Apple Health; a Shortcut on the iPhone can. It reads the day's
+  // steps and posts them to the Edge Function "health-steps" with a personal upload key
+  // (supabase/functions/health-steps, migrations/2026-10-16_step_health_sync.sql). The key
+  // is made here from 32 random bytes; only its SHA-256 hash goes to the database. The key
+  // itself is shown once for the Shortcut and never stored. Uploads arrive like changes
+  // from another device (realtime); a lower count never replaces a higher one.
+  const HEALTH_KEY_LABEL = 'iPhone Shortcut';
+  const HEALTH_MAX_KEYS = 5;
+  const HEALTH_GUIDE_URL = 'https://github.com/darad11/dalis-dashboard/blob/main/docs/STEP_CHALLENGE.md#automatisch-aus-apple-health';
+
+  function base64Url(bytes) {
+    let binary = '';
+    bytes.forEach(b => { binary += String.fromCharCode(b); });
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  async function sha256Hex(text) {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function healthSupported() {
+    return canSync() && typeof window.supabaseDB.listStepUploadTokens === 'function' &&
+      !!(window.crypto && window.crypto.subtle && window.crypto.getRandomValues);
+  }
+
+  function healthProblem(err) {
+    const kind = classifyError(err);
+    const code = err && err.code ? String(err.code) : '';
+    const message = String((err && (err.message || err.error)) || '');
+    if (code === 'PGRST205' || code === '42P01' || /step_upload_tokens/.test(message)) return 'missing';
+    return kind === 'offline' ? 'offline' : 'error';
+  }
+
+  function healthSignature() {
+    const hs = state.health;
+    return JSON.stringify([hs.problem, hs.keys && hs.keys.map(k => [k.id, k.last_used_at])]);
+  }
+
+  async function loadHealthKeys() {
+    if (!healthSupported()) return;
+    const before = healthSignature();
+    const res = await window.supabaseDB.listStepUploadTokens();
+    if (res.error) {
+      state.health.problem = healthProblem(res.error);
+      if (state.health.problem !== 'offline') state.health.keys = null;
+    } else {
+      state.health.problem = null;
+      state.health.keys = Array.isArray(res.data) ? res.data : [];
+    }
+    if (healthSignature() !== before) render();
+  }
+
+  // An upload just arrived: refresh "last upload" (once, after a burst of changes)
+  function scheduleHealthReload() {
+    clearTimeout(state.health.reloadTimer);
+    state.health.reloadTimer = setTimeout(loadHealthKeys, 1500);
+  }
+
+  async function createHealthKey() {
+    const hs = state.health;
+    if (hs.busy) return;
+    hs.busy = true;
+    hs.error = null;
+    render();
+    try {
+      const key = base64Url(crypto.getRandomValues(new Uint8Array(32)));
+      const res = await window.supabaseDB.createStepUploadToken(await sha256Hex(key), HEALTH_KEY_LABEL);
+      if (res.error) {
+        const message = String(res.error.message || '');
+        hs.error = /at most 5/i.test(message)
+          ? `You already have ${HEALTH_MAX_KEYS} upload keys – revoke one first.`
+          : healthProblem(res.error) === 'missing'
+            ? 'Not available yet: the database update for it is missing.'
+            : 'Could not create the key – check the connection and try again.';
+      } else {
+        hs.newKey = key;
+        hs.keys = (hs.keys || []).concat(res.data ? [res.data] : []);
+      }
+    } catch (e) {
+      hs.error = 'Could not create the key in this browser.';
+    } finally {
+      hs.busy = false;
+      render();
+    }
+  }
+
+  async function revokeHealthKey(key) {
+    const confirmText = 'The Shortcut with this key can no longer upload steps. Steps that were already uploaded stay.';
+    const ok = typeof window.showConfirmModal === 'function'
+      ? await window.showConfirmModal('Revoke Upload Key', confirmText, { confirmLabel: 'Revoke' })
+      : window.confirm(confirmText);
+    if (!ok) return;
+    const res = await window.supabaseDB.deleteStepUploadToken(key.id);
+    state.health.error = res.error ? 'Could not revoke the key – check the connection and try again.' : null;
+    if (!res.error) state.health.newKey = null; // its Shortcut (if just set up) stops working too
+    await loadHealthKeys();
+    render();
+  }
+
+  async function copyText(text, which, input) {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch (e) {
+      if (input) {
+        input.focus();
+        input.select();
+        try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+      }
+    }
+    state.health.copied = ok ? which : null;
+    render();
+    if (ok) {
+      setTimeout(() => {
+        if (state.health.copied === which) {
+          state.health.copied = null;
+          render();
+        }
+      }, 2000);
+    }
+  }
+
+  // "today, 18:02", "yesterday, 21:00", "14.10.2026, 09:12"
+  function formatMoment(iso) {
+    const t = new Date(iso);
+    if (Number.isNaN(t.getTime())) return '';
+    const day = Core.toDateKey(t);
+    const time = t.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+    if (day === today()) return `today, ${time}`;
+    if (day === Core.addDays(today(), -1)) return `yesterday, ${time}`;
+    return `${Core.formatDay(day)}, ${time}`;
   }
 
   // ===== DOM helpers (all dynamic text goes through textContent) =====
@@ -719,6 +866,7 @@
       renderHero(stats),
       renderKpis(stats),
       renderEntryForm(todayKey),
+      renderHealth(),
       renderWeek(stats),
       h('button', {
         type: 'button',
@@ -729,6 +877,126 @@
       }, state.detailsOpen ? 'Hide details ▲' : 'Details & history ▼'),
       state.detailsOpen ? renderDetails(stats, todayKey) : null
     );
+  }
+
+  // ----- Apple Health (automatic upload) -----
+  function healthStatusText(keys) {
+    const hs = state.health;
+    if (!canSync()) return 'Sign in to upload your steps from Apple Health automatically.';
+    if (hs.problem === 'missing') return 'Not available yet: the database update for it is missing.';
+    if (!hs.keys) return hs.problem === 'offline' ? 'Offline – the upload status is shown when you are online.' : 'Upload your steps from the iPhone automatically.';
+    if (keys.length === 0) return 'Not set up – steps are entered by hand.';
+    const last = keys.reduce((max, k) => (k.last_used_at && (!max || k.last_used_at > max) ? k.last_used_at : max), null);
+    return last ? `Automatic · last upload ${formatMoment(last)}` : 'Set up – waiting for the first upload from the Shortcut.';
+  }
+
+  function renderHealth() {
+    const hs = state.health;
+    const keys = hs.keys || [];
+    const toggle = () => {
+      hs.open = !hs.open;
+      if (!hs.open) {
+        hs.newKey = null; // shown once: gone when the panel closes
+        hs.error = null;
+      } else {
+        loadHealthKeys();
+      }
+      render();
+    };
+    return h('section', { class: 'step-health', 'aria-labelledby': 'stepHealthTitle' },
+      h('div', { class: 'step-health-row' },
+        h('div', { class: 'step-health-text' },
+          h('h4', { id: 'stepHealthTitle', class: 'step-health-title' }, 'Apple Health'),
+          h('p', { class: 'step-health-status', 'data-role': 'health-status' }, healthStatusText(keys))),
+        h('button', {
+          type: 'button',
+          class: 'btn step-btn-secondary step-health-toggle',
+          'aria-expanded': String(hs.open),
+          'aria-controls': 'stepHealthPanel',
+          onclick: toggle
+        }, hs.open ? 'Done' : (keys.length > 0 ? 'Manage' : 'Set up'))),
+      hs.open ? renderHealthPanel(keys) : null);
+  }
+
+  function copyField(id, label, value, which) {
+    const input = h('input', { id, class: 'step-input step-health-code', type: 'text', readonly: true, value, spellcheck: 'false', autocomplete: 'off' });
+    return h('div', { class: 'step-health-field' },
+      h('label', { class: 'step-field-label', for: id }, label),
+      h('div', { class: 'step-health-copy' },
+        input,
+        h('button', {
+          type: 'button',
+          class: 'btn step-btn-secondary',
+          'aria-label': `Copy ${label.toLowerCase()}`,
+          onclick: () => copyText(value, which, input)
+        }, state.health.copied === which ? 'Copied ✓' : 'Copy')));
+  }
+
+  function renderHealthSteps() {
+    return h('ol', { class: 'step-health-steps' },
+      h('li', null, 'Shortcuts app → +. Add “Find Health Samples” (search “Health”): Type Steps, Start Date is today, Group By Day.'),
+      h('li', null, 'Add “Calculate Statistics”: Sum.'),
+      h('li', null, 'Add “Format Date”: Current Date, Custom, yyyy-MM-dd.'),
+      h('li', null, 'Add “Get Contents of URL” with the address, Method POST, Request Body JSON: ',
+        h('code', null, 'token'), ' (Text: your key), ', h('code', null, 'date'), ' (Text: Formatted Date), ',
+        h('code', null, 'steps'), ' (Number: Statistics).'),
+      h('li', null, 'Run it once: it answers “Saved: … steps”. More than the Health app shows? Then iPhone and Apple Watch were both counted – limit “Find Health Samples” to one source.'),
+      h('li', null, 'Automation → + → Time of Day (e.g. 12:00, 18:00, 21:00, 23:45) → Run Immediately → your Shortcut. While the iPhone is locked, Health cannot be read; the next run catches up.'));
+  }
+
+  function renderHealthPanel(keys) {
+    const hs = state.health;
+    const children = [];
+    if (!canSync()) {
+      children.push(h('p', { class: 'step-health-note' }, 'The Shortcut uploads into your cloud data, so you need to be signed in.'));
+    } else if (hs.problem === 'missing') {
+      children.push(h('p', { class: 'step-health-note' },
+        'This needs a one-time database update (migrations/2026-10-16_step_health_sync.sql) and the Edge Function "health-steps".'));
+    } else if (hs.keys) {
+      const setUp = keys.length > 0 && !hs.newKey;
+      if (!setUp) {
+        children.push(h('p', { class: 'step-health-note' },
+          'Websites cannot read Apple Health. A Shortcut on your iPhone can: it reads today\'s steps and sends them here, ' +
+          'several times a day without asking. A lower count never replaces a higher one.'));
+      }
+      if (hs.newKey) {
+        children.push(h('div', { class: 'step-health-secret' },
+          h('p', { class: 'step-health-warning' }, 'Your upload key is shown only now. Paste it into the Shortcut; it works only for uploading steps to your account.'),
+          copyField('stepHealthKey', 'Upload key', hs.newKey, 'key'),
+          copyField('stepHealthUrl', 'Address', window.supabaseDB.healthStepsUrl, 'url')));
+      }
+      if (keys.length > 0) {
+        children.push(h('ul', { class: 'step-health-keys', 'aria-label': 'Upload keys' },
+          keys.map(key => h('li', { class: 'step-health-key' },
+            h('span', { class: 'step-health-key-text' },
+              `${key.label} · created ${formatMoment(key.created_at)} · `,
+              key.last_used_at ? `last upload ${formatMoment(key.last_used_at)}` : 'not used yet'),
+            h('button', {
+              type: 'button',
+              class: 'btn step-btn-secondary step-health-revoke',
+              'aria-label': `Revoke upload key created ${formatMoment(key.created_at)}`,
+              onclick: () => revokeHealthKey(key)
+            }, 'Revoke')))));
+      }
+      if (!hs.newKey) {
+        children.push(h('button', {
+          type: 'button',
+          class: `btn ${setUp ? 'step-btn-secondary' : 'step-btn-primary'} step-health-create`,
+          disabled: hs.busy || keys.length >= HEALTH_MAX_KEYS,
+          onclick: createHealthKey
+        }, hs.busy ? 'Creating…' : (keys.length > 0 ? 'Create another key' : 'Create upload key')));
+      }
+      // Set up already: the steps on request
+      children.push(setUp
+        ? h('details', { class: 'step-health-details' }, h('summary', null, 'How to set up the Shortcut'), renderHealthSteps())
+        : renderHealthSteps());
+      children.push(h('p', { class: 'step-health-note' },
+        h('a', { href: HEALTH_GUIDE_URL, target: '_blank', rel: 'noopener' }, 'Step-by-step guide (German)')));
+    } else {
+      children.push(h('p', { class: 'step-health-note' }, hs.problem === 'offline' ? 'Offline – try again when you are online.' : 'Loading…'));
+    }
+    if (hs.error) children.push(h('p', { class: 'step-form-error', role: 'alert' }, hs.error));
+    return h('div', { id: 'stepHealthPanel', class: 'step-health-panel' }, children);
   }
 
   const STATUS = {
@@ -1510,6 +1778,8 @@
     state.userId = userId;
     state.root = root;
     state.started = true;
+    clearTimeout(state.health.reloadTimer);
+    state.health = freshHealthState();
     loadLocal();
 
     root.addEventListener('focusin', (e) => {

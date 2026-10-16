@@ -19,8 +19,9 @@ grant execute on function auth.uid() to anon, authenticated;
 grant select on auth.users to authenticated; -- needed for the foreign key check
 
 grant usage on schema public to anon, authenticated, service_role;
--- Supabase grants new tables in public to the API roles by default
+-- Supabase grants new tables and functions in public to the API roles by default
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
 
 create publication supabase_realtime;
 
