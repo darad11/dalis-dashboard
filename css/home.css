@@ -121,7 +121,7 @@
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
-    margin: 4px 0 0;
+    margin: 8px 0 0;
     font-size: 1.05rem;
     color: var(--text-secondary);
 }
@@ -849,8 +849,13 @@ html.touch-layout .home-view {
     margin-bottom: 0;
 }
 
+/* Air around the greeting: below the title, and between the header and the first card */
 html.touch-layout .home-header {
-    padding: 6px 4px 0;
+    padding: 10px 4px 12px;
+}
+
+html.touch-layout .home-date {
+    margin-top: 12px;
 }
 
 html.touch-layout .home-greeting {
