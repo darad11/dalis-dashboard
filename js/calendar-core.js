@@ -9,7 +9,7 @@
  *   - no calendarId, or one that no longer exists = the default calendar
  *
  * Calendars (settings key "calendars"): [{ id, name, color }], the default calendar first.
- * Colours are names of iOS system colours (see css/calendar.css for the values).
+ * Colours are names of iOS system colours and white (see css/calendar.css for the values).
  */
 (function (root, factory) {
   const DataUtils = (typeof module === 'object' && module.exports) ? require('./data-utils') : root.DataUtils;
@@ -19,9 +19,10 @@
 })(typeof self !== 'undefined' ? self : this, function (DataUtils) {
   'use strict';
 
-  const COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'brown'];
+  const COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'brown', 'white'];
   const COLOR_LABELS = {
-    red: 'Red', orange: 'Orange', yellow: 'Yellow', green: 'Green', blue: 'Blue', purple: 'Purple', brown: 'Brown'
+    red: 'Red', orange: 'Orange', yellow: 'Yellow', green: 'Green', blue: 'Blue', purple: 'Purple', brown: 'Brown',
+    white: 'White'
   };
   const DEFAULT_ID = 'default';
   const DEFAULT_CALENDAR = Object.freeze({ id: DEFAULT_ID, name: 'Personal', color: 'blue' });

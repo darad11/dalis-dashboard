@@ -1276,6 +1276,62 @@ scenario('calendar: own calendars with colours, editing, moving and deleting ent
   await context.close();
 });
 
+// White would vanish on the white cards of the light theme: white dots get a grey edge (3.2:1
+// against white); in dark mode the edge is white like the dot
+scenario('calendar: white as a calendar colour, visible on white cards', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const settingsCalendars = () => (env.store.rows('settings').find(r => r.key === 'calendars') || {}).value;
+  const { page, errors, context } = await openPhone(env);
+  await goToSection(page, 'week');
+
+  // The colour list offers White, after the iOS colours; a new calendar in white
+  await page.locator('#calendarAgenda .calendars-btn').tap();
+  await waitFor(() => page.locator('.calendar-manager[open]').count(), 'calendar list');
+  await page.locator('.calendar-manager .form-row-button.tinted').tap();
+  assert.equal((await page.locator('.calendar-manager .color-row .color-name').allInnerTexts()).pop(), 'White');
+  await page.fill('.calendar-manager input[name="name"]', 'Notizen');
+  await page.locator('.calendar-manager .color-row', { hasText: 'White' }).tap();
+  await page.locator('.calendar-manager .sheet-trailing').tap();
+  await waitFor(() => (settingsCalendars() || []).some(c => c.name === 'Notizen' && c.color === 'white'), 'white calendar uploaded');
+  const notesId = settingsCalendars().find(c => c.name === 'Notizen').id;
+  assert.equal(await text(page, `.calendar-row[data-calendar="${notesId}"] .calendar-row-color`), 'White');
+  await page.locator('.calendar-manager .sheet-trailing').tap(); // Done
+  await waitFor(async () => (await page.locator('.calendar-manager[open]').count()) === 0, 'list closed');
+
+  // Today's "Paket abholen" moves into the white calendar
+  await page.locator('#calendarAgenda .agenda-row', { hasText: 'Paket abholen' }).tap();
+  await waitFor(() => editorOpen(page), 'editor');
+  await page.selectOption('.event-editor select[name="calendar"]', notesId);
+  await page.locator('.event-editor .sheet-trailing').tap();
+  await waitFor(() => env.store.rows('goals').some(r => r.text === 'Paket abholen' && r.calendar_id === notesId), 'entry in the white calendar');
+
+  // Month grid, day list, day strip and day card: white dots with an edge
+  const dots = () => page.evaluate(() => ['.day-dot', '.agenda-dot', '.week-strip-dot', '.kanban-card-dot'].map(cls => {
+    const dot = document.querySelector(`${cls}[data-color="white"]`);
+    if (!dot) return `${cls} missing`;
+    const style = getComputedStyle(dot);
+    return `${cls} ${style.backgroundColor} | ${style.boxShadow}`;
+  }));
+  const edged = (edge) => ['.day-dot', '.agenda-dot', '.week-strip-dot', '.kanban-card-dot'].map(cls => `${cls} rgb(255, 255, 255) | ${edge} 0px 0px 0px 1px inset`);
+  await waitFor(async () => !(await dots()).some(d => d.endsWith('missing')), 'white dots rendered');
+  assert.deepEqual(await dots(), edged('rgb(134, 134, 139)'), 'grey edge on white (light)');
+  await page.locator('#appBarMore').tap();
+  await page.waitForSelector('.menu-layer.open');
+  await menuAction(page, 'dark-mode');
+  assert.deepEqual(await dots(), edged('rgb(255, 255, 255)'), 'dark: the edge is white like the dot');
+
+  // Desktop: the dots in the month grid and on the card in the week
+  const desktop = await open(env, { viewport: { width: 1440, height: 900 } });
+  await waitFor(() => desktop.page.locator('.kanban-card-dot[data-color="white"]').count(), 'white card on the desktop');
+  for (const cls of ['.task-dot', '.kanban-card-dot']) {
+    assert.equal(await desktop.page.$eval(`${cls}[data-color="white"]`, el => getComputedStyle(el).boxShadow), 'rgb(134, 134, 139) 0px 0px 0px 1px inset', cls);
+  }
+  assert.deepEqual(desktop.errors, []);
+  await desktop.context.close();
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 scenario('calendar: without the database migration an entry with a time stays on the device', async (env) => {
   const { page, context } = await open(env);
   env.store.missingColumns.add('goals.start_time');

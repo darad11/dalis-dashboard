@@ -61,8 +61,14 @@
     return isNaN(d.getTime()) || d.getDate() !== Number(m[3]) ? null : d;
   }
 
-  function colorVar(color) {
-    return `var(--cal-${Core.COLORS.includes(color) ? color : Core.DEFAULT_CALENDAR.color})`;
+  // A calendar's colour as --dot; data-color names it, so css/calendar.css can give white an
+  // edge on white
+  function colorName(color) {
+    return Core.COLORS.includes(color) ? color : Core.DEFAULT_CALENDAR.color;
+  }
+
+  function colorAttrs(color) {
+    return { style: `--dot: var(--cal-${colorName(color)})`, 'data-color': colorName(color) };
   }
 
   function isTouchLayout() {
@@ -343,7 +349,8 @@
     f.endRow.hidden = !timed;
     const calendars = db.getCalendars();
     const calendar = calendars.find(c => c.id === f.calendar.value) || calendars[0];
-    f.calendarDot.style.setProperty('--dot', colorVar(calendar.color));
+    f.calendarDot.style.setProperty('--dot', `var(--cal-${colorName(calendar.color)})`);
+    f.calendarDot.dataset.color = colorName(calendar.color);
     const check = checkEditor();
     const endWrong = timed && check.built.error === 'end' && !!Core.normalizeTime(f.end.value);
     f.end.setAttribute('aria-invalid', String(endWrong));
@@ -455,7 +462,7 @@
       const radio = el('input', { type: 'radio', name: 'color', value: color, class: 'color-radio' });
       colors.appendChild(el('label', { class: 'form-row color-row' }, [
         radio,
-        el('span', { class: 'calendar-dot', 'aria-hidden': 'true', style: `--dot: ${colorVar(color)}` }),
+        el('span', Object.assign({ class: 'calendar-dot', 'aria-hidden': 'true' }, colorAttrs(color))),
         el('span', { class: 'color-name', text: Core.COLOR_LABELS[color] }),
         el('span', { class: 'row-check', html: svg('checkmark') })
       ]));
@@ -512,7 +519,7 @@
     list.textContent = '';
     db.getCalendars().forEach(cal => {
       const btn = el('button', { type: 'button', class: 'form-row calendar-row', role: 'listitem', 'data-calendar': cal.id }, [
-        el('span', { class: 'calendar-dot', 'aria-hidden': 'true', style: `--dot: ${colorVar(cal.color)}` }),
+        el('span', Object.assign({ class: 'calendar-dot', 'aria-hidden': 'true' }, colorAttrs(cal.color))),
         el('span', { class: 'calendar-row-name', text: cal.name }),
         el('span', { class: 'calendar-row-color', text: Core.COLOR_LABELS[cal.color] }),
         el('span', { class: 'row-chevron', html: svg('chevronRight') })

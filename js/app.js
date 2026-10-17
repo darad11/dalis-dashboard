@@ -2196,15 +2196,18 @@ function isTouchLayout() {
 
 const CALENDAR_DAY_FORMAT = { weekday: 'long', day: 'numeric', month: 'long' };
 
-// CSS colour of a calendar (values per theme and contrast setting in css/calendar.css)
-function calendarColor(color) {
-  return `var(--cal-${CalendarCore.COLORS.includes(color) ? color : CalendarCore.DEFAULT_CALENDAR.color})`;
+// CSS colour of a calendar (values per theme and contrast setting in css/calendar.css) as
+// --dot; data-color names it, so css/calendar.css can give white an edge on white
+function paintCalendarColor(el, color) {
+  const name = CalendarCore.COLORS.includes(color) ? color : CalendarCore.DEFAULT_CALENDAR.color;
+  el.style.setProperty('--dot', `var(--cal-${name})`);
+  el.dataset.color = name;
 }
 
 function calendarDot(calendar, className) {
   const dot = document.createElement('span');
   dot.className = className || 'calendar-dot';
-  dot.style.setProperty('--dot', calendarColor(calendar.color));
+  paintCalendarColor(dot, calendar.color);
   dot.setAttribute('aria-hidden', 'true');
   return dot;
 }
@@ -4330,7 +4333,7 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
   // Calendar entries: dot in the calendar's colour and the time, as in the calendar
   if (isFromCalendar) {
     const calendar = CalendarCore.calendarOf(db.getCalendars(), task);
-    div.style.setProperty('--dot', calendarColor(calendar.color));
+    paintCalendarColor(div, calendar.color);
     div.title = calendar.name;
     const range = CalendarCore.formatRange(task);
     if (range) {

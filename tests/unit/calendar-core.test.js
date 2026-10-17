@@ -35,6 +35,15 @@ test('calendars: default calendar first and always present, invalid entries drop
   ]);
 });
 
+test('white is a calendar colour: kept, labelled, shown as a day colour', () => {
+  assert.equal(Core.COLORS[Core.COLORS.length - 1], 'white', 'after the iOS system colours');
+  assert.equal(Core.COLOR_LABELS.white, 'White');
+  Core.COLORS.forEach(color => assert.ok(Core.COLOR_LABELS[color], `label for ${color}`));
+  const cals = Core.normalizeCalendars([{ id: 'n', name: 'Notes', color: 'white' }]);
+  assert.deepEqual(cals[1], { id: 'n', name: 'Notes', color: 'white' });
+  assert.deepEqual(Core.dayColors([{ text: 'a', calendarId: 'n' }, { text: 'b' }], cals), ['white', 'blue']);
+});
+
 test('an entry without calendar or with a deleted calendar belongs to the default calendar', () => {
   const cals = Core.normalizeCalendars([{ id: 'default', name: 'Personal', color: 'blue' }, { id: 'cal-work', name: 'Work', color: 'red' }]);
   assert.equal(Core.calendarOf(cals, { text: 'a' }).id, 'default');

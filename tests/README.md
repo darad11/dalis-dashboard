@@ -51,6 +51,7 @@ Szenarien für Apple Health, Handy/Tablet und Kalender (`tests/e2e/run.js`):
 | `touch: menus replace hover…` | Menü am Knopf, Untermenüs, Escape/Tipp daneben schließt ohne Aktion, Fokus zurück (und bleibt dort, wenn die Liste neu aufgebaut wird), Verschieben (Tag, Liste), Editor aus der Tagesliste, Rückfrage mit „Delete“ |
 | `foldable: …` | Leseposition beim Auf-/Zuklappen (der in der Tagesleiste gewählte Samstag bleibt an seiner Stelle und bleibt nach dem Zuklappen der gezeigte Tag), offenes Menü bleibt im Bild, iPad quer = Desktop mit Desktop-Reihenfolge (Focus, Ziele, Woche, Kalender) und zurück, der Fokus auf „+ Add Goal“ bleibt |
 | `calendar on phones: …` | farbige Punkte, Tagesliste mit Zeiten, neuer Eintrag mit Uhrzeit in eigenem Kalender (Upload `16:30:00`), Dauer bleibt beim Verschieben des Beginns, Ende vor Beginn gesperrt, „Discard Changes“, Monatswechsel am 31. |
+| `calendar: white as a calendar colour…` | Weiß als letzte Farbe in der Liste, neuer Kalender in Weiß (Upload `white`), Eintrag hineinverschoben; weiße Punkte in Monatsraster, Tagesliste, Tagesleiste und Tageskarte mit grauem Rand (hell), rein weiß im Dark Mode; Desktop: Punkte im Monatsraster und auf der Karte ebenso |
 | `calendar: own calendars … (desktop)` | Kalender anlegen, Eintrag mit Zeit/Kalender/Priorität, Sortierung, Woche, Datum ändern = verschieben, Kalender löschen → Standardkalender, Löschen mit Rückfrage |
 | `calendar: without the database migration…` | Eintrag mit Uhrzeit bleibt lokal (Fehler sichtbar), Tage ohne Uhrzeit laufen weiter, nach Migration hochgeladen |
 | `week on phones: day strip…` | Tagesleiste (7 Tage, heute markiert, Punkte in Kalenderfarben + grau für offene Aufgaben, VoiceOver-Texte), genau ein Tag auf dem Bildschirm, bündig mit dem Panel darüber und ohne hereinschauende Nachbarn (Freitag, Samstag, Sonntag), Zeile so hoch wie dieser Tag (weniger als halb so hoch wie alle Tage untereinander); Wischen → nächster Tag; Tipp in der Leiste → Montag; neue Aufgabe dort lässt die Zeile wachsen; nächste Woche behält den Wochentag, „Today“ springt zurück; aufgeklappt: Spalten ohne Leiste und ohne feste Höhe |
@@ -66,6 +67,7 @@ Today's Goals ohne Fokus-Erhalt beim Neuaufbau der Liste.
 Schritte-Karte: Cursor nach dem Neuaufbau wieder ans Ende (alte Logik) → `setup: a rebuild while typing…` rot.
 Health Hub: ohne Verschieben der Karte bzw. ohne Fokus-Erhalt → `health hub: Step Challenge first…` rot; alte
 KPI-CSS (`overflow-wrap: anywhere`) → dieselbe Szene rot („1.794.99“ / „4“).
+Weiß als Kalenderfarbe: ohne die Rand-Regel in `css/calendar.css` → `calendar: white…` rot (Punkte ohne Rand).
 Reihenfolge auf Handy/Tablet: ohne Aufruf vor dem ersten Zeichnen → `phones: the calendar stands first…` rot; ohne Fokus-Erhalt beim Verschieben → `foldable…` rot; Kalender mit altem Abstand oben bzw. Leiste noch mit Today zuerst → `scroll: phones…` rot.
 Woche auf dem Handy: ohne Höhenanpassung → `week on phones…` rot; Leseposition ohne die Regel für seitlich
 weggewischte Karten → `foldable…` rot (Samstag landet nach dem Aufklappen bei 336 px statt 120 px).

@@ -4,7 +4,9 @@
  * dialogs into iOS sheets in the touch layout.
  *
  * Calendar colours are iOS system colours (Apple Human Interface Guidelines, Color:
- * light, dark, increased contrast light/dark).
+ * light, dark, increased contrast light/dark), plus white. White would vanish on the white
+ * cards of the light theme, so white dots get an edge (--cal-white-edge, iOS system gray
+ * darkened to 3.2:1 against white, the grouped and the desktop background).
  */
 
 :root {
@@ -15,6 +17,8 @@
     --cal-blue: rgb(0, 136, 255);
     --cal-purple: rgb(203, 48, 224);
     --cal-brown: rgb(172, 127, 94);
+    --cal-white: rgb(255, 255, 255);
+    --cal-white-edge: rgb(134, 134, 139);
 }
 
 body.dark {
@@ -25,6 +29,8 @@ body.dark {
     --cal-blue: rgb(0, 145, 255);
     --cal-purple: rgb(219, 52, 242);
     --cal-brown: rgb(183, 138, 102);
+    --cal-white: rgb(255, 255, 255);
+    --cal-white-edge: rgb(255, 255, 255); /* white stands out on the dark cards */
 }
 
 @media (prefers-contrast: more) {
@@ -36,6 +42,7 @@ body.dark {
         --cal-blue: rgb(30, 110, 244);
         --cal-purple: rgb(176, 47, 194);
         --cal-brown: rgb(149, 109, 81);
+        --cal-white-edge: rgb(108, 108, 112);
     }
 
     body.dark {
@@ -66,6 +73,15 @@ body.dark {
 .calendar-dot {
     width: 12px;
     height: 12px;
+}
+
+.calendar-dot[data-color="white"],
+.task-dot[data-color="white"],
+.kanban-card-dot[data-color="white"],
+.agenda-dot[data-color="white"],
+.day-dot[data-color="white"],
+.week-strip-dot[data-color="white"] {
+    box-shadow: inset 0 0 0 1px var(--cal-white-edge);
 }
 
 .task-dot {

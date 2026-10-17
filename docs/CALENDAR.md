@@ -9,8 +9,10 @@ Stand 16.10.2026.
   (an anderen Tagen um 09:00) und dauert eine Stunde; wird der Beginn verschoben, bleibt die
   Dauer gleich. Ein Ende vor dem Beginn kann nicht gespeichert werden.
 - **Eigene Kalender** mit Namen und Farbe (Rot, Orange, Gelb, Grün, Blau, Lila, Braun – die
-  iOS-Systemfarben, inkl. Varianten für Dark Mode und „Kontrast erhöhen“). Es gibt immer
-  einen Standardkalender („Personal“, blau, umbenennbar, nicht löschbar).
+  iOS-Systemfarben, inkl. Varianten für Dark Mode und „Kontrast erhöhen“ – und Weiß). Weiß
+  verschwände im hellen Design auf den weißen Karten: Weiße Punkte haben dort einen grauen Rand
+  (3,2:1 gegen Weiß, mit „Kontrast erhöhen“ dunkler); im Dark Mode sind sie rein weiß. Es gibt
+  immer einen Standardkalender („Personal“, blau, umbenennbar, nicht löschbar).
 - **Farbige Punkte**: im Monatsraster (Handy) bis zu drei Punkte je Tag in den Farben der
   Kalender des Tages; in der Tagesliste, im Monatsraster am Desktop und in der Wochenübersicht
   ein Punkt je Eintrag. Ab zwei Kalendern steht der Kalendername zusätzlich als Text da
