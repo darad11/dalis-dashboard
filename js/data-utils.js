@@ -42,7 +42,7 @@
     return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
   }
 
-  const SETTING_KEYS = ['habitChecks', 'customListsMeta', 'gymHubData', 'calendars'];
+  const SETTING_KEYS = ['habitChecks', 'customListsMeta', 'gymHubData', 'calendars', 'home'];
 
   // "HH:MM" for a valid wall-clock time ("HH:MM:SS" as Postgres returns a time column), else null.
   function normalizeTime(value) {

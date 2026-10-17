@@ -93,6 +93,9 @@ async function openDashboard(env, opts = {}) {
   await page.route(/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/, route =>
     route.fulfill({ status: 200, contentType: 'application/javascript', body: MOCK_SCRIPT }));
   await page.route(/fonts\.(googleapis|gstatic)\.com/, route => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  // No weather service is reached from the tests: a scenario that needs weather answers
+  // itself with its own page.route (registered later, so it takes precedence)
+  await page.route(/open-meteo\.com/, route => route.abort('failed'));
 
   if (!context.__cloudBound) {
     // context.__offline simulates one device losing its connection

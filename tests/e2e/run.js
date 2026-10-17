@@ -759,17 +759,26 @@ scenario('scroll: phones show one continuous page; the section bar follows and j
     const el = document.getElementById('section-' + n);
     return [n, getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0, Math.round(el.getBoundingClientRect().top + window.scrollY)];
   }));
-  assert.deepEqual(sections.map(s => s[0]), ['week', 'today', 'health', 'habits', 'lists']);
+  assert.deepEqual(sections.map(s => s[0]), ['home', 'week', 'today', 'health', 'habits', 'lists']);
   assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
-  assert.deepEqual(await page.$$eval('.mobile-tab', els => els.map(e => e.dataset.section)), ['week', 'today', 'health', 'habits', 'lists'], 'bar in the order of the page');
-  assert.ok(await page.evaluate(() => document.querySelector('.calendar-section').getBoundingClientRect().top - document.querySelector('.app-bar').getBoundingClientRect().bottom < 12), 'calendar right below the app bar');
+  assert.deepEqual(await page.$$eval('.mobile-tab', els => els.map(e => e.dataset.section)), ['home', 'week', 'today', 'health', 'habits', 'lists'], 'bar in the order of the page');
+  // The page opens on Home, right below the app bar; the calendar starts the Week section
+  assert.ok(await page.evaluate(() => document.getElementById('section-home').getBoundingClientRect().top - document.querySelector('.app-bar').getBoundingClientRect().bottom < 12), 'Home right below the app bar');
+  assert.ok(await page.evaluate(() => document.querySelector('.calendar-section').getBoundingClientRect().top - document.getElementById('section-week').getBoundingClientRect().top < 12), 'calendar first in Week');
   sections.forEach(([name, shown]) => assert.ok(shown, `${name} displayed`));
   for (let i = 1; i < sections.length; i++) assert.ok(sections[i][2] > sections[i - 1][2], `${sections[i][0]} below ${sections[i - 1][0]}`);
   assert.ok(await page.evaluate(() => !!document.querySelector('#section-week .calendar-section') &&
     !!document.querySelector('#section-habits .weekly-review-section') && !!document.querySelector('#section-lists .lists-section')),
   'calendar in Week, weekly review in Habits, lists last');
-  assert.equal(await currentSection(page), 'week');
-  assert.equal(await page.getAttribute('.mobile-tab[data-section="week"]', 'aria-current'), 'location');
+  assert.equal(await currentSection(page), 'home');
+  assert.equal(await page.getAttribute('.mobile-tab[data-section="home"]', 'aria-current'), 'location');
+  // Six items fit the bar: labels whole, every item a touch target
+  const tabs = await page.$$eval('.mobile-tab', els => els.map(e => {
+    const r = e.getBoundingClientRect();
+    const label = e.querySelector('.mobile-tab-label');
+    return [e.dataset.section, Math.round(r.width), Math.round(r.height), label.scrollWidth <= label.clientWidth + 1];
+  }));
+  tabs.forEach(([name, w, h, whole]) => assert.ok(w >= 44 && h >= 44 && whole, `tab ${name}: ${w}x${h}, label whole: ${whole}`));
 
   // Scrolling through the page marks one section after the other, without tapping
   const seen = [];
@@ -780,9 +789,9 @@ scenario('scroll: phones show one continuous page; the section bar follows and j
     const name = await currentSection(page);
     if (seen[seen.length - 1] !== name) seen.push(name);
   }
-  assert.deepEqual(seen, ['week', 'today', 'health', 'habits', 'lists'], 'marker follows the scroll position');
+  assert.deepEqual(seen, ['home', 'week', 'today', 'health', 'habits', 'lists'], 'marker follows the scroll position');
   await page.evaluate(() => window.scrollTo(0, 0));
-  await waitFor(async () => (await currentSection(page)) === 'week', 'back to week at the top');
+  await waitFor(async () => (await currentSection(page)) === 'home', 'back to Home at the top');
 
   // Tapping a section jumps to its start, the selection pill moves under it
   for (const name of ['habits', 'week', 'lists', 'health', 'today']) await goToSection(page, name);
@@ -918,7 +927,7 @@ scenario('section bar: a finger lifts the selection into a glass lens, a drag se
   });
   assert.equal(parts.hidden, 'true', 'the lens is decoration');
   assert.equal(parts.focusable, 0);
-  assert.deepEqual(parts.links, ['week', 'today', 'health', 'habits', 'lists'], 'the five links stay the only links');
+  assert.deepEqual(parts.links, ['home', 'week', 'today', 'health', 'habits', 'lists'], 'the six links stay the only links');
   assert.equal(parts.pill, '0', 'resting pill hidden under the lens');
   assert.notEqual(parts.hole, 'none', 'the real items get a hole under the lens');
 
@@ -930,7 +939,7 @@ scenario('section bar: a finger lifts the selection into a glass lens, a drag se
   });
   await waitFor(async () => (await candidate()) === 'habits' && Math.abs((await lensBox(page)).center - tabs.habits) < 1.5,
     'lens over habits, under the finger');
-  assert.equal(await currentSection(page), 'week');
+  assert.equal(await currentSection(page), 'home', 'still at the start of the page');
   assert.equal(await page.evaluate(() => window.scrollY), 0, 'no jump before release');
 
   // Release: Habits is selected and the page jumps there; the lens drops into the pill
@@ -972,9 +981,9 @@ scenario('section bar: a finger lifts the selection into a glass lens, a drag se
   assert.equal(await currentSection(page), 'habits');
   assert.equal(await page.evaluate(() => window.scrollY), before);
 
-  // A tap at the rounded end of the bar selects the nearest section
+  // A tap at the rounded end of the bar selects the nearest section (Home at the left end)
   await page.touchscreen.tap(finger.geo.left + 4, finger.geo.y);
-  await waitFor(async () => (await currentSection(page)) === 'week' && await sectionAtTop(page, 'week'), 'end of the bar selects week');
+  await waitFor(async () => (await currentSection(page)) === 'home' && await sectionAtTop(page, 'home'), 'end of the bar selects home');
   await waitFor(async () => !(await lensUp(page)), 'lens dropped after the tap');
 
   // Keyboard: the links select without a lens
@@ -1909,6 +1918,332 @@ scenario('matrix on the desktop: across the list grid, dialogs, dragged like a l
   await page.dragAndDrop('.matrix-panel .matrix-head', '.list-panel[data-list-id="custom-3"] h3');
   await waitFor(() => storedListOrder(env).join() === 'custom-1,custom-2,custom-3,matrix', 'dragged to the end');
   assert.deepEqual(await page.$$eval('#unifiedListsGrid > *', els => els.map(e => e.dataset.listId)), ['custom-1', 'custom-2', 'custom-3', 'matrix']);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+// ---------------------------------------------------------------- Home (js/home-ui.js)
+// Home only summarises the other sections: the checks read their stored rows and their DOM
+// after every tick, and the weather comes from a mocked Open-Meteo (no service is reached).
+
+const FORECAST = {
+  latitude: 48.2, longitude: 16.37, utc_offset_seconds: 7200, timezone: 'Europe/Vienna', timezone_abbreviation: 'CEST',
+  current_units: { time: 'iso8601', interval: 'seconds', temperature_2m: '°C', weather_code: 'wmo code', is_day: '' },
+  current: { time: '2026-10-16T09:45', interval: 900, temperature_2m: 13.6, weather_code: 2, is_day: 1 },
+  daily_units: { time: 'iso8601', sunrise: 'iso8601', sunset: 'iso8601' },
+  daily: { time: ['2026-10-16'], sunrise: ['2026-10-16T07:21'], sunset: ['2026-10-16T18:12'] }
+};
+const PLACES = [
+  { id: 1, name: 'Wien', latitude: 48.20849, longitude: 16.37208, country: 'Österreich', admin1: 'Wien', timezone: 'Europe/Vienna' },
+  { id: 2, name: 'Graz', latitude: 47.06667, longitude: 15.45, country: 'Österreich', admin1: 'Steiermark', timezone: 'Europe/Vienna' }
+];
+const MATRIX_TASKS = [
+  { id: 'a', text: 'Reifen wechseln', done: false, area: 'todo', due: '2026-10-10' },
+  { id: 'b', text: 'Urlaub planen', done: false, area: 'todo' },
+  { id: 'c', text: 'Antwort Vermieter', done: false, area: 'waiting', due: '2026-10-20' },
+  { id: 'd', text: 'Schon erledigt', done: true, area: 'ideas' }
+];
+const homeRows = (page, card) => page.$$eval(`${card} .home-row-text`, els => els.map(e => e.textContent));
+const homeSetting = (env) => (env.store.rows('settings').find(r => r.key === 'home') || {}).value || null;
+const boardTask = (env, column, textOf) => env.store.rows('kanban_tasks')
+  .filter(r => r.week_key === 'week-2026-W42' && r.column_name === column).map(r => JSON.parse(r.text)).find(t => t.text === textOf);
+
+scenario('home on phones: the day at a glance from the other sections; ticks change the same entries', async (env) => {
+  seedDemo(env.store);
+  env.store.seed('settings', [{ user_id: USER, key: 'home', value: { name: 'Dali' } }]);
+  env.store.seed('lists', [{ user_id: USER, name: 'matrix', icon: '📝', items: MATRIX_TASKS }]);
+  env.store.seed('step_entries', [{ user_id: USER, date: '2026-10-16', steps: 8420, updated_at: new Date(NOW).toISOString() }]);
+  const { page, errors, context } = await openPhone(env);
+
+  // The page opens on Home: greeting with the name, the day as the calendar writes it
+  assert.equal(await currentSection(page), 'home');
+  assert.equal(await text(page, '.home-greeting-text'), 'Good morning, Dali.');
+  assert.equal(await text(page, '.home-date'), 'Freitag, 16. Oktober');
+  assert.deepEqual(await page.$$eval('.home-card', els => els.map(e => e.className.replace('home-card glass-panel ', '').split(' ')[0])),
+    ['home-weather', 'home-today', 'home-tasks', 'home-goals', 'home-matrix', 'home-steps', 'home-habits']);
+
+  // Today: the entries of 16 October from the calendar, in its order
+  assert.equal(await text(page, '.home-today .home-card-meta'), '2 events');
+  assert.deepEqual(await page.$$eval('.home-today .home-event-text', els => els.map(e => e.textContent)), ['Team-Meeting 10:00', 'Paket abholen']);
+
+  // Tasks: the overdue one from Wednesday first, today's by priority, then Saturday; counts
+  assert.deepEqual(await page.$$eval('.home-tasks .home-task', els => els.map(e => e.innerText.replace(/\s+/g, ' ').trim())),
+    ['Präsentation Entwurf !!! Overdue · Mi', 'Präsentation für Montag fertigstellen !!!', 'Laufen 5 km', 'Bauernmarkt Sa']);
+  assert.equal(await text(page, '.home-tasks .home-card-meta'), '2 open today · 1 overdue');
+  assert.equal(await text(page, '.home-tasks .home-card-foot'), '3 of 7 done this week');
+  // Ticking here ticks the task on the week board (cloud and the Week section)
+  await page.locator('.home-tasks .home-check[aria-label="Laufen 5 km"]').tap();
+  await waitFor(() => (boardTask(env, 'FR', 'Laufen 5 km') || {}).done === true, 'done on the board in the cloud');
+  assert.equal(await page.evaluate(() => [...document.querySelectorAll('#weekKanban .kanban-card')].find(c => c.textContent.includes('Laufen 5 km')).classList.contains('done')), true, 'the Week section shows it done');
+  await waitFor(async () => (await text(page, '.home-tasks .home-card-meta')) === '1 open today · 1 overdue · 1 done', 'counts follow');
+  assert.deepEqual(await homeRows(page, '.home-tasks'), ['Präsentation Entwurf', 'Präsentation für Montag fertigstellen', 'Bauernmarkt', 'Laufen 5 km'], 'done tasks last');
+  assert.equal(await page.getAttribute('.home-tasks .home-check[aria-label="Laufen 5 km"]', 'aria-checked'), 'true');
+
+  // Goals: the first open goal is the focus; ticking it moves the focus on and reaches the goals list
+  assert.equal(await text(page, '.home-goals .home-card-meta'), '2 of 5 done');
+  assert.equal(await text(page, '.home-goals .home-row-focus .home-row-text'), 'Steuererklärung abschicken');
+  await page.locator('.home-goals .home-row-focus .home-check').tap();
+  await waitFor(async () => (await text(page, '.home-goals .home-card-meta')) === '3 of 5 done', 'goal done');
+  assert.equal(await text(page, '.home-goals .home-row-focus .home-row-text'), 'Mail an die Hausverwaltung wegen der Heizungsablesung im Stiegenhaus schreiben');
+  await waitFor(() => env.store.rows('goals').some(r => r.date === 'goals-2026-9-16' && r.text === 'Steuererklärung abschicken' && r.done === true), 'goal done in the cloud');
+  assert.equal(await page.evaluate(() => [...document.querySelectorAll('#goalsList .focus-item')].find(i => i.textContent.includes('Steuererklärung')).classList.contains('done')), true, 'the goals list shows it done');
+  // "+" adds a goal for today
+  await page.locator('.home-goals .home-add').tap();
+  await page.fill('#inputModalField', 'Zahnarzt anrufen');
+  await page.locator('#inputModalSubmit').tap();
+  await waitFor(() => env.store.rows('goals').some(r => r.date === 'goals-2026-9-16' && r.text === 'Zahnarzt anrufen'), 'new goal uploaded');
+  await waitFor(async () => (await text(page, '.home-goals .home-card-meta')) === '3 of 6 done', 'goal count follows');
+  assert.ok((await page.$$eval('#goalsList .focus-text', els => els.map(e => e.textContent))).includes('Zahnarzt anrufen'), 'in the goals list');
+
+  // Habits: a chip ticks today's check of the habit grid
+  assert.equal(await text(page, '.home-habits .home-card-meta'), '1 of 4 done today');
+  await page.locator('.home-habits .home-chip', { hasText: '10k Schritte' }).tap();
+  await waitFor(async () => (await text(page, '.home-habits .home-card-meta')) === '2 of 4 done today', 'habit done');
+  await waitFor(() => { const row = env.store.rows('settings').find(r => r.key === 'habitChecks'); return !!row && row.value['habitsData-2026-W42-h1-d4'] === true; }, 'check uploaded');
+  assert.equal(await page.evaluate(() => {
+    const row = [...document.querySelectorAll('#habits .habit-row')].find(r => r.textContent.includes('10k Schritte'));
+    return row.querySelectorAll('.habit-check')[4].getAttribute('aria-checked');
+  }), 'true', 'the habit grid shows Friday ticked');
+
+  // Matrix: open tasks per area, the earliest due day first (overdue in red); a tile opens the area
+  assert.equal(await text(page, '.home-matrix .home-card-meta'), '3 open');
+  assert.deepEqual(await page.$$eval('.home-tile', els => els.map(e => [e.dataset.area, e.querySelector('.home-tile-count').textContent, (e.querySelector('.home-tile-text') || {}).textContent || null, (e.querySelector('.home-tile-due') || {}).textContent || null])),
+    [['todo', '2', 'Reifen wechseln', 'Sa., 10. Okt.'], ['next', '0', null, null], ['waiting', '1', 'Antwort Vermieter', 'Di., 20. Okt.'], ['ideas', '0', null, null]]);
+  assert.equal(await page.locator('.home-tile[data-area="todo"] .home-tile-task.is-overdue').count(), 1);
+  await page.locator('.home-tile[data-area="todo"]').tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-area-sheet'), 'area sheet from Home');
+  assert.equal(await text(page, '.matrix-area-sheet .matrix-count'), '2');
+  await page.locator('.matrix-area-sheet .sheet-leading').tap();
+  await waitFor(async () => (await matrixSheetOpen(page, 'matrix-area-sheet')) === 0, 'sheet closed');
+
+  // Steps: today's entry against the day's target, the year against the goal (js/steps-core.js)
+  await waitFor(async () => (await text(page, '.home-steps .home-steps-value')) === '8.420 steps', 'steps from the challenge');
+  assert.equal(await text(page, '.home-steps .home-card-meta'), 'Target 23.312');
+  assert.equal(await text(page, '.home-steps .home-steps-remaining'), '14.892 to go');
+  assert.equal(await page.getAttribute('.home-steps .home-meter', 'aria-valuenow'), '36');
+  assert.equal(await text(page, '.home-steps .home-card-foot'), 'Year 56 % · 2.231.831 of 4.018.405');
+
+  // Every card leads to the section that owns its data
+  await page.locator('.home-tasks .home-link').tap();
+  await waitFor(async () => (await currentSection(page)) === 'week' && await sectionAtTop(page, 'week'), 'Week');
+  await goToSection(page, 'home');
+  await page.locator('.home-habits .home-link').tap();
+  await waitFor(async () => (await currentSection(page)) === 'habits' && await sectionAtTop(page, 'habits'), 'Habits');
+  await goToSection(page, 'home');
+  await page.locator('.home-today .home-event', { hasText: 'Paket abholen' }).tap();
+  await waitFor(() => editorOpen(page), 'the entry opens in the calendar editor');
+  assert.equal(await page.inputValue('.event-editor .form-input'), 'Paket abholen');
+  await page.locator('.event-editor .sheet-leading').tap();
+  await waitFor(async () => (await editorOpen(page)) === 0, 'editor closed');
+
+  // The name: the pencil opens the input; greeting and cloud follow
+  await page.locator('.home-name-btn').tap();
+  assert.equal(await page.inputValue('#inputModalField'), 'Dali');
+  await page.fill('#inputModalField', 'Dalibor');
+  await page.locator('#inputModalSubmit').tap();
+  await waitFor(async () => (await text(page, '.home-greeting-text')) === 'Good morning, Dalibor.', 'greeting follows');
+  await waitFor(() => (homeSetting(env) || {}).name === 'Dalibor', 'name uploaded');
+
+  // Touch targets and no horizontal overflow
+  const small = await page.$$eval('#section-home button', els => els
+    .filter(el => el.getClientRects().length > 0)
+    .map(el => { const r = el.getBoundingClientRect(); return [el.className, Math.round(r.width), Math.round(r.height)]; })
+    .filter(([, w, h]) => w < 44 || h < 44));
+  assert.deepEqual(small, [], 'Home controls smaller than 44pt');
+  assert.equal(await horizontalOverflow(page), 0);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+scenario('home with empty data: quiet empty states, nothing invented; "+" adds where the data lives', async (env) => {
+  const { page, errors, context } = await openPhone(env);
+  assert.equal(await text(page, '.home-greeting-text'), 'Good morning.');
+  assert.equal(await page.getAttribute('.home-name-btn', 'aria-label'), 'Add your name');
+  assert.equal(await text(page, '.home-today .home-card-meta'), 'No events');
+  assert.equal(await text(page, '.home-today .home-empty'), 'No events today.');
+  assert.equal(await text(page, '.home-tasks .home-empty'), 'No tasks this week yet.');
+  assert.equal(await page.locator('.home-tasks .home-card-meta').count(), 0);
+  assert.equal(await text(page, '.home-goals .home-empty'), 'What do you want to accomplish today?');
+  assert.deepEqual(await page.$$eval('.home-tile .home-tile-count', els => els.map(e => e.textContent)), ['0', '0', '0', '0']);
+  assert.equal(await text(page, '.home-steps .home-card-meta'), 'Set up the Step Challenge in Health to see today’s steps here.');
+  assert.equal(await page.locator('.home-steps .home-steps-value').count(), 0, 'no number without a challenge');
+  assert.equal(await page.locator('.home-habits').count(), 0, 'no habits: no card');
+  assert.equal(await page.locator('.home-weather.is-empty .home-weather-set').count(), 1, 'no place: no weather');
+
+  // "+" on Today opens the calendar editor for today
+  await page.locator('.home-today .home-add').tap();
+  await waitFor(() => editorOpen(page), 'editor');
+  assert.equal(await page.inputValue('.event-editor input[type="date"]'), '2026-10-16');
+  await page.locator('.event-editor .sheet-leading').tap();
+  await waitFor(async () => (await editorOpen(page)) === 0, 'editor closed');
+
+  // "+" on Tasks adds to today's column of the week board
+  await page.locator('.home-tasks .home-add').tap();
+  await page.fill('#inputModalField', 'Blumen gießen');
+  await page.locator('#inputModalSubmit').tap();
+  await waitFor(() => !!boardTask(env, 'FR', 'Blumen gießen'), 'task uploaded to Friday');
+  assert.deepEqual(await homeRows(page, '.home-tasks'), ['Blumen gießen']);
+  assert.equal(await text(page, '.home-tasks .home-card-meta'), '1 open today');
+  assert.ok((await page.$$eval('#weekKanban .kanban-column.today .kanban-card-text', els => els.map(e => e.textContent))).includes('Blumen gießen'), 'on the board under today');
+
+  // The Steps link leads to the Health section with the challenge card
+  await page.locator('.home-steps .home-link').tap();
+  await waitFor(async () => (await currentSection(page)) === 'health' && await sectionAtTop(page, 'health'), 'Health');
+  assert.deepEqual(errors, []);
+
+  // Evening: the greeting follows the clock
+  const evening = await openPhone(env, { now: Date.parse('2026-10-16T19:30:00+02:00') });
+  assert.equal(await text(evening.page, '.home-greeting-text'), 'Good evening.');
+  assert.deepEqual(evening.errors, []);
+  await context.close();
+  await evening.context.close();
+});
+
+scenario('home: weather for a chosen place from Open-Meteo - cached while offline, honest when it fails', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await openPhone(env);
+  const calls = [];
+  let fail = false;
+  await page.route(/api\.open-meteo\.com\/v1\/forecast/, route => {
+    calls.push(route.request().url());
+    if (fail) return route.fulfill({ status: 500, contentType: 'text/plain', body: 'error' });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(FORECAST) });
+  });
+  await page.route(/geocoding-api\.open-meteo\.com/, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: PLACES }) }));
+
+  // No place yet: no request, a button to choose one; the sheet searches by name
+  assert.equal(await page.locator('.home-weather.is-empty').count(), 1);
+  await page.locator('.home-weather-set').tap();
+  await waitFor(() => page.locator('.home-location-sheet[open]').count(), 'location sheet');
+  assert.equal(await page.evaluate(() => document.activeElement.name), 'place', 'search field focused');
+  await page.keyboard.type('Wie');
+  await waitFor(() => page.locator('.home-location-sheet .home-place').count(), 'results');
+  assert.deepEqual(await page.$$eval('.home-location-sheet .home-place', els => els.map(e => e.textContent)), ['Wien, Österreich', 'Graz, Steiermark, Österreich']);
+  await page.locator('.home-location-sheet .home-place').first().tap();
+  await waitFor(async () => (await page.locator('.home-location-sheet[open]').count()) === 0, 'sheet closed');
+  await waitFor(() => page.locator('.home-weather-temp').count(), 'weather shown');
+  assert.equal(await text(page, '.home-weather-temp'), '14°');
+  assert.equal(await text(page, '.home-weather-text'), 'Partly cloudy');
+  assert.deepEqual(await page.$$eval('.home-sun dd', els => els.map(e => e.textContent)), ['07:21', '18:12']);
+  assert.equal(await text(page, '.home-weather-place'), 'Wien');
+  assert.equal(await page.locator('.home-weather-note').count(), 0, 'fresh weather carries no note');
+  // One request, with nothing but the coordinates and the documented parameters
+  assert.equal(calls.length, 1);
+  const url = new URL(calls[0]);
+  assert.deepEqual(['latitude', 'longitude', 'current', 'daily', 'timezone', 'forecast_days'].map(k => url.searchParams.get(k)),
+    ['48.2085', '16.3721', 'temperature_2m,weather_code,is_day', 'sunrise,sunset', 'auto', '1']);
+  assert.ok(!calls[0].includes('Wien'), 'no place name in the request');
+  await waitFor(() => { const s = homeSetting(env); return !!s && !!s.location && s.location.name === 'Wien' && s.location.latitude === 48.2085; }, 'place stored in the settings');
+
+  // Reload: the cached answer shows at once without a new request (it is still fresh)
+  await page.reload();
+  await page.waitForSelector('#stepChallenge:not([hidden])');
+  await waitFor(() => page.locator('.home-weather-temp').count(), 'weather after reload');
+  await settle(page, 500);
+  assert.equal(calls.length, 1, 'no second request while fresh');
+
+  // Offline: the last answer stays, marked with its time
+  await context.setOffline(true);
+  await page.evaluate(() => window.Weather.refresh(true));
+  await waitFor(async () => /^Offline · from \d\d:\d\d$/.test(await text(page, '.home-weather-note')), 'offline note');
+  assert.equal(await text(page, '.home-weather-temp'), '14°');
+  await context.setOffline(false);
+  await waitFor(() => calls.length === 2, 'fetched again when back online');
+  await waitFor(async () => (await page.locator('.home-weather-note').count()) === 0, 'fresh again');
+
+  // The service fails: the last answer stays, marked; a new place without one says so and offers a retry
+  fail = true;
+  await page.evaluate(() => window.Weather.refresh(true));
+  await waitFor(async () => /^Could not update · from \d\d:\d\d$/.test(await text(page, '.home-weather-note')), 'failure note');
+  assert.equal(await text(page, '.home-weather-temp'), '14°', 'the last answer stays');
+  await page.locator('.home-weather-place').tap();
+  await waitFor(() => page.locator('.home-location-sheet[open]').count(), 'sheet again');
+  assert.equal(await text(page, '.home-location-sheet .home-place-current'), 'Current: Wien');
+  await page.keyboard.type('Graz');
+  await waitFor(() => page.locator('.home-location-sheet .home-place').count(), 'results again');
+  await page.locator('.home-location-sheet .home-place', { hasText: 'Graz' }).tap();
+  await waitFor(() => page.locator('.home-weather.is-pending .home-weather-retry').count(), 'no weather for the new place yet');
+  assert.equal(await text(page, '.home-weather.is-pending .home-weather-text'), 'The weather could not be loaded.');
+  assert.equal(await page.locator('.home-weather-temp').count(), 0, 'nothing invented');
+  fail = false;
+  await page.locator('.home-weather-retry').tap();
+  await waitFor(() => page.locator('.home-weather-temp').count(), 'weather after the retry');
+  assert.equal(await text(page, '.home-weather-place'), 'Graz');
+
+  // Removing the place: the empty card again, nothing is fetched any more
+  await page.locator('.home-weather-place').tap();
+  await waitFor(() => page.locator('.home-location-sheet[open]').count(), 'sheet to remove');
+  await page.locator('.home-location-sheet .form-row-button.destructive').tap();
+  await waitFor(() => page.locator('.home-weather.is-empty').count(), 'empty again');
+  await waitFor(() => { const s = homeSetting(env); return !!s && s.location === null; }, 'place removed in the settings');
+  // The browser logs the two failed answers itself; nothing else may fail
+  assert.deepEqual(errors.filter(e => !/status of 500/.test(e)), []);
+  await context.close();
+});
+
+scenario('home follows changes made in the sections, on another device and across a reload', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await openPhone(env);
+  // A task ticked on the week board
+  await goToSection(page, 'week');
+  // Promptly, through the change announcement of db.set - not only once the cloud echoes the
+  // change back (the realtime refresh waits out a 5 s cooldown after a local change)
+  await page.locator('#weekKanban .kanban-card', { hasText: 'Laufen 5 km' }).locator('.task-checkbox').tap();
+  await waitFor(async () => (await text(page, '.home-tasks .home-card-meta')) === '1 open today · 1 overdue · 1 done', 'Home follows the board', 2000);
+  // A goal added in the goals section
+  await goToSection(page, 'today');
+  await page.locator('.goals-container > .btn').tap();
+  await page.fill('#inputModalField', 'Fenster putzen');
+  await page.locator('#inputModalSubmit').tap();
+  await waitFor(async () => (await text(page, '.home-goals .home-card-meta')) === '2 of 6 done', 'Home follows the goals', 2000);
+  // Another device ticks a habit: the realtime update reaches Home
+  const other = await openPhone(env);
+  await other.page.evaluate(() => {
+    const row = [...document.querySelectorAll('#habits .habit-row')].find(r => r.textContent.includes('Lesen'));
+    row.querySelectorAll('.habit-check')[4].click();
+  });
+  await waitFor(async () => (await text(page, '.home-habits .home-card-meta')) === '2 of 4 done today', 'habit from the other device', 12000);
+  await other.context.close();
+  // Reload: the same picture
+  await page.reload();
+  await page.waitForSelector('#stepChallenge:not([hidden])');
+  await waitFor(async () => (await text(page, '.home-tasks .home-card-meta')) === '1 open today · 1 overdue · 1 done', 'tasks after the reload');
+  assert.equal(await text(page, '.home-goals .home-card-meta'), '2 of 6 done');
+  assert.equal(await text(page, '.home-habits .home-card-meta'), '2 of 4 done today');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+scenario('home on the desktop: first on the page, a grid of cards, links scroll to the sections, keyboard ticks', async (env) => {
+  seedDemo(env.store, { steps: false });
+  env.store.seed('settings', [{ user_id: USER, key: 'home', value: { name: 'Dali' } }]);
+  const { page, errors, context } = await open(env, { viewport: { width: 1440, height: 900 } });
+  assert.equal(await page.evaluate(() => document.querySelector('.page-section').id), 'section-home');
+  assert.equal(await text(page, '.home-greeting-text'), 'Good morning, Dali.');
+  assert.equal(await displayed(page, '#mobileTabbar'), false);
+  const tops = await page.evaluate(() => {
+    const top = s => Math.round(document.querySelector(s).getBoundingClientRect().top);
+    return { weather: top('.home-weather'), today: top('.home-today'), tasks: top('.home-tasks'), goals: top('.home-goals'), matrix: top('.home-matrix'), steps: top('.home-steps'), habits: top('.home-habits') };
+  });
+  assert.equal(tops.today, tops.tasks, 'Today and Tasks side by side');
+  assert.ok(tops.goals === tops.matrix && tops.matrix === tops.steps, 'Goals, Matrix and Steps in one row');
+  assert.ok(tops.weather < tops.today && tops.today < tops.goals && tops.goals < tops.habits, 'rows in order');
+  assert.ok(tops.goals < 900, 'the first two rows of cards fit a desktop screen');
+  assert.equal(await horizontalOverflow(page), 0);
+
+  // Keyboard: Space ticks the focused task, the focus stays on it after the re-render, and
+  // the focus timer does not start
+  await page.focus('.home-tasks .home-check[aria-label="Laufen 5 km"]');
+  await page.keyboard.press('Space');
+  await waitFor(() => (boardTask(env, 'FR', 'Laufen 5 km') || {}).done === true, 'ticked with the keyboard');
+  await waitFor(() => page.evaluate(() => document.activeElement.getAttribute('aria-label') === 'Laufen 5 km' && document.activeElement.getAttribute('aria-checked') === 'true'), 'focus kept on the same task');
+  assert.equal(await text(page, '#pomoStart'), '▶ Start', 'the focus timer did not start');
+
+  // A link scrolls to the section
+  await page.click('.home-tasks .home-link');
+  await waitFor(() => page.evaluate(() => Math.abs(document.getElementById('section-week').getBoundingClientRect().top) < 40), 'scrolled to Week');
+  await page.click('.home-matrix .home-link');
+  await waitFor(() => page.evaluate(() => Math.abs(document.getElementById('section-lists').getBoundingClientRect().top) < 40), 'scrolled to Lists');
   assert.deepEqual(errors, []);
   await context.close();
 });

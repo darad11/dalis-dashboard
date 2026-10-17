@@ -666,6 +666,8 @@
     restoreFocus(selection);
     state.postRender.forEach(fn => fn());
     renderSyncStatus();
+    // Home (js/home-ui.js) shows today's steps and re-renders on this
+    window.dispatchEvent(new CustomEvent('dashboard:datachange', { detail: { key: 'steps' } }));
   }
 
   function renderHeader(year, cfg) {
@@ -1832,11 +1834,20 @@
     scheduleSync(0);
   }
 
+  // Today's numbers for Home (js/home-ui.js): the same stats the card shows, or null before
+  // the challenge of this year is set up
+  function summary() {
+    const todayKey = today();
+    const cfg = yearConfig(Core.yearOf(todayKey));
+    return { configured: !!cfg, started: state.started, stats: cfg ? Core.computeStats(cfg, state.entries, todayKey) : null };
+  }
+
   window.stepCounter = {
     start,
     sync,
     pendingCount,
     syncSummary,
-    uploadAll
+    uploadAll,
+    summary
   };
 })();

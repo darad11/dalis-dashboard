@@ -7,47 +7,56 @@
  * text (the darker light-theme value in both themes, 4.7:1 or more).
  */
 
+/* The same colours on the tiles of Home (css/home.css, js/home-ui.js) */
 .matrix-area,
-.matrix-sheet {
+.matrix-sheet,
+.home-tile {
     --q-text: rgb(215, 0, 21);
     --q-fill: rgb(215, 0, 21);
 }
 
 [data-area="next"].matrix-area,
-[data-area="next"].matrix-sheet {
+[data-area="next"].matrix-sheet,
+[data-area="next"].home-tile {
     --q-text: rgb(0, 112, 230);
     --q-fill: rgb(0, 112, 230);
 }
 
 [data-area="waiting"].matrix-area,
-[data-area="waiting"].matrix-sheet {
+[data-area="waiting"].matrix-sheet,
+[data-area="waiting"].home-tile {
     --q-text: rgb(179, 74, 0);
     --q-fill: rgb(179, 74, 0);
 }
 
 [data-area="ideas"].matrix-area,
-[data-area="ideas"].matrix-sheet {
+[data-area="ideas"].matrix-sheet,
+[data-area="ideas"].home-tile {
     --q-text: rgb(108, 108, 112);
     --q-fill: rgb(108, 108, 112);
 }
 
 body.dark .matrix-area,
-body.dark .matrix-sheet {
+body.dark .matrix-sheet,
+body.dark .home-tile {
     --q-text: rgb(255, 66, 69);
 }
 
 body.dark [data-area="next"].matrix-area,
-body.dark [data-area="next"].matrix-sheet {
+body.dark [data-area="next"].matrix-sheet,
+body.dark [data-area="next"].home-tile {
     --q-text: rgb(0, 145, 255);
 }
 
 body.dark [data-area="waiting"].matrix-area,
-body.dark [data-area="waiting"].matrix-sheet {
+body.dark [data-area="waiting"].matrix-sheet,
+body.dark [data-area="waiting"].home-tile {
     --q-text: rgb(255, 146, 48);
 }
 
 body.dark [data-area="ideas"].matrix-area,
-body.dark [data-area="ideas"].matrix-sheet {
+body.dark [data-area="ideas"].matrix-sheet,
+body.dark [data-area="ideas"].home-tile {
     --q-text: rgb(152, 152, 157);
 }
 

@@ -159,11 +159,15 @@ an allen vier Seiten berücksichtigt.
 |---|---|
 | `js/mobile.js` | Touch-Layout (`html.touch-layout`), Abschnittsleiste mit Scroll-Spy und Glas-Linse, Leiste oben, Menüs (`MobileUI.showMenu`, `moreButton`, `priorityMenu`), Seite hinter einem Sheet festhalten (`MobileUI.lockPage` / `unlockPage`), Lesepositions-Erhalt (auch hinter einem Sheet), sichtbare Höhe über der Tastatur (`--vv-height`), Theme-Farbe |
 | `css/mobile.css` | iOS-Design im Touch-Layout (Farb- und Schrift-Tokens, Glas, Karten, Controls, Menüs, Alerts, Sheets) |
-| `index.html` | fünf `section.page-section` (`#section-today` … `#section-lists`) in der Desktop-Reihenfolge; `window.placePageOrder` (Inline-Skript) stellt auf Handy/Tablet Kalender, Woche, Ziele, Focus vor dem ersten Zeichnen um; Abschnittsleiste als Links (Week zuerst), Leiste oben |
+| `index.html` | sechs `section.page-section` (`#section-home`, `#section-today` … `#section-lists`) in der Desktop-Reihenfolge; `window.placePageOrder` (Inline-Skript) stellt auf Handy/Tablet Kalender, Woche, Ziele, Focus vor dem ersten Zeichnen um; Abschnittsleiste als Links (Home, dann Week), Leiste oben |
+| `js/home-ui.js`, `css/home.css` | Home: der Tag auf einen Blick als erster Abschnitt, siehe HOME.md |
 | `js/calendar-ui.js`, `css/calendar.css` | Kalender-Editor und Kalenderliste (Sheet bzw. Dialog), siehe CALENDAR.md |
 
 - Touch-Layout = `(pointer: coarse) and (max-width: 1099px)`; steht im Inline-Skript in
   `index.html` und in `js/mobile.js` (`TOUCH_LAYOUT_QUERY`) und muss gleich bleiben.
+- Die Seite öffnet auf **Home** ([HOME.md](HOME.md)); die Leiste hat sechs Einträge (Home, Week,
+  Today, Health, Habits, Lists), jeder mindestens 44 × 44 pt, die Beschriftungen ungekürzt (Test
+  `scroll: phones…`).
 - Abschnitt der Leiste: der letzte, dessen Anfang ein Viertel unter der oberen Leiste vorbei
   ist; am Seitenende der gewählte bzw. der letzte. Während eines Sprungs bleibt die Markierung
   stehen (kein Flackern), danach folgt sie wieder dem Inhalt.
@@ -210,7 +214,7 @@ Chromium (Playwright) mit Touch-Emulation und Beispieldaten nur im lokalen Test-
   Screenshots aller Abschnitte, Menüs, Editor, Kalenderliste, Alerts; kein horizontales Scrollen.
 - Textgrößen 17/19/21/23 px (Standard bis xxxLarge) und 28/33 px (Bedienungshilfen-Größen):
   kein horizontales Scrollen, Timer-Ziffern bleiben im Ring.
-- Scroll-Spy über die ganze Seite: Week → Today → Health → Habits → Lists.
+- Scroll-Spy über die ganze Seite: Home → Week → Today → Health → Habits → Lists.
 - Glas-Linse: Bild-für-Bild-Sequenzen (60 fps, angehaltene Uhr) von Antippen und Ziehen in hell
   und dunkel, neben die Einzelbilder deiner Aufnahme gelegt; 402 × 874, 890 × 626, 852 × 393;
   „Bewegung reduzieren“, „Transparenz reduzieren“, „Kontrast erhöhen“ (emuliert).

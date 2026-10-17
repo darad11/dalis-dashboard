@@ -433,6 +433,7 @@ const db = {
       localStorage.setItem('ts_' + key, Date.now().toString());
     }
     updateSyncStatus();
+    notifyDataChange(key);
   },
 
   del: (key, fromCloud = false) => {
@@ -443,6 +444,7 @@ const db = {
       localStorage.removeItem('synced_' + key);
     }
     updateSyncStatus();
+    notifyDataChange(key);
   },
 
   // Dirty Flag Helpers
@@ -636,6 +638,13 @@ const db = {
     db.lastLocalChange = Date.now();
     db.pushKey('calendars', () => window.supabaseDB.setSetting('calendars', list));
   },
+  // Home (js/home-ui.js): name for the greeting and the weather location, settings key "home"
+  getHome: () => db.get('home', null),
+  setHome: (value) => {
+    db.set('home', value);
+    db.lastLocalChange = Date.now();
+    db.pushKey('home', () => window.supabaseDB.setSetting('home', value));
+  },
   getCalendarTasks: (date) => db.get(db.calKey(date), []),
   setCalendarTasks: (date, tasks) => {
     const key = db.calKey(date);
@@ -766,6 +775,14 @@ const db = {
       noteError('calendars', 'download failed');
     } else if (calendarsSetting.exists && !db.isDirty('calendars')) {
       db.set('calendars', calendarsSetting.value, true);
+    }
+
+    // Home settings (name, weather location): the same rule as the calendars
+    const homeSetting = await window.supabaseDB.fetchSetting('home');
+    if (!homeSetting.ok) {
+      noteError('home', 'download failed');
+    } else if (homeSetting.exists && !db.isDirty('home')) {
+      db.set('home', homeSetting.value, true);
     }
 
     // List Metadata: ALWAYS merge cloud lists into local (even if dirty)
@@ -1001,7 +1018,7 @@ const db = {
           err = await window.supabaseDB.setHabits(val);
           if (!err) db.storeHabitIds(val);
         }
-        else if (key === 'habitChecks' || key === 'customListsMeta' || key === 'gymHubData' || key === 'calendars') err = await window.supabaseDB.setSetting(key, val);
+        else if (key === 'habitChecks' || key === 'customListsMeta' || key === 'gymHubData' || key === 'calendars' || key === 'home') err = await window.supabaseDB.setSetting(key, val);
         else if (key === 'backlog') err = await window.supabaseDB.setBacklog(val);
         else if (key.startsWith('week-')) err = await window.supabaseDB.setKanban(key, val);
         else if (key.startsWith('list-')) {
@@ -1087,8 +1104,8 @@ const db = {
       });
     }
 
-    // 4. Settings blobs (habit checks, list metadata, health hub, own calendars)
-    for (const key of ['habitChecks', 'customListsMeta', 'gymHubData', 'calendars']) {
+    // 4. Settings blobs (habit checks, list metadata, health hub, own calendars, Home)
+    for (const key of ['habitChecks', 'customListsMeta', 'gymHubData', 'calendars', 'home']) {
       if (localStorage.getItem(key) !== null) await upload(key, key, val => api.setSetting(key, val));
     }
 
@@ -1249,10 +1266,19 @@ window.forceSync = () => window.showSyncDetails();
 // Re-render everything that shows synced data (the weekly review textarea is
 // left alone so text being typed is never replaced)
 function refreshAllViews() {
-  const views = [renderCalendar, renderGoals, renderKanban, renderHabits, renderAllLists, updateStats];
+  const views = [renderCalendar, renderGoals, renderKanban, renderHabits, renderAllLists, updateStats, renderHome];
   views.forEach(view => {
     try { view(); } catch (e) { console.error('[UI] Refresh failed:', view.name, e); }
   });
+}
+
+// Home (js/home-ui.js) summarises the other sections and follows every change of their data
+function notifyDataChange(key) {
+  window.dispatchEvent(new CustomEvent('dashboard:datachange', { detail: { key } }));
+}
+
+function renderHome() {
+  if (window.HomeUI) window.HomeUI.refresh();
 }
 
 // Helper: ISO week-year (the calendar year of the week's Thursday)

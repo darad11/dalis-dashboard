@@ -523,5 +523,6 @@
     S.closeSheet(editor.sheet);
   }
 
-  window.MatrixUI = { panel, refresh, openArea, openTask };
+  // areaIcon: the symbol of an area for other views (Home, js/home-ui.js)
+  window.MatrixUI = { panel, refresh, openArea, openTask, areaIcon: (areaId, cls) => icon(areaId, cls) };
 })();
