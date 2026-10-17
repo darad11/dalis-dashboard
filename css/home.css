@@ -115,13 +115,23 @@
     height: 18px;
 }
 
+/* The date on the left, the clock on the right edge */
 .home-date {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
     margin: 4px 0 0;
     font-size: 1.05rem;
     color: var(--text-secondary);
 }
 
+.home-date-text {
+    min-width: 0;
+}
+
 .home-clock {
+    margin-left: auto;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }

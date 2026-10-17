@@ -2009,6 +2009,13 @@ scenario('home on phones: the day at a glance from the other sections; ticks cha
   const clockBefore = await text(page, '.home-clock');
   await waitFor(async () => (await text(page, '.home-clock')) !== clockBefore, 'the clock ticks');
   assert.equal(await page.locator('#sidebarDateTime').count(), 0, 'no second clock above the goals');
+  const edges = await page.evaluate(() => {
+    const header = document.querySelector('.home-header').getBoundingClientRect();
+    const date = document.querySelector('.home-date-text').getBoundingClientRect();
+    const clock = document.querySelector('.home-clock').getBoundingClientRect();
+    return { dateLeft: Math.round(date.left - header.left), clockRight: Math.round(header.right - clock.right), sameLine: Math.abs(date.top - clock.top) < 4 };
+  });
+  assert.ok(edges.clockRight <= 6 && edges.dateLeft <= 6 && edges.sameLine, `date left, clock flush right: ${JSON.stringify(edges)}`);
   assert.deepEqual(await page.$$eval('.home-card', els => els.map(e => e.className.replace('home-card glass-panel ', '').split(' ')[0])),
     ['home-weather', 'home-today', 'home-tasks', 'home-goals', 'home-matrix', 'home-steps', 'home-habits']);
 

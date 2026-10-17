@@ -180,9 +180,9 @@
     return h('header', { class: 'home-header' },
       h('h1', { class: 'home-greeting' },
         h('span', { class: 'home-greeting-text' }, head, h('span', { class: 'home-greeting-tail' }, tail, edit))),
+      // The date on the left, the clock flush right (css/home.css)
       h('p', { class: 'home-date' },
         h('span', { class: 'home-date-text' }, Core.dateLabel(d.now)),
-        h('span', { class: 'home-date-sep', 'aria-hidden': 'true' }, ' · '),
         h('time', { class: 'home-clock' }, Core.clockLabel(d.now))));
   }
 
