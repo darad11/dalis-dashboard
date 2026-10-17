@@ -131,9 +131,16 @@
       h('div', { class: 'home-card-actions' }, ...(actions || [])));
   }
 
+  // Every card's link is as wide as the widest of them: the labels of all links are laid into
+  // the same grid cell, invisible, and the visible one sits at its right end. So the "+" stand
+  // in one column and the links flush right - measured in the device's own font and text size.
+  const LINK_LABELS = ['Calendar', 'Week', 'Goals', 'Lists', 'Health', 'Habits'];
+
   function linkButton(label, target, key) {
+    const sizers = LINK_LABELS.map(text => h('span', { class: 'home-link-sizer', 'aria-hidden': 'true' }, text));
     return h('button', { type: 'button', class: 'home-link', 'data-focus': key, onclick: () => goTo(target) },
-      label, icon('chevron', 'home-link-icon'));
+      h('span', { class: 'home-link-text' }, sizers, h('span', { class: 'home-link-label' }, label)),
+      icon('chevron', 'home-link-icon'));
   }
 
   function addButton(label, key, onclick) {

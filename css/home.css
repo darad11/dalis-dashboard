@@ -163,6 +163,21 @@
     margin: 2px 0 0 -8px;
 }
 
+/* Equal width for every card's link (js/home-ui.js linkButton): all labels share one cell */
+.home-link-text {
+    display: inline-grid;
+    justify-items: end;
+}
+
+.home-link-label,
+.home-link-sizer {
+    grid-area: 1 / 1;
+}
+
+.home-link-sizer {
+    visibility: hidden;
+}
+
 .home-link-icon {
     width: 14px;
     height: 14px;

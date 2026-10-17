@@ -2092,6 +2092,20 @@ scenario('home on phones: the day at a glance from the other sections; ticks cha
   assert.equal(await page.getAttribute('.home-steps .home-meter', 'aria-valuenow'), '36');
   assert.equal(await text(page, '.home-steps .home-card-foot'), 'Year 56 % · 2.231.831 of 4.018.405');
 
+  // The buttons in the card heads: links of one width, "+" in one column, all flush right
+  const heads = await page.evaluate(() => [...document.querySelectorAll('.home-card-head')].map(head => {
+    const card = head.closest('.home-card').getBoundingClientRect();
+    const link = head.querySelector('.home-link').getBoundingClientRect();
+    const add = head.querySelector('.home-add');
+    return { card: head.closest('.home-card').classList[2], width: Math.round(link.width), linkRight: Math.round(card.right - link.right), addRight: add ? Math.round(card.right - add.getBoundingClientRect().right) : null };
+  }));
+  assert.equal(heads.length, 6, 'six card heads');
+  assert.equal(new Set(heads.map(x => x.width)).size, 1, `links of one width: ${JSON.stringify(heads)}`);
+  assert.equal(new Set(heads.map(x => x.linkRight)).size, 1, 'links flush right');
+  assert.equal(new Set(heads.filter(x => x.addRight !== null).map(x => x.addRight)).size, 1, '"+" in one column');
+  assert.equal(await text(page, '.home-today .home-link'), 'Calendar', 'only the own label is read');
+  assert.equal(await page.getAttribute('.home-tasks .home-link .home-link-sizer', 'aria-hidden'), 'true');
+
   // Every card leads to the section that owns its data
   await page.locator('.home-tasks .home-link').tap();
   await waitFor(async () => (await currentSection(page)) === 'week' && await sectionAtTop(page, 'week'), 'Week');
@@ -2309,6 +2323,14 @@ scenario('home on the desktop: first on the page, a grid of cards, links scroll 
   assert.ok(tops.goals === tops.matrix && tops.matrix === tops.steps, 'Goals, Matrix and Steps in one row');
   assert.ok(tops.weather < tops.today && tops.today < tops.goals && tops.goals < tops.habits, 'rows in order');
   assert.ok(tops.goals < 900, 'the first two rows of cards fit a desktop screen');
+  // Card heads on the desktop too: links of one width, flush right in their card
+  const deskHeads = await page.evaluate(() => [...document.querySelectorAll('.home-card-head')].map(head => {
+    const card = head.closest('.home-card').getBoundingClientRect();
+    const link = head.querySelector('.home-link').getBoundingClientRect();
+    return [Math.round(link.width), Math.round(card.right - link.right)];
+  }));
+  assert.equal(new Set(deskHeads.map(x => x[0])).size, 1, `links of one width: ${JSON.stringify(deskHeads)}`);
+  assert.equal(new Set(deskHeads.map(x => x[1])).size, 1, 'links flush right');
   assert.equal(await horizontalOverflow(page), 0);
 
   // Keyboard: Space ticks the focused task, the focus stays on it after the re-render, and
