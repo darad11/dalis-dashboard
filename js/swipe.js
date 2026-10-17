@@ -1,5 +1,6 @@
 /*
- * Swipe left to delete, as in iOS lists (phones and tablets: the touch layout of js/mobile.js).
+ * Swipe left to delete, as in iOS lists (with a finger or pen on any device; a mouse drags rows
+ * as before and never swipes).
  *
  * SwipeActions.enable(row, { label, remove }) makes a row swipeable. remove() deletes the entry
  * where its section keeps it and returns true - or false when it is gone already (a sync).
@@ -434,12 +435,11 @@
   document.addEventListener('pointercancel', onPointerCancel, true);
   document.addEventListener('click', onClick, true);
   // Scrolling by the person (a touch elsewhere closes it already, see onPointerDown; here a
-  // trackpad or mouse wheel), a layout change or leaving the app closes an open row. A scroll
+  // trackpad or mouse wheel), a new window size or leaving the app closes an open row. A scroll
   // the page makes by itself does not: a section above that is redrawn shifts the page.
   const closeOpen = () => { if (openRow && !gesture) close(openRow); };
   window.addEventListener('wheel', closeOpen, { passive: true, capture: true });
   window.addEventListener('resize', closeOpen);
-  window.addEventListener('dashboard:layoutchange', closeOpen);
   document.addEventListener('visibilitychange', closeOpen);
 
   window.SwipeActions = {

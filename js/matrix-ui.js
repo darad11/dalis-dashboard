@@ -1,14 +1,14 @@
 /*
  * Matrix in the Lists section: four areas (to do, up next, waiting, ideas) with tasks.
  *
- * Panel: the title (touch screens: "⋯" with Move Up / Move Down, like a list; desktop: drag it
- * like a list) and the areas as cards in two columns. A card: its title (opens the area), "+"
+ * Panel: the title ("⋯" with Move Up / Move Down, like a list; with a mouse it can also be
+ * dragged like a list) and the areas as cards in two columns. A card: its title (opens the area), "+"
  * (new task) and its open tasks; a circle ticks a task off, the text opens it.
  * Area sheet: the title with a pencil to rename it, the open tasks, done ones under
  * "Completed", and a large "Add Task" button in the area's colour.
  * Task sheet: text, note, due date (Today / Tomorrow / Custom), repeat; when editing also the
- * area and Delete. Sheets: window.SheetUI (js/calendar-ui.js) - iOS page sheets on phones and
- * tablets, a dialog on the desktop.
+ * area and Delete. Sheets: window.SheetUI (js/calendar-ui.js) - iOS page sheets on every
+ * device.
  *
  * Data rules: js/matrix-core.js. Storage, order and sync in js/app.js: the items of list
  * "matrix" (getListItems/setListItems) and its entry in the list order (listMeta/saveListMeta,
@@ -394,7 +394,7 @@
     f.text.addEventListener('input', updateEditor);
     f.text.addEventListener('keydown', (e) => {
       // Touch keyboards: "Done" only hides the keyboard (note and date may follow)
-      if (e.key === 'Enter' && S.isTouchLayout()) {
+      if (e.key === 'Enter' && S.isTouchInput()) {
         e.preventDefault();
         f.text.blur();
       }
@@ -508,7 +508,7 @@
     updateEditor();
     editor.state.initial = snapshot(readEditor());
     // New task: straight into the text; editing on a touch screen does not open the keyboard
-    S.openSheet(sheet, opts.returnFocus, !task || !S.isTouchLayout() ? f.text : null);
+    S.openSheet(sheet, opts.returnFocus, !task || !S.isTouchInput() ? f.text : null);
   }
 
   async function dismissEditor() {

@@ -13,19 +13,20 @@ Stand 16.10.2026.
   verschwände im hellen Design auf den weißen Karten: Weiße Punkte haben dort einen grauen Rand
   (3,2:1 gegen Weiß, mit „Kontrast erhöhen“ dunkler); im Dark Mode sind sie rein weiß. Es gibt
   immer einen Standardkalender („Personal“, blau, umbenennbar, nicht löschbar).
-- **Farbige Punkte**: im Monatsraster (Handy) bis zu drei Punkte je Tag in den Farben der
-  Kalender des Tages; in der Tagesliste, im Monatsraster am Desktop und in der Wochenübersicht
-  ein Punkt je Eintrag. Ab zwei Kalendern steht der Kalendername zusätzlich als Text da
+- **Farbige Punkte**: im Monatsraster bis zu drei Punkte je Tag in den Farben der Kalender
+  des Tages; in der Tagesliste und in der Wochenübersicht ein Punkt je Eintrag. Ab zwei Kalendern steht der Kalendername zusätzlich als Text da
   (Farbe nicht als einziges Merkmal).
-- **Reihenfolge** innerhalb eines Tages: ganztägige Einträge zuerst (eigene Reihenfolge, am
-  Desktop per Drag & Drop), dann nach Uhrzeit.
+- **Reihenfolge** innerhalb eines Tages: ganztägige Einträge zuerst (eigene Reihenfolge, per
+  Drag & Drop in der Wochenübersicht), dann nach Uhrzeit.
 - **Editor** (Titel, Ganztägig, Datum, Beginn, Ende, Kalender, Priorität, Löschen):
-  - Handy/Tablet: Sheet von unten; öffnen über „+“ oben, „New Event“ unter der Tagesliste oder
-    Antippen eines Eintrags; Kalenderliste über „Calendars“ unter der Tagesliste. Ein neuer
-    Eintrag öffnet mit der Tastatur im Titel; das Sheet steht dabei sofort an seinem Platz und
-    blendet ein (warum: [MOBILE.md](MOBILE.md), „Sheets und Tastatur“).
-  - Desktop: Dialog; öffnen per Doppelklick auf einen Eintrag, „+“ im Tagesfeld, „Calendars“ im
-    Kalenderkopf, Taste Q (für heute). Rechtsklick wechselt weiter die Priorität.
+  - Jedes Gerät (seit 17.10.2026 auch der Desktop): Sheet von unten; öffnen über „+“ oben,
+    „New Event“ unter der Tagesliste oder Antippen/Klick auf einen Eintrag; Kalenderliste über
+    „Calendars“ unter der Tagesliste; Taste Q (für heute). Ein neuer Eintrag öffnet mit der
+    Tastatur im Titel; das Sheet steht dabei sofort an seinem Platz und blendet ein (warum:
+    [MOBILE.md](MOBILE.md), „Sheets und Tastatur“). Mit Hardware-Tastatur hat der Titel auch beim
+    Bearbeiten den Fokus und Return speichert.
+  - Bis 17.10.2026 am Desktop: Dialog, Einträge im Monatsfeld (Doppelklick, „+“ im Tagesfeld,
+    Rechtsklick für die Priorität, Ziehen auf einen anderen Tag).
   - Neues Datum = Eintrag wird auf diesen Tag verschoben.
 - **Kalender löschen**: Die Einträge bleiben erhalten und gehören danach zum Standardkalender
   (die Rückfrage nennt die Anzahl). Anders als Apple Kalender, das die Termine mitlöscht.

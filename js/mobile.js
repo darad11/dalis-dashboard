@@ -1,43 +1,39 @@
 /*
- * Phone, tablet and foldable support (iPhone, iPhone Duo folded and unfolded, iPad).
+ * One layout on every device: the iOS look (Apple HIG, iOS 26/27) on iPhone, iPhone Duo,
+ * iPad and the desktop (html.touch-layout, set in the markup of index.html; the class name
+ * stays from the time when only touch screens had this layout).
  *
- * - Touch layout when touch is the primary input (html.touch-layout): phones, foldables and the
- *   iPad in portrait and landscape. The page is
- *   one continuous scroll (Home, Week, Today, Health, Habits, Lists - the calendar first in
- *   Week, the focus timer after today's goals); the floating section bar at the bottom marks the section on
- *   screen and jumps to a section when tapped. A finger on the bar lifts the selection into a
- *   glass lens that can be dragged to a section (as in iOS 26).
- *   The desktop layout (mouse or trackpad as the primary input) is not affected.
- *   No width limit: iPadOS Safari reports touch as the primary pointer even with a trackpad or
- *   mouse attached (WebKit, WebPageIOS.mm: pointerCharacteristicsOfPrimaryPointingDevice is
- *   Coarse on iOS; only any-pointer/any-hover follow an accessory mouse), so rotating the iPad
- *   or attaching a keyboard keeps the layout. Until 17.10.2026 the layout ended at 1099px, and
- *   the iPad in landscape (1133-1376px) fell back to the desktop layout. Apple HIG, Layout:
- *   "Determine layout based on size classes, not device type or orientation" - the width only
- *   picks the arrangement inside the touch layout (compact < 700px, medium, wide).
+ * - The page is one continuous scroll (Home, Week, Today, Health, Habits, Lists - the calendar
+ *   first in Week, the focus timer after today's goals; this is the source order of
+ *   index.html). The floating section bar at the bottom marks the section on screen and jumps
+ *   to a section when tapped or clicked. A finger on the bar lifts the selection into a glass
+ *   lens that can be dragged to a section (as in iOS 26).
+ * - The width only picks the arrangement (css/mobile.css: one column below 700px, then more
+ *   columns; css/home.css: the wide Home grid from 1100px; on large screens the page keeps the
+ *   width of the 13" iPad and stays centred). Apple HIG, Layout: "Determine layout based on
+ *   size classes, not device type or orientation".
  * - App bar with "+" (new calendar event) and "⋯" (more), and menus anchored to the button
- *   that opened them (pull-down menus as in iOS). On touch screens of any width "⋯" menus
- *   replace hover-only buttons, double-click, right-click and drag & drop.
- * - Keeps the reading position when the width changes (fold/unfold, rotation, split view).
+ *   that opened them (pull-down menus as in iOS). Items have a "⋯" button on every device;
+ *   with a mouse, double-click, right-click and drag & drop work as before on top of it.
+ * - Input, not layout: (hover: none) - touch screens - turns off what needs a mouse.
+ * - Keeps the reading position when the width changes (fold/unfold, rotation, split view,
+ *   resizing a window).
  * - Visible viewport above the iOS keyboard as CSS variables (--vv-top, --vv-height).
  * - The browser toolbar colour follows the theme.
  *
- * Safari does not report whether a foldable is open or closed, so nothing here depends on
- * the device: layouts follow the available width only. Loaded before js/app.js, which uses
- * window.MobileUI when it exists.
+ * History: until 17.10.2026 the layout depended on the device - touch screens narrower than
+ * 1100px got it (the iPad in landscape and the desktop kept the earlier desktop layout), then
+ * every touch screen, now every device. Loaded before js/app.js, which uses window.MobileUI.
  */
 (function () {
   'use strict';
 
-  // Keep in sync with the inline script in index.html
-  const TOUCH_LAYOUT_QUERY = '(pointer: coarse)';
-  // In the order of the page in the touch layout (placeTouchOrder), the only layout with the
-  // section bar. Home (js/home-ui.js) is first on every layout.
+  // In the order of the page (index.html); Home (js/home-ui.js) is first
   const SECTIONS = ['home', 'week', 'today', 'health', 'habits', 'lists'];
 
   const root = document.documentElement;
-  const layoutMedia = window.matchMedia(TOUCH_LAYOUT_QUERY);
   const touchMedia = window.matchMedia('(hover: none)');
+  const anyHover = window.matchMedia('(any-hover: hover)');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const reducedTransparency = window.matchMedia('(prefers-reduced-transparency: reduce)');
   // Read before js/steps.js removes the parameters from the address bar
@@ -49,11 +45,6 @@
 
   function isTouch() {
     return touchMedia.matches;
-  }
-
-  function onMediaChange(media, handler) {
-    if (media.addEventListener) media.addEventListener('change', handler);
-    else if (media.addListener) media.addListener(handler);
   }
 
   function el(tag, cls, text) {
@@ -81,6 +72,7 @@
     calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
     focus: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>',
     cloud: '<path d="M7 18.5h10.5a4 4 0 0 0 .4-8A6 6 0 0 0 6.3 9.4 4.6 4.6 0 0 0 7 18.5z"/>',
+    keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M6 10h.01M9.3 10h.01M12.6 10h.01M15.9 10h.01M6 13.5h.01M18 10h.01M18 13.5h.01M8.5 14.5h7"/>',
     signOut: '<path d="M14.5 4.5h-8a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h8"/><path d="M10 12h10M16.5 8.5 20 12l-3.5 3.5"/>',
     checkmark: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     chevronRight: '<path d="M9.5 5.5 16 12l-6.5 6.5"/>',
@@ -92,48 +84,6 @@
     span.setAttribute('aria-hidden', 'true');
     if (ICONS[name]) span.innerHTML = `<svg viewBox="0 0 24 24">${ICONS[name]}</svg>`;
     return span;
-  }
-
-  // ======================================================== Touch layout
-
-  // On phones and tablets the Step Challenge comes first in the Health Hub, above the hero
-  // row; on the desktop it stays below it. The card is moved in the DOM rather than reordered
-  // with CSS `order`, so VoiceOver and the keyboard follow the order on screen.
-  function placeStepCard() {
-    const card = document.getElementById('stepChallenge');
-    const header = document.querySelector('#section-health .gym-hub-header');
-    const content = document.getElementById('gymHubContent');
-    if (!card || !header || !content) return;
-    const focused = card.contains(document.activeElement) ? document.activeElement : null;
-    if (isTouchLayout()) {
-      if (header.nextElementSibling !== card) header.after(card);
-    } else if (content.previousElementSibling !== card) {
-      content.before(card);
-    }
-    // Moving a node takes the focus out of it
-    if (focused && document.activeElement !== focused) focusWithoutScroll(focused);
-  }
-
-  // Phones and tablets: Calendar, Weekly Overview, Today's Goals, Focus. The order is set by
-  // window.placePageOrder (inline in index.html, so it is right before the first paint); this
-  // keeps it when the layout changes. Moving a node takes the focus out of it.
-  function placeTouchOrder() {
-    if (typeof window.placePageOrder !== 'function') return;
-    const focused = document.activeElement;
-    window.placePageOrder();
-    if (focused && focused !== document.body && document.activeElement !== focused) focusWithoutScroll(focused);
-  }
-
-  function applyTouchLayout() {
-    const was = isTouchLayout();
-    root.classList.toggle('touch-layout', layoutMedia.matches);
-    placeStepCard();
-    placeTouchOrder();
-    if (was !== layoutMedia.matches) {
-      syncThemeColor();
-      window.dispatchEvent(new CustomEvent('dashboard:layoutchange', { detail: { touch: layoutMedia.matches } }));
-      if (layoutMedia.matches) scheduleSpy();
-    }
   }
 
   // ===================================================== Section bar + spy
@@ -637,7 +587,6 @@
     bar.addEventListener('contextmenu', (e) => { if (lens.pressed) e.preventDefault(); });
     window.addEventListener('blur', () => onLensCancel());
     document.addEventListener('visibilitychange', () => { if (document.hidden) endLens(); });
-    window.addEventListener('dashboard:layoutchange', () => resetLens(true));
   }
 
   // A click between the items or at the rounded ends of the bar counts for the nearest item
@@ -738,6 +687,9 @@
         { id: 'name', label: homeName() ? 'Your Name…' : 'Add Your Name…', icon: 'pencil', subtitle: homeName() || null,
           onSelect: () => { if (window.HomeUI) window.HomeUI.editName(); } },
         { id: 'focus-mode', label: 'Focus Mode', icon: 'focus', onSelect: call('enterFocusMode') },
+        // With a mouse or trackpad (desktop, iPad with a Magic Keyboard) a hardware keyboard is
+        // likely: the shortcuts (also "?") - formerly in the floating desktop menu
+        ...(anyHover.matches ? [{ id: 'shortcuts', label: 'Keyboard Shortcuts', icon: 'keyboard', onSelect: call('showShortcuts') }] : []),
         { id: 'sync', label: 'Sync & Backup', icon: 'cloud', subtitle: syncSubtitle(), onSelect: call('showSyncDetails') },
         '-',
         { id: 'sign-out', label: 'Sign Out', icon: 'signOut', destructive: true, onSelect: call('signOut') }
@@ -1012,8 +964,12 @@
 
   let lockedScroll = null;
 
+  // Only where an on-screen keyboard may come up (touch as the primary input): there the
+  // browser scrolls the page behind a sheet to a focused field. With a mouse and a hardware
+  // keyboard nothing moves it, and holding it would hide the page's scrollbar (the content
+  // would shift sideways while the sheet is open).
   function lockPage() {
-    if (lockedScroll !== null || !isTouchLayout()) return;
+    if (lockedScroll !== null || !isTouch()) return;
     lockedScroll = window.scrollY;
     root.style.setProperty('--page-lock-top', `${-lockedScroll}px`);
     root.classList.add('page-locked');
@@ -1134,8 +1090,8 @@
     const meta = document.querySelector('meta[name="theme-color"]');
     if (!meta || !document.body) return;
     const dark = document.body.classList.contains('dark');
-    // Touch layout: iOS grouped background; desktop: the dashboard background
-    const color = isTouchLayout() ? (dark ? '#000000' : '#f2f2f7') : (dark ? '#0f172a' : '#f0f2f5');
+    // iOS grouped background (systemGroupedBackground), black in dark mode
+    const color = dark ? '#000000' : '#f2f2f7';
     meta.setAttribute('content', color);
   }
 
@@ -1150,8 +1106,6 @@
     safeProbe = el('div', 'safe-area-probe');
     safeProbe.setAttribute('aria-hidden', 'true');
     document.body.appendChild(safeProbe);
-    applyTouchLayout();
-    onMediaChange(layoutMedia, applyTouchLayout);
     setupSections();
     setupAppBar();
     setupAnchoring();
@@ -1161,7 +1115,6 @@
   }
 
   window.MobileUI = {
-    TOUCH_LAYOUT_QUERY: TOUCH_LAYOUT_QUERY,
     SECTIONS: SECTIONS,
     isTouchLayout: isTouchLayout,
     isTouch: isTouch,

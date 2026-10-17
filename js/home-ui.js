@@ -73,6 +73,7 @@
     return span;
   }
 
+  // The iOS layout (every device since 17.10.2026; false only without js/mobile.js)
   function isTouch() {
     return !!(window.MobileUI && window.MobileUI.isTouchLayout());
   }
@@ -675,7 +676,6 @@
       syncWeather();
       render();
     });
-    window.addEventListener('dashboard:layoutchange', schedule);
     // Greeting, date and the countdown to the next event follow the clock; the weather is
     // fetched again when it is older than half an hour
     setInterval(() => {

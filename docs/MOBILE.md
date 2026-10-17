@@ -1,14 +1,16 @@
-# Mobil, Tablet und iPhone Duo
+# Ein Look für iPhone, iPad und Desktop
 
-Stand 17.10.2026 (dritte Ausbaustufe: Glas-Linse in der Leiste unten; das iPad auch quer im Touch-Layout). Ziel: auf iPhone, iPhone Duo (zu- und aufgeklappt) und
-iPad bedienbar wie eine iOS-App – durchgehend scrollbar, Bedienelemente im Stil von iOS 26/27
-(Liquid Glass) nach den Apple Human Interface Guidelines (HIG). Der Desktop bleibt bis auf die
-neue Abschnittsreihenfolge und die Kalender-Funktionen (siehe [CALENDAR.md](CALENDAR.md)) gleich.
+Stand 17.10.2026 (dritte Ausbaustufe: Glas-Linse in der Leiste unten; das iPad auch quer; seit
+dem Abend desselben Tages derselbe Look auch am Desktop). Ziel: auf iPhone, iPhone Duo (zu- und
+aufgeklappt), iPad und am Desktop bedienbar wie eine iOS-App – durchgehend scrollbar,
+Bedienelemente im Stil von iOS 26/27 (Liquid Glass) nach den Apple Human Interface Guidelines
+(HIG). Was nur der Finger braucht (Wischen, Antippen zum Abhaken), hängt an der Eingabe, nicht
+am Look; die Maus behält Doppelklick, Rechtsklick und Drag & Drop (Abschnitt „Desktop“).
 
 ## Was sich für dich ändert
 
-**Touch-Geräte** (iPhone, iPhone Duo in beiden Zuständen, iPad hochkant und quer,
-iPhone quer):
+**Alle Geräte** (iPhone, iPhone Duo in beiden Zuständen, iPad hochkant und quer, iPhone quer,
+Desktop):
 
 - **Eine durchgehende Seite** in der Reihenfolge Week → Today → Health → Habits → Lists: ganz
   oben der **Kalender**, dann **Weekly Overview & Tasks**, **Today's Goals** und zuletzt der
@@ -25,13 +27,10 @@ iPhone quer):
   | Habits | Habits, Weekly Review |
   | Lists | Matrix (to do, up next, waiting, ideas – siehe [MATRIX.md](MATRIX.md)), eigene Listen |
 
-  Am Desktop bleibt die Reihenfolge: Focus-Timer und Ziele oben nebeneinander, dann die Woche,
-  dann der Kalender. Die Blöcke werden im DOM verschoben (`window.placePageOrder`, Inline-Skript
-  in `index.html`), nicht per CSS `order` – VoiceOver und Tastatur folgen dem Bildschirm. Das
-  Skript läuft direkt unter dem Week-Abschnitt, also vor dem ersten Zeichnen: Auch bei langsam
-  ladenden Skripten springt die Seite nicht um. Beim Drehen bleibt das iPad im Touch-Layout;
-  nur wenn die Haupteingabe wechselt (etwa ein Convertible, das den Tablet-Modus verlässt),
-  wechselt die Reihenfolge mit, der Fokus bleibt.
+  Diese Reihenfolge steht so im HTML (`index.html`); kein Skript verschiebt mehr Blöcke (bis
+  17.10.2026 hatte der Desktop eine eigene Reihenfolge, das Handy wurde per
+  `window.placePageOrder` umgestellt). VoiceOver und Tastatur folgen dem Bildschirm, nichts
+  springt beim Laden, Drehen oder Wechsel der Eingabe.
 
 - **Woche (Handy, unter 700 px):** Oben im Kopf der Woche eine **Tagesleiste** wie in Apple
   Kalender – Wochentag, Datum, heute in der Akzentfarbe, der gezeigte Tag gefüllt, darunter bis
@@ -42,13 +41,11 @@ iPhone quer):
   herein; ein Tipp auf einen Tag in der Leiste springt dorthin.
   Die Zeile ist so hoch wie der gezeigte Tag – ein voller Tag macht die Seite nicht für alle
   anderen länger. Beim Wochenwechsel bleibt der Wochentag, „Today“ springt zu heute. Ab 700 px
-  (aufgeklappt, iPad) und am Desktop wie bisher alle Tage als Spalten. Für VoiceOver nennt jeder
+  (aufgeklappt, iPad, Desktop) alle Tage als Spalten. Für VoiceOver nennt jeder
   Tag der Leiste Datum, „today“ und die Zahl der Termine und offenen Aufgaben.
-- **Health Hub:** Die Step Challenge steht auf Handy und Tablet ganz oben, vor Streak, Wasser
-  und Supplements; am Desktop bleibt sie darunter. Die Karte wird im DOM verschoben
-  (`placeStepCard` in `js/mobile.js`), nicht per CSS `order` umsortiert – so entsprechen
-  VoiceOver- und Tab-Reihenfolge dem Bildschirm, und der Fokus bleibt beim Wechsel der Ansicht
-  (Drehen, Aufklappen) erhalten.
+- **Health Hub:** Die Step Challenge steht auf jedem Gerät ganz oben, vor Streak, Wasser und
+  Supplements – so steht sie im HTML (bis 17.10.2026 verschob `placeStepCard` sie auf Handy und
+  Tablet nach oben).
 - **Zahlen in der Step Challenge** (Remaining, Needed per day, Today) brechen nicht mehr mitten
   in der Zahl um (vorher „1.794.99“ / „4“ auf iPhone-Breite): Sie bleiben einzeilig, und die
   Schriftgröße folgt der Kachelbreite (18 % per Container-Query, höchstens so groß wie am
@@ -85,18 +82,50 @@ iPhone quer):
   kam die Klasse erst aus `initTheme` in `js/app.js` – nach der Anmeldung und dem ersten
   Sync –, sodass die Seite auf einem dunklen Gerät bei jedem Start etwa eine Sekunde hell war
   (Aufnahme vom 17.10., 07:36).
-- Mit **Maus/Trackpad als Haupteingabe** (Desktop, Laptop) bleibt das Desktop-Layout, auch in
-  einem schmalen Fenster.
-- **iPad quer (seit 17.10.2026):** Bis dahin endete das Touch-Layout bei 1099 px Breite. Das iPad
-  ist quer 1133–1376 px breit und bekam deshalb das alte Desktop-Layout, hochkant aber das neue.
-  Jetzt entscheidet nur die Haupteingabe: Safari auf dem iPad meldet immer Touch
-  (`pointer: coarse`), auch mit Magic Keyboard, Trackpad oder Maus – im WebKit-Quelltext
-  (`WebPageIOS.mm`, `pointerCharacteristicsOfPrimaryPointingDevice`) ist der primäre Zeiger
-  auf iOS immer „coarse“; Maus und Trackpad ändern nur `any-pointer` und `any-hover`. Die
-  Breite wählt nur noch die Anordnung innerhalb des Touch-Layouts (unter 700 px eine Spalte,
-  darüber mehrspaltig, ab 1100 px das breite Home-Raster). Das folgt den HIG (Layout):
-  „Determine layout based on size classes, not device type or orientation“ und „People expect
-  your experience to remain familiar when they rotate their device“.
+- **iPad quer (17.10.2026):** Bis dahin endete der iOS-Look bei 1099 px Breite. Das iPad ist
+  quer 1133–1376 px breit und bekam deshalb das alte Desktop-Layout, hochkant aber das neue.
+  Zuerst entschied dann nur die Haupteingabe (Safari auf dem iPad meldet immer Touch,
+  `pointer: coarse`, auch mit Magic Keyboard, Trackpad oder Maus – WebKit,
+  `WebPageIOS.mm`, `pointerCharacteristicsOfPrimaryPointingDevice`); seit dem Desktop-Umbau gilt
+  der Look überall. Die Breite wählt nur die Anordnung (unter 700 px eine Spalte, darüber
+  mehrspaltig, ab 1100 px das breite Home-Raster). Das folgt den HIG (Layout): „Determine
+  layout based on size classes, not device type or orientation“ und „People expect your
+  experience to remain familiar when they rotate their device“.
+
+### Desktop (seit 17.10.2026)
+
+Derselbe Look wie auf iPhone und iPad, mit Maus und Tastatur:
+
+- **Leisten:** Leiste unten mit den sechs Abschnitten (Klick springt, die Markierung folgt dem
+  Scrollen), Leiste oben mit **+** und **⋯**. Das **⋯-Menü** ersetzt das schwebende Desktop-Menü
+  (Dark Mode, Your Name…, Focus Mode, Keyboard Shortcuts, Sync & Backup, Abmelden – „Keyboard
+  Shortcuts“ nur mit Maus oder Trackpad, also auch am iPad mit Magic Keyboard), **+** den
+  schwebenden Schnell-Knopf; die Tasten **Q** (neuer Eintrag) und **?** (Kurzbefehle) gehen
+  weiterhin.
+- **Breite:** Ab 1376 px (13″-iPad quer) bleibt die Seite so breit und steht mittig – Zeilen und
+  Karten ziehen sich auf großen Monitoren nicht in die Länge.
+- **⋯ an jedem Eintrag** statt der Löschen-Kreuze, die erst beim Überfahren erschienen: Bearbeiten,
+  Priorität, Verschieben, Löschen. Die Maus behält zusätzlich **Doppelklick** (bearbeiten),
+  **Rechtsklick** (Priorität/Dringlichkeit weiterschalten) und **Drag & Drop** (Ziele, Aufgaben
+  der Woche, Listeneinträge, Listen). Eine Aufgabe lässt sich jetzt auf den ganzen Tag ziehen,
+  auch auf einen leeren (vorher nur auf die Kartenliste des Tages, die im iOS-Look bei einem
+  leeren Tag 0 px hoch ist). Ein Klick auf den Text hakt nicht ab – das ist die Abkürzung des
+  Fingers.
+- **Kalender:** wie auf dem iPad – das Monatsraster wählt einen Tag, seine Einträge stehen in der
+  Liste daneben; ein Klick öffnet den Editor. Verschieben über das Datum im Editor oder per Drag &
+  Drop in der Woche (Einträge im Monatsraster zu ziehen gibt es im iOS-Look nicht mehr).
+- **Sheets** statt Dialogen, ab 700 px über dem unteren Rand schwebend wie auf dem iPad. Mit
+  Hardware-Tastatur hat das erste Feld den Fokus und **Return speichert**; nur mit Bildschirm-
+  tastatur (Touch als Haupteingabe) blendet Return die Tastatur aus. Die Seite dahinter wird nur
+  bei Touch festgehalten (wegen der Bildschirmtastatur) – mit der Maus bliebe sonst die
+  Scrollleiste weg und der Inhalt spränge zur Seite.
+- **Hover** im selben Look: Knöpfe werden leicht blasser (gedrückt 0,55, darüber 0,8), ⋯, Leiste,
+  Kalendertage, Agenda- und Menüzeilen bekommen die halbe Füllung des Gedrückt-Zustands. Nichts
+  wächst, kippt oder färbt sich mehr um (die Hover-Effekte des alten Desktop-Looks sind aus
+  `css/style.css` entfernt: Karten-Zoom, Logo-Drehung, Spalten-Zoom, farbige Ränder,
+  Feiertage rot, Zahnrad-Drehung).
+- **Wischen zum Löschen** bleibt dem Finger (und Stift) vorbehalten; ein Mausziehen über eine
+  Zeile verschiebt und löscht nichts.
 
 ### Bedienung per Touch
 
@@ -225,16 +254,20 @@ an allen vier Seiten berücksichtigt.
 
 | Datei | Inhalt |
 |---|---|
-| `js/mobile.js` | Touch-Layout (`html.touch-layout`), Abschnittsleiste mit Scroll-Spy und Glas-Linse, Leiste oben, Menüs (`MobileUI.showMenu`, `moreButton`, `priorityMenu`), Seite hinter einem Sheet festhalten (`MobileUI.lockPage` / `unlockPage`), Lesepositions-Erhalt (auch hinter einem Sheet), sichtbare Höhe über der Tastatur (`--vv-height`), Theme-Farbe |
-| `css/mobile.css` | iOS-Design im Touch-Layout (Farb- und Schrift-Tokens, Glas, Karten, Controls, Menüs, Alerts, Sheets) |
-| `index.html` | sechs `section.page-section` (`#section-home`, `#section-today` … `#section-lists`) in der Desktop-Reihenfolge; `window.placePageOrder` (Inline-Skript) stellt auf Handy/Tablet Kalender, Woche, Ziele, Focus vor dem ersten Zeichnen um; Abschnittsleiste als Links (Home, dann Week), Leiste oben |
+| `js/mobile.js` | iOS-Look (`html.touch-layout`), Abschnittsleiste mit Scroll-Spy und Glas-Linse, Leiste oben, Menüs (`MobileUI.showMenu`, `moreButton`, `priorityMenu`), Seite hinter einem Sheet festhalten (`MobileUI.lockPage` / `unlockPage`, nur bei Touch), Lesepositions-Erhalt (auch hinter einem Sheet), sichtbare Höhe über der Tastatur (`--vv-height`), Theme-Farbe |
+| `css/mobile.css` | iOS-Design auf jedem Gerät (Farb- und Schrift-Tokens, Glas, Karten, Controls, Menüs, Alerts, Sheets, Hover mit der Maus) |
+| `index.html` | `<html class="touch-layout">`; sechs `section.page-section` (`#section-home`, `#section-week`, `#section-today`, `#section-health` … `#section-lists`) in der einen Reihenfolge (Kalender, Woche, Ziele, Focus; Step Challenge oben im Health Hub); Abschnittsleiste als Links (Home, dann Week), Leiste oben |
 | `js/home-ui.js`, `css/home.css` | Home: der Tag auf einen Blick als erster Abschnitt, siehe HOME.md |
 | `js/calendar-ui.js`, `css/calendar.css` | Kalender-Editor und Kalenderliste (Sheet bzw. Dialog), siehe CALENDAR.md |
 | `js/swipe.js`, `css/swipe.css` | Wischen zum Löschen (`SwipeActions.enable(row, { label, remove })`, Feder als CSS-`linear()`-Kurve, `whenIdle` für den Neuaufbau nach einem Sync); die Karte einer Zeile ist ihr erster Vorfahr mit Hintergrund (eine Zeile mit eigener abgerundeter Kachel ist ihre eigene Karte); die Zeilen melden sich in `js/app.js` (`swipeToDelete`, `swipeRemove…`), `js/matrix-ui.js` und `js/home-ui.js` an |
 
-- Touch-Layout = `(pointer: coarse)`, also Touch als Haupteingabe ohne Breitengrenze (bis
-  17.10.2026 mit `and (max-width: 1099px)`); steht im Inline-Skript in `index.html` und in
-  `js/mobile.js` (`TOUCH_LAYOUT_QUERY`) und muss gleich bleiben.
+- Der Look steht im Markup (`<html class="touch-layout">`) und wechselt nie; der Name der
+  Klasse stammt aus der Zeit, als nur Touch-Geräte ihn hatten (bis 17.10.2026 per Media-Query
+  `(pointer: coarse) and (max-width: 1099px)`, danach kurz `(pointer: coarse)`).
+- Was von der Eingabe abhängt, fragt `(hover: none)` (`MobileUI.isTouch()`,
+  `SheetUI.isTouchInput()`): Antippen des Textes hakt ab, Return blendet die Bildschirmtastatur
+  aus, Sheets öffnen beim Bearbeiten ohne Tastatur, die Seite hinter einem Sheet wird
+  festgehalten. Wischen erkennt `js/swipe.js` am Pointer-Typ (Maus nie).
 - Die Seite öffnet auf **Home** ([HOME.md](HOME.md)); die Leiste hat sechs Einträge (Home, Week,
   Today, Health, Habits, Lists), jeder mindestens 44 × 44 pt, die Beschriftungen ungekürzt (Test
   `scroll: phones…`).
@@ -292,8 +325,12 @@ Chromium (Playwright) mit Touch-Emulation und Beispieldaten nur im lokalen Test-
   iPad Pro 11″ 834 × 1210, iPad Pro 13″ 1032 × 1376 (Punkte = Auflösung bei @2x) und jeweils
   quer: Touch-Layout, Screenshots aller Abschnitte, kein horizontales Scrollen; Drehen behält
   Layout und Abschnitt (Test `ipad: …`).
-- Desktop 1440/1280/1180 mit Maus, hell/dunkel, je Abschnitt verglichen: unverändert bis auf
-  Reihenfolge, Kalender-Punkte/Uhrzeiten und den Habit-Abstand.
+- Desktop mit Maus (17.10.2026, nach dem Umbau): 1280 × 800, 1440 × 900, 1920 × 1080 und
+  2560 × 1440, hell und dunkel, Screenshots aller Abschnitte, kein horizontales Scrollen, Seite
+  ab 1376 px mittig. Jede `:hover`-Regel, die mit der Maus greift, einmal überfahren und die
+  Änderung gemessen (die alten Effekte sind weg, die neuen wie oben). Doppelklick, Rechtsklick,
+  ⋯-Menü per Klick, Drag & Drop auf einen leeren Tag und auf den Kopf eines Tages, Return
+  speichert im Editor, Mausziehen löscht nichts (Test `desktop with mouse: …`).
 - E2E-Szenarien und Gegenproben siehe [tests/README.md](../tests/README.md).
 
 ## Grenzen / nicht geprüft
@@ -326,5 +363,9 @@ Chromium (Playwright) mit Touch-Emulation und Beispieldaten nur im lokalen Test-
 - iPad quer nur in Chromium mit Touch-Emulation geprüft, nicht auf dem Gerät. Den Wechsel der
   Haupteingabe (Convertible) prüfen die Tests über die Touch-Emulation von Chromium; ein iPad
   wechselt sie nie.
+- **Desktop** nur in Chromium geprüft, nicht in Safari oder Firefox am Mac/PC. Firefox lässt
+  `<button>`-Elemente nicht ziehen (betrifft keine der ziehbaren Zeilen, das sind `div`s).
+  Monatsraster-Einträge per Drag & Drop zu verschieben gibt es im iOS-Look nicht mehr (Datum im
+  Editor oder Ziehen in der Woche).
 - Die Leiste unten minimiert sich beim Scrollen nicht (iOS-Option „minimize on scroll“), damit
   die Abschnittsmarkierung immer sichtbar bleibt.

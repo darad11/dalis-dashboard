@@ -140,13 +140,6 @@ body:not(.dark) .ambient-select {
     border: 1px solid rgba(0, 0, 0, 0.15);
 }
 
-@media (hover: hover) {
-    body:not(.dark) .ambient-select:hover {
-        background: rgba(255, 255, 255, 1);
-        border-color: rgba(0, 0, 0, 0.25);
-    }
-}
-
 body:not(.dark) .ambient-volume {
     background: rgba(0, 0, 0, 0.1);
 }
@@ -354,17 +347,6 @@ h3 {
             transparent 60%);
     transform: translateX(-100%);
     transition: transform 0.6s ease;
-}
-
-@media (hover: hover) {
-    .brand-logo:hover {
-        transform: scale(1.08) rotate(-3deg);
-        border-radius: 18px;
-        box-shadow:
-            0 8px 30px rgba(0, 0, 0, 0.25),
-            inset 0 -2px 0 rgba(0, 0, 0, 0.1),
-            inset 0 2px 0 rgba(255, 255, 255, 0.15);
-    }
 }
 
 @media (hover: hover) {
@@ -630,13 +612,6 @@ h2 {
     transition: all 0.2s ease;
 }
 
-@media (hover: hover) {
-    .ambient-select:hover {
-        background-color: rgba(255, 255, 255, 0.08);
-        border-color: rgba(255, 255, 255, 0.2);
-    }
-}
-
 .ambient-select:focus {
     outline: none;
     border-color: var(--accent-color);
@@ -816,15 +791,6 @@ h2 {
     padding: 24px;
     margin-bottom: 24px;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@media (hover: hover) {
-    .glass-panel:hover {
-        transform: scale(1.01);
-        box-shadow:
-            0 8px 32px rgba(0, 0, 0, 0.15),
-            inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    }
 }
 
 /* ===== CALENDAR ===== */
@@ -1012,14 +978,7 @@ h2 {
     }
 }
 
-/* Austrian Holiday Styling - day cell looks normal, turns red on hover */
-@media (hover: hover) {
-    .day-cell.holiday:hover {
-        background: rgba(239, 68, 68, 0.12);
-        border-color: rgba(239, 68, 68, 0.4);
-    }
-}
-
+/* Austrian holidays: the day cell looks normal, the name shows as a label */
 .holiday-label {
     position: absolute;
     top: 13px;
@@ -1273,12 +1232,6 @@ body.dark .task-item {
     cursor: pointer;
     transition: all var(--transition-fast);
     gap: 8px;
-}
-
-@media (hover: hover) {
-    .habit-name:hover {
-        border-color: var(--accent-color);
-    }
 }
 
 .habit-name-text {
@@ -1644,13 +1597,6 @@ body.dark .task-item {
     /* Space for date */
 }
 
-@media (hover: hover) {
-    .kanban-column:hover {
-        transform: scale(1.02);
-        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
-    }
-}
-
 .kanban-header {
     font-weight: 600;
     text-align: center;
@@ -1737,8 +1683,9 @@ body.dark .task-item {
     transition: background var(--transition-fast);
 }
 
-.kanban-items.drag-over {
-    background: rgba(99, 102, 241, 0.1);
+/* A card dragged over a day (the whole day takes the drop, js/app.js renderKanban) */
+.kanban-column.drag-over {
+    background: color-mix(in srgb, var(--accent-color) 10%, var(--surface-color));
 }
 
 .kanban-card {
@@ -1834,12 +1781,6 @@ body.dark .task-item {
 .kanban-card.from-calendar {
     border-left: 3px solid var(--accent-color);
     cursor: default;
-}
-
-@media (hover: hover) {
-    .kanban-card.from-calendar:hover {
-        transform: translateY(-2px) scale(1.01);
-    }
 }
 
 .kanban-add-btn {
@@ -4720,15 +4661,6 @@ body.dark .quick-add-btn {
     background: rgba(0, 0, 0, 0.2);
 }
 
-@media (hover: hover) {
-    .quick-add-btn:hover {
-        background: var(--accent-color);
-        color: white;
-        border-color: var(--accent-color);
-        transform: translateY(-1px);
-    }
-}
-
 .quick-add-btn:active {
     transform: translateY(0);
 }
@@ -5288,13 +5220,6 @@ body.dark .goal-sm {
     overflow: visible;
 }
 
-@media (hover: hover) {
-    .gym-card:hover {
-        transform: translateY(-2px);
-        border-color: rgba(99, 102, 241, 0.2);
-    }
-}
-
 .card-compact {
     padding: 12px !important;
     gap: 16px !important;
@@ -5321,8 +5246,8 @@ body.dark .goal-sm {
 }
 
 @media (hover: hover) {
-    .habits-header:hover h2 {
-        color: var(--accent-color);
+    .habits-header:hover {
+        opacity: 0.8;
     }
 }
 
@@ -5361,8 +5286,8 @@ body.dark .goal-sm {
 }
 
 @media (hover: hover) {
-    .weekly-review-header:hover h2 {
-        color: var(--accent-color);
+    .weekly-review-header:hover {
+        opacity: 0.8;
     }
 }
 
@@ -5399,8 +5324,8 @@ body.dark .goal-sm {
 }
 
 @media (hover: hover) {
-    .calendar-section-header:hover h2 {
-        color: var(--accent-color);
+    .calendar-section-header:hover {
+        opacity: 0.8;
     }
 }
 

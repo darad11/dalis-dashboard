@@ -49,6 +49,13 @@ async function open(env, opts = {}) {
   return handle;
 }
 
+// An item of the "⋯" menu in the app bar (Dark Mode, Your Name, Focus Mode, Sync & Backup, Sign
+// Out) - on every device since the floating desktop menu went (17.10.2026)
+async function appMenu(page, id) {
+  await page.click('#appBarMore');
+  await page.click(`.menu-layer.open .menu-item[data-action="${id}"]`);
+}
+
 async function confirmSetup(page) {
   await page.click('#stepChallenge .step-setup button[type=submit]');
   await waitFor(() => page.locator('#stepChallenge .step-hero-value').count(), 'main view after setup');
@@ -292,8 +299,7 @@ scenario('12 cloud errors and a missing table never lose local data', async (env
   await logSteps(page, '8.000');
   await waitFor(async () => (await badge(page)) === 'Device only', 'device-only badge');
   assert.equal(await heroValue(page), fmt(BASELINE + 8000));
-  await page.click('#fabTrigger');
-  await page.click('#syncStatus');
+  await appMenu(page, 'sync');
   await waitFor(async () => /cloud table missing/.test(await text(page, '#syncModalStatus')), 'migration hint in sync panel');
   await page.click('#syncModalClose');
 
@@ -354,8 +360,7 @@ scenario('15 export contains step data but no login tokens; import restores and 
   await waitFor(() => stepRows(env).length === 1, 'uploaded');
   await page.evaluate(() => localStorage.setItem('sb-test-auth-token', '{"refresh_token":"secret"}'));
 
-  await page.click('#fabTrigger');
-  await page.click('#syncStatus');
+  await appMenu(page, 'sync');
   const [download] = await Promise.all([page.waitForEvent('download'), page.click('text=Export backup')]);
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dalis-e2e-')), 'backup.json');
   await download.saveAs(file);
@@ -519,7 +524,8 @@ scenario('14 existing features keep working (goals, calendar, kanban, habits, li
   await page.fill('.event-editor .form-input', 'Call dentist');
   await page.keyboard.press('Enter');
   await waitFor(() => env.store.rows('goals').some(r => r.date === 'cal-2026-9-16' && r.text === 'Call dentist' && r.start_time === null), 'quick capture uploaded');
-  assert.equal(await page.locator('.event-editor[open]').count(), 0, 'editor closed after saving');
+  // The sheet slides down (about 0.3 s) and closes
+  await waitFor(async () => (await page.locator('.event-editor[open]').count()) === 0, 'editor closed after saving', 1500);
   assert.match(await page.locator('#weekKanban').innerText(), /Call dentist/);
   await page.locator('#weekKanban .kanban-column.today .kanban-add-btn').click();
   await modal('Kanban card');
@@ -567,8 +573,7 @@ scenario('14 existing features keep working (goals, calendar, kanban, habits, li
   await waitFor(() => env.store.rows('notes').some(r => r.date === 'review-2026-W42' && r.content === 'Good week'), 'review uploaded');
 
   // Sync panel
-  await page.click('#fabTrigger');
-  await page.click('#syncStatus');
+  await appMenu(page, 'sync');
   await waitFor(async () => /Everything synced/.test(await text(page, '#syncModalStatus')), 'sync panel status');
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#syncModal.active').count(), 0);
@@ -668,9 +673,9 @@ const IPADS = {
 };
 
 // The primary input changes from touch to a mouse and back (a convertible leaving and entering
-// tablet mode): Chromium answers (pointer: coarse) from its touch emulation, so turning it off
-// flips the media query and fires its change event. The iPad never does this (WebKit keeps the
-// primary pointer coarse on iOS, also with a trackpad attached).
+// tablet mode): Chromium answers (pointer: coarse) and (hover: none) from its touch emulation,
+// so turning it off flips the media queries. The iPad never does this (WebKit keeps the primary
+// pointer coarse on iOS, also with a trackpad attached).
 // One DevTools session per page: detaching a session drops the emulation it set.
 const touchSessions = new WeakMap();
 async function setPrimaryTouch(page, on) {
@@ -683,10 +688,10 @@ async function openPhone(env, extra = {}) {
 }
 
 // Calendar, weekly overview, today's goals, focus timer: their order on screen (top to bottom,
-// then left to right) and for VoiceOver and the keyboard (DOM order)
+// then left to right) and for VoiceOver and the keyboard (DOM order). One order on every device
+// since 17.10.2026 (before, the desktop had focus, goals, week, calendar).
 const PAGE_BLOCKS = { calendar: '.calendar-section', week: '.week-overview-section', goals: '.goals-container', focus: '#pomoStatsWrapper' };
-const PHONE_ORDER = ['calendar', 'week', 'goals', 'focus'];
-const DESKTOP_ORDER = ['focus', 'goals', 'week', 'calendar'];
+const PAGE_ORDER = ['calendar', 'week', 'goals', 'focus'];
 const pageOrder = (page) => page.evaluate(blocks => {
   const els = Object.entries(blocks).map(([name, sel]) => [name, document.querySelector(sel)]);
   const box = el => el.getBoundingClientRect();
@@ -779,7 +784,7 @@ scenario('scroll: phones show one continuous page; the section bar follows and j
     return [n, getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().height > 0, Math.round(el.getBoundingClientRect().top + window.scrollY)];
   }));
   assert.deepEqual(sections.map(s => s[0]), ['home', 'week', 'today', 'health', 'habits', 'lists']);
-  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
+  assert.deepEqual(await pageOrder(page), { screen: PAGE_ORDER, dom: PAGE_ORDER });
   assert.deepEqual(await page.$$eval('.mobile-tab', els => els.map(e => e.dataset.section)), ['home', 'week', 'today', 'health', 'habits', 'lists'], 'bar in the order of the page');
   // The page opens on Home, right below the app bar; the calendar starts the Week section
   assert.ok(await page.evaluate(() => document.getElementById('section-home').getBoundingClientRect().top - document.querySelector('.app-bar').getBoundingClientRect().bottom < 12), 'Home right below the app bar');
@@ -868,11 +873,11 @@ scenario('phones: the calendar stands first already while the scripts load', asy
   const loading = page.goto(env.url).catch(() => { });
   await page.waitForSelector('#section-lists', { state: 'attached' });
   assert.equal(await page.evaluate(() => !!window.MobileUI), false, 'js/mobile.js has not run yet');
-  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
+  assert.deepEqual(await pageOrder(page), { screen: PAGE_ORDER, dom: PAGE_ORDER });
   release();
   await loading;
   await page.waitForFunction(() => !!window.MobileUI);
-  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
+  assert.deepEqual(await pageOrder(page), { screen: PAGE_ORDER, dom: PAGE_ORDER });
   await context.close();
 });
 
@@ -1200,40 +1205,38 @@ scenario('foldable: unfolding and folding keeps the reading position and open me
 
   // iPad rotated to landscape (1180px): still the touch layout and its order (until 17.10.2026
   // this was the desktop layout); the goals keep the focus
-  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
+  assert.deepEqual(await pageOrder(page), { screen: PAGE_ORDER, dom: PAGE_ORDER });
   await page.focus('.goals-container > .btn');
   await page.setViewportSize({ width: 1180, height: 820 });
   await settle(page, 300);
   assert.equal(await touchLayoutOn(page), true, 'iPad landscape keeps the touch layout');
-  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
+  assert.deepEqual(await pageOrder(page), { screen: PAGE_ORDER, dom: PAGE_ORDER });
   assert.equal(await displayed(page, '#mobileTabbar'), true, 'section bar in landscape');
   assert.equal(await horizontalOverflow(page), 0);
   assert.equal(await page.evaluate(() => document.activeElement.matches('.goals-container > .btn')), true, 'focus kept after rotating');
 
-  // Mouse as the primary input (convertible out of tablet mode): the desktop layout and its
-  // order, then back; the goals move with the order and keep the focus
+  // Mouse as the primary input (convertible out of tablet mode) and back: the look does not
+  // depend on the input, nothing moves and the goals keep the focus
   await setPrimaryTouch(page, false);
-  await waitFor(async () => !(await touchLayoutOn(page)), 'desktop layout');
-  assert.deepEqual(await pageOrder(page), { screen: DESKTOP_ORDER, dom: DESKTOP_ORDER });
-  assert.equal(await page.evaluate(() => document.activeElement.matches('.goals-container > .btn')), true, 'focus kept on the desktop');
-  assert.equal(await displayed(page, '#mobileTabbar'), false);
-  assert.equal(await displayed(page, '.app-bar-actions'), false);
-  for (const sel of ['.dashboard-main-layout', '.week-overview-section', '.gym-hub-section', '.lists-section', '.calendar-section', '.habits-section']) {
-    assert.equal(await displayed(page, sel), true, `${sel} visible on the wide layout`);
-  }
+  await settle(page, 300);
+  assert.equal(await page.evaluate(() => matchMedia('(pointer: coarse)').matches), false, 'mouse is the primary input now');
+  assert.equal(await touchLayoutOn(page), true, 'same look with a mouse');
+  assert.deepEqual(await pageOrder(page), { screen: PAGE_ORDER, dom: PAGE_ORDER });
+  assert.equal(await displayed(page, '#mobileTabbar'), true);
+  assert.equal(await page.evaluate(() => document.activeElement.matches('.goals-container > .btn')), true, 'focus kept with a mouse');
   await setPrimaryTouch(page, true);
-  await waitFor(() => touchLayoutOn(page), 'touch layout again');
-  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
+  await settle(page, 300);
+  assert.deepEqual(await pageOrder(page), { screen: PAGE_ORDER, dom: PAGE_ORDER });
   await page.setViewportSize(DUO_FOLDED);
   await settle(page, 300);
   assert.equal(await touchLayoutOn(page), true);
-  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
+  assert.deepEqual(await pageOrder(page), { screen: PAGE_ORDER, dom: PAGE_ORDER });
   assert.equal(await page.evaluate(() => document.activeElement.matches('.goals-container > .btn')), true, 'focus kept on the phone');
   assert.deepEqual(errors, []);
   await context.close();
 });
 
-scenario('ipad: the touch layout in portrait and landscape at every iPad size, rotating keeps it', async (env) => {
+scenario('ipad: the iOS look in portrait and landscape at every iPad size, rotating keeps it', async (env) => {
   seedDemo(env.store);
   const sameTop = (page, sels) => page.evaluate(list => new Set(list.map(sel => Math.round(document.querySelector(sel).getBoundingClientRect().top))).size === 1, sels);
   for (const [name, portrait] of Object.entries(IPADS)) {
@@ -1244,7 +1247,7 @@ scenario('ipad: the touch layout in portrait and landscape at every iPad size, r
       assert.equal(await displayed(page, '#mobileTabbar'), true, `${label}: section bar`);
       assert.equal(await displayed(page, '.app-bar-actions'), true, `${label}: "+" and "⋯" in the app bar`);
       assert.equal(await displayed(page, '#quickCapture'), false, `${label}: no desktop quick add button`);
-      assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER }, `${label}: order`);
+      assert.deepEqual(await pageOrder(page), { screen: PAGE_ORDER, dom: PAGE_ORDER }, `${label}: order`);
       assert.equal(await horizontalOverflow(page), 0, `${label}: no sideways scrolling`);
       if (viewport.width >= 820) {
         assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.calendar-section-content .glass-panel')).display), 'grid', `${label}: calendar and agenda side by side`);
@@ -1271,10 +1274,11 @@ scenario('ipad: the touch layout in portrait and landscape at every iPad size, r
   assert.deepEqual(errors, []);
   await context.close();
 
-  // Counter-check: a mouse-driven window of the same size keeps the desktop layout
+  // A mouse-driven window of the same size: the same look (one look on every device)
   const mouse = await open(env, { viewport: { width: 1180, height: 820 } });
-  assert.equal(await touchLayoutOn(mouse.page), false, 'mouse window: desktop layout');
-  assert.deepEqual(await pageOrder(mouse.page), { screen: DESKTOP_ORDER, dom: DESKTOP_ORDER });
+  assert.equal(await touchLayoutOn(mouse.page), true, 'mouse window: the same look');
+  assert.deepEqual(await pageOrder(mouse.page), { screen: PAGE_ORDER, dom: PAGE_ORDER });
+  assert.equal(await displayed(mouse.page, '#mobileTabbar'), true);
   assert.deepEqual(mouse.errors, []);
   await mouse.context.close();
 });
@@ -1340,13 +1344,18 @@ scenario('calendar on phones: month grid with coloured dots, agenda with times, 
   await context.close();
 });
 
-scenario('calendar: own calendars with colours, editing, moving and deleting entries (desktop)', async (env) => {
+scenario('calendar on the desktop: own calendars with colours, editing, moving and deleting entries (mouse)', async (env) => {
   seedDemo(env.store, { steps: false });
   const { page, errors, context } = await open(env);
   const settingsCalendars = () => (env.store.rows('settings').find(r => r.key === 'calendars') || {}).value;
+  const agenda = (t) => page.locator('#calendarAgenda .agenda-row', { hasText: t });
+  const agendaTitles = () => page.$$eval('#calendarAgenda .agenda-row', els => els.map(e => `${e.querySelector('.agenda-time').innerText.replace(/\s+/g, ' ')} | ${e.querySelector('.agenda-title').textContent}`));
+  // The same look as on the iPad: the month grid selects a day, its entries are in the agenda
+  assert.equal(await displayed(page, '#calendarAgenda'), true, 'agenda beside the month');
+  assert.equal(await page.locator('.day-cell .task-item').count(), 0, 'no entries inside the month cells');
 
   // Calendar list: the default calendar, then a new "Work" calendar in red
-  await page.click('.calendar-header .calendars-btn');
+  await page.click('#calendarAgenda .calendars-btn');
   await waitFor(() => page.locator('.calendar-manager[open]').count(), 'calendar list');
   assert.deepEqual(await page.$$eval('.calendar-row', els => els.map(e => e.dataset.calendar)), ['default']);
   await page.click('.calendar-manager .form-row-button.tinted');
@@ -1360,10 +1369,12 @@ scenario('calendar: own calendars with colours, editing, moving and deleting ent
   await page.click('.calendar-manager .sheet-trailing'); // Done
   await waitFor(async () => (await page.locator('.calendar-manager[open]').count()) === 0, 'list closed');
 
-  // Double-click opens the editor; time and calendar are saved with the entry
-  await page.locator('.day-cell[data-date="cal-2026-9-16"] .task-text', { hasText: 'Team-Meeting' }).dblclick();
+  // A click on an entry opens the editor with the title focused (hardware keyboard); time and
+  // calendar are saved with the entry
+  await agenda('Team-Meeting').click();
   await waitFor(() => editorOpen(page), 'editor');
-  assert.equal(await page.evaluate(() => document.activeElement.classList.contains('form-input')), true, 'title focused on desktop');
+  assert.equal(await page.evaluate(() => document.activeElement.classList.contains('form-input')), true, 'title focused with a keyboard');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).position), 'static', 'the page behind is not held (no on-screen keyboard)');
   await page.uncheck('.event-editor .form-switch');
   await page.fill('.event-editor input[name="start"]', '10:00');
   await page.dispatchEvent('.event-editor input[name="start"]', 'change');
@@ -1375,14 +1386,13 @@ scenario('calendar: own calendars with colours, editing, moving and deleting ent
   await waitFor(() => env.store.rows('goals').some(r => r.date === 'cal-2026-9-16' && r.text === 'Team-Meeting 10:00' &&
     r.start_time === '10:00:00' && r.end_time === '11:30:00' && r.calendar_id === workId && r.priority === 'high'), 'entry with time uploaded');
   // Shown by time after the all-day entry, with the calendar's colour and the time
-  assert.deepEqual(await page.$$eval('.day-cell[data-date="cal-2026-9-16"] .task-text', els => els.map(e => e.textContent)),
-    ['Paket abholen', '10:00–11:30Team-Meeting 10:00']);
-  assert.equal(await page.$eval('.day-cell[data-date="cal-2026-9-16"] .task-item:last-child .task-dot', e => e.style.getPropertyValue('--dot')), 'var(--cal-red)');
+  await waitFor(async () => (await agendaTitles()).join() === ['all-day | Paket abholen', '10:00 11:30 | !!! Team-Meeting 10:00'].join(), 'agenda by time');
+  assert.equal(await agenda('Team-Meeting').locator('.agenda-dot').evaluate(e => e.style.getPropertyValue('--dot')), 'var(--cal-red)');
   // The weekly overview shows it the same way
   assert.match(await page.locator('.kanban-column.today').innerText(), /Paket abholen[\s\S]*10:00–11:30\s*Team-Meeting/);
 
   // A new date moves the entry to that day
-  await page.locator('.day-cell[data-date="cal-2026-9-16"] .task-text', { hasText: 'Team-Meeting' }).dblclick();
+  await agenda('Team-Meeting').click();
   await page.fill('.event-editor input[type="date"]', '2026-10-21');
   await page.dispatchEvent('.event-editor input[type="date"]', 'change');
   await page.click('.event-editor .sheet-trailing');
@@ -1390,17 +1400,21 @@ scenario('calendar: own calendars with colours, editing, moving and deleting ent
     !env.store.rows('goals').some(r => r.date === 'cal-2026-9-16' && r.text === 'Team-Meeting 10:00'), 'entry moved to 21 October');
 
   // Deleting the calendar: its entries show in the default calendar (blue)
-  await page.click('.calendar-header .calendars-btn');
+  await page.click('#calendarAgenda .calendars-btn');
   await page.click(`.calendar-row[data-calendar="${workId}"]`);
   await page.click('.calendar-manager .form-row-button.destructive');
   assert.match(await page.textContent('.calendar-manager .sheet-confirm-message'), /“Work” will be deleted\. Its 1 event moves to “Personal”\./);
   await page.click('.calendar-manager .sheet-confirm-btn.destructive');
   await waitFor(() => (settingsCalendars() || []).length === 1, 'calendar deleted in the cloud');
   await page.keyboard.press('Escape');
-  assert.equal(await page.$eval('.day-cell[data-date="cal-2026-9-21"] .task-dot', e => e.style.getPropertyValue('--dot')), 'var(--cal-blue)');
+  await waitFor(async () => (await page.locator('.calendar-manager[open]').count()) === 0, 'list closed');
+  // A click on the 21st in the month grid shows its entries
+  await page.click('.day-cell[data-date="cal-2026-9-21"]');
+  await waitFor(() => agenda('Team-Meeting').count(), 'the 21st in the agenda');
+  assert.equal(await page.$eval('.day-cell[data-date="cal-2026-9-21"] .day-dot', e => e.style.getPropertyValue('--dot')), 'var(--cal-blue)');
 
   // The editor's Delete asks first
-  await page.locator('.day-cell[data-date="cal-2026-9-21"] .task-text').dblclick();
+  await agenda('Team-Meeting').click();
   await page.click('.event-editor [data-edit-only] .destructive, .event-editor .form-row-button.destructive');
   await page.click('.event-editor .sheet-confirm-btn.destructive');
   await waitFor(() => !env.store.rows('goals').some(r => r.text === 'Team-Meeting 10:00'), 'entry deleted');
@@ -1452,10 +1466,10 @@ scenario('calendar: white as a calendar colour, visible on white cards', async (
   await menuAction(page, 'dark-mode');
   assert.deepEqual(await dots(), edged('rgb(255, 255, 255)'), 'dark: the edge is white like the dot');
 
-  // Desktop: the dots in the month grid and on the card in the week
+  // Desktop: the same dots in the month grid, the agenda and on the card in the week
   const desktop = await open(env, { viewport: { width: 1440, height: 900 } });
   await waitFor(() => desktop.page.locator('.kanban-card-dot[data-color="white"]').count(), 'white card on the desktop');
-  for (const cls of ['.task-dot', '.kanban-card-dot']) {
+  for (const cls of ['.day-dot', '.agenda-dot', '.kanban-card-dot']) {
     assert.equal(await desktop.page.$eval(`${cls}[data-color="white"]`, el => getComputedStyle(el).boxShadow), 'rgb(134, 134, 139) 0px 0px 0px 1px inset', cls);
   }
   assert.deepEqual(desktop.errors, []);
@@ -1469,14 +1483,14 @@ scenario('calendar: without the database migration an entry with a time stays on
   env.store.missingColumns.add('goals.start_time');
   env.store.missingColumns.add('goals.end_time');
   env.store.missingColumns.add('goals.calendar_id');
-  await page.locator('.day-cell[data-date="cal-2026-9-16"] .add-task-btn').click();
+  await page.click('#calendarAgenda .calendar-agenda-add'); // "New Event" for the day shown (today)
   await page.fill('.event-editor .form-input', 'Zahnarzt');
   await page.uncheck('.event-editor .form-switch');
   await page.click('.event-editor .sheet-trailing');
   await waitFor(async () => (await page.getAttribute('#syncStatus', 'data-sync-state')) === 'error', 'sync error shown');
   assert.match(await page.getAttribute('#syncStatus', 'title'), /start_time/);
   assert.ok(await page.evaluate(() => db.isDirty('cal-2026-9-16')), 'kept as pending change');
-  assert.equal(await page.locator('.day-cell[data-date="cal-2026-9-16"] .task-time').count(), 1, 'still shown with its time');
+  assert.equal(await page.locator('#calendarAgenda .agenda-row', { hasText: 'Zahnarzt' }).locator('.agenda-start').count(), 1, 'still shown with its time');
   // Days without a time keep syncing
   await page.evaluate(() => { db.setGoals([{ text: 'Ziel', done: false }]); });
   await waitFor(() => env.store.rows('goals').some(r => r.text === 'Ziel'), 'goals still upload');
@@ -1619,7 +1633,7 @@ scenario('week on phones: day strip and one day card per swipe; wide screens kee
 
 // Phones and tablets: the Step Challenge first in the Health Hub (moved in the DOM, so the
 // reading and focus order match the screen); the desktop keeps it below the hero row
-scenario('health hub: Step Challenge first on phones and tablets, below the hero row on the desktop', async (env) => {
+scenario('health hub: Step Challenge first on every device, also after rotating; KPI numbers whole', async (env) => {
   seedDemo(env.store);
   const order = (page) => page.evaluate(() => {
     const card = document.getElementById('stepChallenge');
@@ -1632,7 +1646,7 @@ scenario('health hub: Step Challenge first on phones and tablets, below the hero
 
   const desktop = await open(env, { viewport: { width: 1440, height: 900 } });
   await waitFor(() => desktop.page.locator('#stepChallenge .step-hero-value').count(), 'desktop step card');
-  assert.deepEqual(await order(desktop.page), { after: 'streakHistory', above: false }, 'desktop: unchanged, below the hero row');
+  assert.deepEqual(await order(desktop.page), { after: 'gym-hub-header', above: true }, 'desktop: first in the Health Hub too');
   await desktop.context.close();
 
   const { page, errors, context } = await open(env, PHONE);
@@ -1647,25 +1661,16 @@ scenario('health hub: Step Challenge first on phones and tablets, below the hero
   assert.ok(kpis.some(k => k.text === '1.794.994'), JSON.stringify(kpis));
   assert.deepEqual(kpis.filter(k => k.lines !== 1 || !k.fits), [], 'KPI values on one line, inside the tile');
 
-  // Tablet turned to landscape: the touch layout stays, the card stays first
+  // Tablet turned to landscape: the card stays first and keeps the focus (nothing is moved)
   await page.setViewportSize({ width: 820, height: 1180 });
   await settle(page, 300);
   assert.deepEqual(await order(page), { after: 'gym-hub-header', above: true }, 'tablet portrait: first');
   await page.focus('#step-entry-input');
   await page.setViewportSize({ width: 1180, height: 820 });
   await settle(page, 300);
-  assert.equal(await touchLayoutOn(page), true, 'tablet landscape: touch layout');
+  assert.equal(await touchLayoutOn(page), true, 'tablet landscape: the same look');
   assert.deepEqual(await order(page), { after: 'gym-hub-header', above: true }, 'tablet landscape: still first');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'step-entry-input', 'focus kept after rotating');
-  // Mouse as the primary input (desktop layout) and back; the focus stays in the card
-  await setPrimaryTouch(page, false);
-  await waitFor(async () => !(await touchLayoutOn(page)), 'desktop layout');
-  assert.deepEqual(await order(page), { after: 'streakHistory', above: false }, 'mouse: below the hero row');
-  assert.equal(await page.evaluate(() => document.activeElement.id), 'step-entry-input', 'focus kept after the move');
-  await setPrimaryTouch(page, true);
-  await waitFor(() => touchLayoutOn(page), 'touch layout again');
-  assert.deepEqual(await order(page), { after: 'gym-hub-header', above: true }, 'touch again: first');
-  assert.equal(await page.evaluate(() => document.activeElement.id), 'step-entry-input', 'focus kept after moving back');
   assert.deepEqual(errors, []);
   await context.close();
 });
@@ -2391,13 +2396,13 @@ scenario('home follows changes made in the sections, on another device and acros
   await context.close();
 });
 
-scenario('home on the desktop: first on the page, a grid of cards, links scroll to the sections, keyboard ticks', async (env) => {
+scenario('home on the desktop: first on the page, the wide grid of cards, links scroll to the sections, keyboard ticks', async (env) => {
   seedDemo(env.store, { steps: false });
   env.store.seed('settings', [{ user_id: USER, key: 'home', value: { name: 'Dali' } }]);
   const { page, errors, context } = await open(env, { viewport: { width: 1440, height: 900 } });
   assert.equal(await page.evaluate(() => document.querySelector('.page-section').id), 'section-home');
   assert.equal(await text(page, '.home-greeting-text'), 'Good morning, Dali.');
-  assert.equal(await displayed(page, '#mobileTabbar'), false);
+  assert.equal(await displayed(page, '#mobileTabbar'), true, 'the section bar on the desktop too');
   const tops = await page.evaluate(() => {
     const top = s => Math.round(document.querySelector(s).getBoundingClientRect().top);
     return { weather: top('.home-weather'), today: top('.home-today'), tasks: top('.home-tasks'), goals: top('.home-goals'), matrix: top('.home-matrix'), steps: top('.home-steps'), habits: top('.home-habits') };
@@ -2424,19 +2429,19 @@ scenario('home on the desktop: first on the page, a grid of cards, links scroll 
   await waitFor(() => page.evaluate(() => document.activeElement.getAttribute('aria-label') === 'Laufen 5 km' && document.activeElement.getAttribute('aria-checked') === 'true'), 'focus kept on the same task');
   assert.equal(await text(page, '#pomoStart'), '▶ Start', 'the focus timer did not start');
 
-  // The name is changed from the floating menu on the desktop
-  await page.click('.fab-trigger');
-  await page.click('.fab-item[title="Your Name"]');
+  // The name is changed from the "⋯" menu of the app bar, as on the phone
+  await appMenu(page, 'name');
   assert.equal(await page.inputValue('#inputModalField'), 'Dali');
   await page.fill('#inputModalField', 'Dalibor');
   await page.click('#inputModalSubmit');
   await waitFor(async () => (await text(page, '.home-greeting-text')) === 'Good morning, Dalibor.', 'greeting follows on the desktop');
 
-  // A link scrolls to the section
+  // A link scrolls to the section (its start just below the app bar) and the bar follows
   await page.click('.home-tasks .home-link');
-  await waitFor(() => page.evaluate(() => Math.abs(document.getElementById('section-week').getBoundingClientRect().top) < 40), 'scrolled to Week');
+  await waitFor(() => sectionAtTop(page, 'week'), 'scrolled to Week');
+  await waitFor(async () => (await currentSection(page)) === 'week', 'bar on Week');
   await page.click('.home-matrix .home-link');
-  await waitFor(() => page.evaluate(() => Math.abs(document.getElementById('section-lists').getBoundingClientRect().top) < 40), 'scrolled to Lists');
+  await waitFor(() => sectionAtTop(page, 'lists'), 'scrolled to Lists');
   assert.deepEqual(errors, []);
   await context.close();
 });
@@ -2454,7 +2459,11 @@ async function swipeFinger(page) {
   // Puts a finger on the element (a share of its width from the left, half its height) and
   // drags it by dx, dy: evenly (16 ms a step) or as a flick (3 quick steps)
   async function hold(locator, dx, dy = 0, { at = 0.85, flick = false } = {}) {
-    const box = await locator.boundingBox();
+    // The list may be rebuilt at this moment (the cloud's echo of the last change re-renders
+    // it): boundingBox() is null for the row that was just replaced, so measure the row that is
+    // on the page once it is there
+    let box = null;
+    await waitFor(async () => (box = await locator.boundingBox()) !== null, 'the row on the page');
     let x = box.x + box.width * at;
     let y = box.y + box.height / 2;
     await send('touchStart', x, y);
@@ -2804,36 +2813,93 @@ scenario('swipe: Home rows delete where they live; matrix tasks on the card and 
   await context.close();
 });
 
-scenario('desktop with mouse: no section bar, no touch buttons, hover effects unchanged', async (env) => {
+scenario('desktop with mouse: the iOS look of the phone and the iPad; double-click, right-click and drag & drop still work', async (env) => {
   seedDemo(env.store, { steps: false });
   const { page, errors, context } = await open(env, { viewport: { width: 1440, height: 900 } });
-  assert.equal(await touchLayoutOn(page), false);
-  assert.equal(await displayed(page, '#mobileTabbar'), false);
-  assert.equal(await displayed(page, '.app-bar-actions'), false);
-  assert.equal(await displayed(page, '#quickCapture'), true, 'desktop quick add button');
-  assert.equal(await page.locator('.item-more-btn').first().evaluate(el => getComputedStyle(el).display), 'none');
-  assert.equal(await displayed(page, '#calendarAgenda'), false);
+  const week = (col) => env.store.rows('kanban_tasks').filter(r => r.week_key === 'week-2026-W42' && r.column_name === col).map(r => JSON.parse(r.text).text);
+  // One look on every device: the section bar, "+" and "⋯" in the app bar, "⋯" on the items,
+  // the agenda beside the month; the floating desktop buttons are gone
+  assert.equal(await touchLayoutOn(page), true);
+  assert.equal(await displayed(page, '#mobileTabbar'), true);
+  assert.equal(await displayed(page, '.app-bar-actions'), true);
+  assert.equal(await displayed(page, '#quickCapture'), false, 'no floating quick add button');
+  assert.equal(await displayed(page, '#fabTrigger'), false, 'no floating menu button');
+  assert.equal(await page.locator('.focus-item .item-more-btn').first().isVisible(), true, '"⋯" on the goals');
+  assert.equal(await page.locator('.focus-delete').first().evaluate(el => getComputedStyle(el).display), 'none', 'no hover-only delete button');
+  assert.equal(await displayed(page, '#calendarAgenda'), true);
   for (const sel of ['.dashboard-main-layout', '.week-overview-section', '.gym-hub-section', '.lists-section', '.calendar-section', '.habits-section', '.weekly-review-section']) {
     assert.equal(await displayed(page, sel), true, `${sel} visible`);
   }
-  // The order stays: focus timer and goals side by side at the top, then the week, the calendar
-  assert.deepEqual(await pageOrder(page), { screen: DESKTOP_ORDER, dom: DESKTOP_ORDER });
-  // Hover styles still apply with a mouse
+  assert.deepEqual(await pageOrder(page), { screen: PAGE_ORDER, dom: PAGE_ORDER });
+  // Wide screens: the page keeps the width of the 13" iPad and stays centred
+  const wide = await open(env, { viewport: { width: 2560, height: 1440 } });
+  const frame = await wide.page.evaluate(() => { const r = document.querySelector('.container').getBoundingClientRect(); return { width: Math.round(r.width), left: Math.round(r.left), right: Math.round(innerWidth - r.right) }; });
+  assert.equal(frame.width, 1376);
+  assert.ok(Math.abs(frame.left - frame.right) <= 1, `centred: ${JSON.stringify(frame)}`);
+  assert.equal(await horizontalOverflow(wide.page), 0);
+  assert.deepEqual(wide.errors, []);
+  await wide.context.close();
+
+  // The "⋯" menu of the app bar has what the floating desktop menu had, the keyboard shortcuts
+  // too (only with a mouse or trackpad)
+  await page.click('#appBarMore');
+  await page.waitForSelector('.menu-layer.open');
+  assert.deepEqual(await page.$$eval('.menu-layer.open .menu-item', els => els.map(e => e.dataset.action)),
+    ['dark-mode', 'name', 'focus-mode', 'shortcuts', 'sync', 'sign-out']);
+  await page.click('.menu-layer.open .menu-item[data-action="shortcuts"]');
+  await waitFor(() => page.locator('#shortcutsModal.active').count(), 'keyboard shortcuts');
+  await page.keyboard.press('Escape');
+  await waitFor(async () => (await page.locator('#shortcutsModal.active').count()) === 0, 'shortcuts closed');
+
+  // Hover in the same look: a button dims a little; cards neither grow nor move
   const addGoal = page.locator('.goals-container > .btn');
-  const before = await addGoal.evaluate(el => getComputedStyle(el).backgroundColor);
+  await addGoal.scrollIntoViewIfNeeded();
+  await page.mouse.move(2, 2);
+  await settle(page, 300);
+  assert.equal(await addGoal.evaluate(el => getComputedStyle(el).opacity), '1');
   await addGoal.hover();
   await settle(page, 300);
-  const after = await addGoal.evaluate(el => getComputedStyle(el).backgroundColor);
-  assert.notEqual(after, before, 'button hover effect');
-  assert.equal(after, 'rgb(99, 102, 241)');
-  // Hidden delete button appears on hover, as before
-  const item = page.locator('.focus-item', { hasText: 'Steuererklärung' });
-  await item.hover();
+  assert.equal(await addGoal.evaluate(el => getComputedStyle(el).opacity), '0.8', 'the button dims under the pointer');
+  const card = page.locator('.goals-container');
+  await card.hover({ position: { x: 20, y: 20 } });
   await settle(page, 300);
-  assert.equal(await item.locator('.focus-delete').evaluate(el => getComputedStyle(el).opacity), '1');
-  // Swipe to delete is for fingers: a mouse dragged across a row moves and deletes nothing
+  assert.equal(await card.evaluate(el => getComputedStyle(el).transform), 'none', 'the card does not grow');
+  const more = page.locator('.focus-item', { hasText: 'Wocheneinkauf' }).locator('.item-more-btn');
+  await more.hover();
+  await settle(page, 300);
+  assert.notEqual(await more.evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', '"⋯" gets a light fill');
+
+  // The mouse keeps its gestures: a double-click on a goal edits it, a right-click sets its urgency
+  await page.locator('.focus-item .focus-text', { hasText: 'Wocheneinkauf' }).dblclick();
+  await waitFor(() => page.locator('#inputModal.active').count(), 'edit dialog');
+  assert.equal(await page.inputValue('#inputModalField'), 'Wocheneinkauf planen');
+  await page.keyboard.press('Escape');
+  await page.locator('.focus-item .focus-text', { hasText: 'Steuererklärung' }).click({ button: 'right' });
+  await waitFor(() => (env.store.rows('goals').find(r => r.text === 'Steuererklärung abschicken') || {}).urgency === 'high', 'urgency by right-click');
+  // A click on the text does not tick (that is the finger's shortcut)
+  await page.locator('.focus-item .focus-text', { hasText: 'Mail an die Hausverwaltung' }).click();
+  await settle(page, 300);
+  assert.equal(env.store.rows('goals').find(r => r.text.startsWith('Mail an die Hausverwaltung')).done, false, 'a click on the text ticks nothing');
+
+  // Drag & drop: a task onto an empty day (the whole day takes it, its list is empty) and
+  // onto the head of another day
+  const market = () => page.locator('#weekKanban .kanban-card', { hasText: 'Bauernmarkt' });
+  await market().scrollIntoViewIfNeeded();
+  await market().dragTo(page.locator('#weekKanban .kanban-column').nth(6));
+  await waitFor(() => week('SO').includes('Bauernmarkt') && !week('SA').includes('Bauernmarkt'), 'moved onto the empty Sunday');
+  await market().dragTo(page.locator('#weekKanban .kanban-column').nth(3).locator('.kanban-header'));
+  await waitFor(() => week('DO').includes('Bauernmarkt'), 'moved onto Thursday by its head');
+
+  // Swipe to delete is for fingers: a mouse dragged across a row moves and deletes nothing.
+  // Home is redrawn after the moves above (their echo from the cloud): measure the row that is
+  // on the page once it is there
   const focusRow = page.locator('.home-goals .home-row-focus');
-  const box = await focusRow.boundingBox();
+  let box = null;
+  await waitFor(async () => {
+    await focusRow.scrollIntoViewIfNeeded({ timeout: 1000 });
+    box = await focusRow.boundingBox();
+    return box !== null;
+  }, 'the focus goal on Home');
   await page.mouse.move(box.x + box.width - 20, box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(box.x + 20, box.y + box.height / 2, { steps: 10 });

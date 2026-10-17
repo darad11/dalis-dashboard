@@ -1,11 +1,14 @@
 /*
  * Calendar entry editor and calendar list (own calendars with colours).
  *
- * Phones and tablets: sheets that slide up from the bottom (iOS page sheet: close and confirm
- * buttons in the header, swipe down to dismiss, "Discard Changes" when something was edited).
- * Desktop: the same content as a centred dialog. Both use the native <dialog> element (focus
- * stays inside, Escape closes, the page behind is inert) and native form controls, so iOS shows
- * its own date and time pickers, pop-up menus and switch.
+ * Sheets that slide up from the bottom on every device (iOS page sheet: close and confirm
+ * buttons in the header, drag down to dismiss, "Discard Changes" when something was edited;
+ * from 700px wide they float above the bottom edge, as on the iPad). They use the native
+ * <dialog> element (focus stays inside, Escape closes, the page behind is inert) and native form
+ * controls, so iOS shows its own date and time pickers, pop-up menus and switch.
+ * What depends on the input, not the look: with an on-screen keyboard (touch as the primary
+ * input) Return only hides the keyboard and editing does not open it by itself; with a hardware
+ * keyboard and a mouse Return saves and the first field has the focus.
  *
  * Data rules: js/calendar-core.js. Saving and rendering: saveCalendarEntry,
  * deleteCalendarEntry and db.getCalendars/setCalendars in js/app.js.
@@ -73,6 +76,12 @@
 
   function isTouchLayout() {
     return !!(window.MobileUI && window.MobileUI.isTouchLayout());
+  }
+
+  // Touch is the primary input (phones, iPad - also with a keyboard attached): an on-screen
+  // keyboard may be what types. Not the look (the same everywhere), see js/mobile.js isTouch.
+  function isTouchInput() {
+    return !!(window.MobileUI && window.MobileUI.isTouch());
   }
 
   // ================================================================ Sheet
@@ -210,7 +219,7 @@
     return closed;
   }
 
-  // Drag the sheet down by its grabber or header to dismiss it (touch layout only)
+  // Drag the sheet down by its grabber or header to dismiss it (finger, pen or mouse)
   function enableSwipeToDismiss(sheet, ...handles) {
     let startY = null;
     let startTime = 0;
@@ -303,7 +312,7 @@
     f.title.addEventListener('input', updateEditor);
     // Touch keyboards: "Done" only hides the keyboard (time and calendar may follow)
     f.title.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && isTouchLayout()) {
+      if (e.key === 'Enter' && isTouchInput()) {
         e.preventDefault();
         f.title.blur();
       }
@@ -426,7 +435,7 @@
 
     // New entry: straight into the title, as in Apple Calendar. Editing on a touch screen
     // does not open the keyboard by itself; with a keyboard the title is ready to type.
-    openSheet(sheet, opts && opts.returnFocus, isNew || !isTouchLayout() ? f.title : null);
+    openSheet(sheet, opts && opts.returnFocus, isNew || !isTouchInput() ? f.title : null);
   }
 
   async function dismissEditor() {
@@ -499,7 +508,7 @@
     add.addEventListener('click', () => showCalendarForm(null));
     name.addEventListener('input', updateManager);
     name.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && isTouchLayout()) {
+      if (e.key === 'Enter' && isTouchInput()) {
         e.preventDefault();
         name.blur();
       }
@@ -622,5 +631,5 @@
 
   window.CalendarUI = { openEditor, openCalendars };
   // The same sheets and form rows for other editors (js/matrix-ui.js)
-  window.SheetUI = { createSheet, openSheet, closeSheet, group, row, popup, el, svg, isTouchLayout, nextId };
+  window.SheetUI = { createSheet, openSheet, closeSheet, group, row, popup, el, svg, isTouchLayout, isTouchInput, nextId };
 })();

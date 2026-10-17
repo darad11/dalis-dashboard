@@ -1568,14 +1568,6 @@ window.goToWeekToday = () => {
 };
 
 
-// Phone/tablet layout switched on or off (rotation, unfolding, iPad split view):
-// the calendar is rendered differently in the two layouts (js/mobile.js)
-window.addEventListener('dashboard:layoutchange', () => {
-  if (!els.calList) return;
-  try { renderCalendar(); } catch (e) { console.error(e); }
-  try { syncWeekPager(true); } catch (e) { console.error(e); }
-});
-
 function setupEventListeners() {
   document.getElementById('prevMonth').onclick = () => changeMonth(-1);
   document.getElementById('nextMonth').onclick = () => changeMonth(1);
@@ -2652,7 +2644,8 @@ function createTaskEl(task, dateObj, index, calendars) {
 
   el.append(calendarDot(calendar, 'task-dot'), span, del);
 
-  // Touch screens wider than the phone layout (iPad in landscape): "⋯" menu
+  // "⋯" menu (desktop month cells exist only without js/mobile.js; the iOS layout lists
+  // entries in the agenda)
   if (window.MobileUI) {
     el.appendChild(MobileUI.moreButton(`Actions for ${task.text}`, () => ({
       title: task.text,
@@ -2817,7 +2810,7 @@ function renderHabits() {
     };
     nameEl.ondblclick = renameHabit;
 
-    // Touch screens: rename / delete in a menu (no double-click or hover there)
+    // Every device: rename / delete in a menu (a mouse can still double-click the name)
     if (window.MobileUI) {
       nameEl.appendChild(MobileUI.moreButton(`Actions for habit ${habitName}`, () => ({
         title: habitName,
@@ -3364,7 +3357,7 @@ function renderGoals() {
 
     item.append(cb, textDiv, deleteBtn);
 
-    // Touch screens: the same actions in a menu (no hover, double-click or right-click there)
+    // Every device: the same actions in a menu (a mouse can still double-click and right-click)
     if (window.MobileUI) {
       const label = textDiv.textContent;
       item.appendChild(MobileUI.moreButton(`Actions for goal ${label}`, () => ({
@@ -3621,7 +3614,7 @@ function renderSimpleList(listName) {
 
     div.append(span, del);
 
-    // Touch screens: edit / reorder / move / delete in a menu
+    // Every device: edit / reorder / move / delete in a menu (a mouse can still drag)
     if (window.MobileUI) {
       div.appendChild(MobileUI.moreButton(`Actions for ${item.text}`, () => {
         const otherLists = db.get('customListsMeta', []).filter(m => m.id !== listName && !MatrixCore.isMatrix(m));
@@ -3776,7 +3769,7 @@ window.renderUnifiedLists = () => {
     div.querySelector('.simple-list').id = `${list.id}List`;
     div.querySelector('.list-add-item-btn').onclick = () => addListItem(list.id);
 
-    // Touch screens: rename / reorder / delete in a menu (hover buttons and dragging do not work there)
+    // Every device: rename / reorder / delete in a menu (a mouse can still drag the panel)
     if (window.MobileUI) {
       const more = MobileUI.moreButton(`Actions for list ${list.title}`, () => ({
         title: list.title,
@@ -4113,14 +4106,16 @@ function renderKanbanBoard(container, columns, isWeekBased) {
     itemsDiv.dataset.column = colName;
     itemsDiv.dataset.weekBased = isWeekBased;
 
-    itemsDiv.ondragover = e => {
+    // The whole day takes a dropped card, not only its list of cards: an empty day's list is
+    // 0px high in the iOS look, and dragging "onto Sunday" means the day, wherever the pointer is
+    colDiv.ondragover = e => {
       e.preventDefault();
-      itemsDiv.classList.add('drag-over');
+      colDiv.classList.add('drag-over');
     };
-    itemsDiv.ondragleave = (e) => {
-      if (!itemsDiv.contains(e.relatedTarget)) itemsDiv.classList.remove('drag-over');
+    colDiv.ondragleave = (e) => {
+      if (!colDiv.contains(e.relatedTarget)) colDiv.classList.remove('drag-over');
     };
-    itemsDiv.ondrop = e => handleKanbanDrop(e, colName, isWeekBased);
+    colDiv.ondrop = e => handleKanbanDrop(e, colName, isWeekBased, itemsDiv);
 
     // For week-based kanban, first add calendar tasks for this day
     if (isWeekBased) {
@@ -4491,8 +4486,8 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
 
   div.appendChild(deleteBtn);
 
-  // Touch screens: edit / priority / move / delete in a menu instead of
-  // double-click, right-click, hover and drag & drop
+  // Every device: edit / priority / move / delete in a menu; a mouse can still double-click,
+  // right-click and drag & drop
   if (window.MobileUI) {
     div.appendChild(MobileUI.moreButton(`Actions for ${task.text}`, () => {
       const menuItems = [
@@ -4532,12 +4527,12 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
   };
   div.ondragend = () => {
     div.classList.remove('dragging');
-    document.querySelectorAll('.kanban-items.drag-over').forEach(el => el.classList.remove('drag-over'));
+    document.querySelectorAll('.kanban-column.drag-over').forEach(el => el.classList.remove('drag-over'));
   };
 
   div.ondblclick = editTask;
 
-  // Swipe to delete (phones and tablets; not in the phone's day pager, js/swipe.js)
+  // Swipe to delete (finger or pen; not in the day pager of narrow screens, js/swipe.js)
   if (isWeekBased) {
     const boardWeek = new Date(currentWeekDate);
     swipeToDelete(div, task.text, () => (isFromCalendar && sourceDate
@@ -4615,10 +4610,10 @@ function editKanbanItem(col, index, newText, isWeekBased) {
   }
 }
 
-function handleKanbanDrop(e, targetCol, isWeekBased) {
+// itemsContainer: the day's list of cards (the drop lands anywhere on the day, renderKanban)
+function handleKanbanDrop(e, targetCol, isWeekBased, itemsContainer) {
   e.preventDefault();
-  const itemsContainer = e.currentTarget;
-  document.querySelectorAll(".kanban-items.drag-over").forEach(el => el.classList.remove('drag-over'));
+  document.querySelectorAll('.kanban-column.drag-over').forEach(el => el.classList.remove('drag-over'));
 
   try {
     const data = JSON.parse(e.dataTransfer.getData("text/plain"));

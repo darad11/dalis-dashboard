@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" class="touch-layout">
 
 <head>
   <meta charset="UTF-8">
   <!-- viewport-fit=cover: content may use the full screen, safe areas are padded in css/mobile.css.
        Pinch zoom stays allowed; inputs use 16px text, so iOS does not auto-zoom on focus. -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f0f2f5">
+  <meta name="theme-color" content="#f2f2f7">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -15,43 +15,9 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <title>Dali's Dashboard</title>
-  <script>
-    // Phone/tablet layout flag, set before first paint so the page does not flash the
-    // desktop layout. Same query as TOUCH_LAYOUT_QUERY in js/mobile.js: touch is the primary
-    // input (phones, foldables, the iPad in both orientations); the width only changes the
-    // arrangement inside the touch layout.
-    (function () {
-      try {
-        var touch = window.matchMedia('(pointer: coarse)').matches;
-        document.documentElement.classList.toggle('touch-layout', touch);
-      } catch (e) { }
-    })();
-
-    // Phones and tablets start with the calendar, then the weekly overview, today's goals and
-    // the focus timer; Health, Habits and Lists follow as before. The desktop keeps the HTML
-    // order (focus timer and goals side by side at the top, then the week, then the calendar).
-    // Moved in the DOM rather than with CSS `order`, so VoiceOver and the keyboard follow the
-    // order on screen. Runs right below the Week section (before the first paint) and from
-    // js/mobile.js when the layout changes.
-    window.placePageOrder = function () {
-      var touch = document.documentElement.classList.contains('touch-layout');
-      var today = document.getElementById('section-today');
-      var week = document.getElementById('section-week');
-      var calendar = week && week.querySelector(':scope > .calendar-section');
-      var overview = week && week.querySelector(':scope > .week-overview-section');
-      var timer = document.getElementById('pomoStatsWrapper');
-      var goals = today && today.querySelector('.dashboard-sidebar');
-      if (!today || !week || !calendar || !overview || !timer || !goals) return;
-      // [first, second] on phones and tablets; the other way round on the desktop
-      [[week, today], [calendar, overview], [goals, timer]].forEach(function (pair) {
-        var first = touch ? pair[0] : pair[1];
-        var second = touch ? pair[1] : pair[0];
-        if (!(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)) {
-          second.parentNode.insertBefore(first, second);
-        }
-      });
-    };
-  </script>
+  <!-- One layout on every device (phone, tablet, desktop): the iOS look of css/mobile.css.
+       html.touch-layout is set here in the markup; the name stays from the time when only
+       touch screens had this layout (until 17.10.2026). -->
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59,9 +25,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Styles -->
-  <link rel="stylesheet" href="css/style.css?v=20261017">
+  <link rel="stylesheet" href="css/style.css?v=20261017b">
   <link rel="stylesheet" href="css/calendar.css?v=20261017">
-  <link rel="stylesheet" href="css/mobile.css?v=20261017c">
+  <link rel="stylesheet" href="css/mobile.css?v=20261017d">
   <link rel="stylesheet" href="css/matrix.css?v=20261017b">
   <link rel="stylesheet" href="css/home.css?v=20261017i">
   <link rel="stylesheet" href="css/swipe.css?v=20261017b">
@@ -82,8 +48,6 @@
     @media (hover: hover) {
       .settings-icon-btn:hover {
         color: var(--text-primary);
-        transform: rotate(45deg);
-        transition: transform 0.3s ease, color 0.2s;
       }
     }
 
@@ -198,7 +162,7 @@
         if (localStorage.getItem('darkMode') !== 'true') return;
         document.body.classList.add('dark');
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', document.documentElement.classList.contains('touch-layout') ? '#000000' : '#0f172a');
+        if (meta) meta.setAttribute('content', '#000000');
       } catch (e) { }
     })();
   </script>
@@ -364,19 +328,94 @@
       <div class="fab-backdrop" onclick="toggleFabMenu()"></div>
     </div>
 
-    <!-- The page is one continuous scroll in this order; on phones and tablets the tab bar
-         (#mobileTabbar) follows the section on screen and jumps to a section. Home comes first
-         on every layout; after it the phone page continues with the calendar: Calendar, Weekly
-         Overview, Today's Goals, Focus, then Health, Habits, Lists (moved by placeTouchOrder in
-         js/mobile.js) -->
+    <!-- The page is one continuous scroll in this order on every device; the section bar
+         (#mobileTabbar) follows the section on screen and jumps to a section: Home, then the
+         calendar and the weekly overview (Week), today's goals and the focus timer (Today),
+         Health (the Step Challenge first), Habits, Lists. The order is the source order: no
+         script moves these blocks (until 17.10.2026 the desktop had its own order). -->
     <section class="page-section" id="section-home" aria-label="Home">
       <!-- Filled by js/home-ui.js: greeting, weather, today, tasks, goals, matrix, steps, habits -->
       <div class="home-view" id="homeView"></div>
     </section>
 
+    <section class="page-section" id="section-week" aria-label="Week">
+      <!-- Calendar (collapsible), then the weekly overview -->
+      <div class="calendar-section">
+        <div class="calendar-section-header" onclick="toggleCalendarSection()">
+          <h2>📅 Calendar</h2>
+          <span class="calendar-section-toggle" id="calendarToggle" style="margin-left: auto;">▼</span>
+        </div>
+
+        <div class="calendar-section-content" id="calendarContent">
+          <div class="glass-panel">
+            <div class="calendar-header">
+              <div class="calendar-title-group" style="flex-direction: column;">
+                <h3 id="title">User Calendar</h3>
+              </div>
+              <div class="section-nav-buttons" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+                <button class="btn calendars-btn" onclick="CalendarUI.openCalendars({ returnFocus: this })">Calendars</button>
+                <button class="btn" onclick="goToToday()" style="margin-right: 8px;">Today</button>
+                <button class="btn chevron-prev" id="prevMonth" aria-label="Previous month">◀︎</button>
+                <button class="btn chevron-next" id="nextMonth" aria-label="Next month">▶︎</button>
+              </div>
+            </div>
+
+            <div class="calendar-grid-header">
+              <div>MO</div>
+              <div>DI</div>
+              <div>MI</div>
+              <div>DO</div>
+              <div>FR</div>
+              <div>SA</div>
+              <div>SO</div>
+            </div>
+
+            <div class="calendar-grid" id="calendar">
+              <!-- JS generates Calendar -->
+            </div>
+
+            <!-- Phone/tablet: tasks of the selected day (filled by renderCalendarAgenda in js/app.js) -->
+            <div class="calendar-agenda" id="calendarAgenda" data-mobile-only></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weekly overview & tasks -->
+      <section class="week-overview-section" aria-labelledby="weekOverviewHeading">
+        <h2 id="weekOverviewHeading" style="margin-top: 32px;">⚡ Weekly Overview & Tasks</h2>
+        <div class="glass-panel week-nav-panel" style="padding: 20px 24px;">
+          <div class="section-nav" style="margin-bottom: 0;">
+            <h3 id="weekTitle" style="margin: 0;">Friday, January 3</h3>
+            <div class="section-nav-buttons" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
+              <button class="btn" onclick="goToWeekToday()" style="margin-right: 8px;">Today</button>
+              <button class="btn chevron-prev" onclick="changeWeek(-1)" aria-label="Previous week">◀︎</button>
+              <button class="btn chevron-next" onclick="changeWeek(1)" aria-label="Next week">▶︎</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="kanban-board week-kanban" id="weekKanban"></div>
+        <h3 class="inspirational-quote" style="margin-top: 24px;">Your future is created by what you do today, not tomorrow
+        </h3>
+      </section>
+    </section>
+
     <section class="page-section" id="section-today" aria-label="Today">
-      <!-- 1. POMODORO + STATS + SIDEBAR -->
+      <!-- Today's goals and the focus timer (pomodoro + stats) -->
       <div class="dashboard-main-layout">
+        <!-- Today's goals first, the focus timer beside them (wide) or below them (narrow) -->
+        <div class="dashboard-sidebar">
+          <div class="glass-panel goals-container">
+            <div class="section-nav">
+              <button class="btn nav-btn chevron-prev" onclick="changeGoalDate(-1)" aria-label="Previous day">◀</button>
+              <h2 id="goalsTitle">🎯 Today's Goals</h2>
+              <button class="btn nav-btn chevron-next" onclick="changeGoalDate(1)" aria-label="Next day">▶</button>
+            </div>
+            <div class="goals-list" id="goalsList"></div>
+            <button class="btn" onclick="addGoal()" style="margin-top:auto;">+ Add Goal</button>
+          </div>
+        </div>
+
         <div class="combined-glass-panel glass-panel" id="pomoStatsWrapper">
           <!-- Focus Section -->
           <div class="pomodoro-section">
@@ -474,86 +513,8 @@
             <button class="pip-control-btn" id="pipPlayPause" onclick="togglePomodoro()">▶</button>
           </div>
         </div>
-
-        <!-- Right Sidebar (Goals + Notes) -->
-        <div class="dashboard-sidebar">
-          <div class="glass-panel goals-container">
-            <div class="section-nav">
-              <button class="btn nav-btn chevron-prev" onclick="changeGoalDate(-1)" aria-label="Previous day">◀</button>
-              <h2 id="goalsTitle">🎯 Today's Goals</h2>
-              <button class="btn nav-btn chevron-next" onclick="changeGoalDate(1)" aria-label="Next day">▶</button>
-            </div>
-            <div class="goals-list" id="goalsList"></div>
-            <button class="btn" onclick="addGoal()" style="margin-top:auto;">+ Add Goal</button>
-          </div>
-        </div>
       </div>
     </section>
-
-    <section class="page-section" id="section-week" aria-label="Week">
-      <!-- 3. WEEKLY FOCUS (moved above quick notes) -->
-      <section class="week-overview-section" aria-labelledby="weekOverviewHeading">
-        <h2 id="weekOverviewHeading" style="margin-top: 32px;">⚡ Weekly Overview & Tasks</h2>
-        <div class="glass-panel week-nav-panel" style="padding: 20px 24px;">
-          <div class="section-nav" style="margin-bottom: 0;">
-            <h3 id="weekTitle" style="margin: 0;">Friday, January 3</h3>
-            <div class="section-nav-buttons" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
-              <button class="btn" onclick="goToWeekToday()" style="margin-right: 8px;">Today</button>
-              <button class="btn chevron-prev" onclick="changeWeek(-1)" aria-label="Previous week">◀︎</button>
-              <button class="btn chevron-next" onclick="changeWeek(1)" aria-label="Next week">▶︎</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="kanban-board week-kanban" id="weekKanban"></div>
-        <h3 class="inspirational-quote" style="margin-top: 24px;">Your future is created by what you do today, not tomorrow
-        </h3>
-      </section>
-
-      <!-- 4. CALENDAR (Collapsible) -->
-      <div class="calendar-section">
-        <div class="calendar-section-header" onclick="toggleCalendarSection()">
-          <h2>📅 Calendar</h2>
-          <span class="calendar-section-toggle" id="calendarToggle" style="margin-left: auto;">▼</span>
-        </div>
-
-        <div class="calendar-section-content" id="calendarContent">
-          <div class="glass-panel">
-            <div class="calendar-header">
-              <div class="calendar-title-group" style="flex-direction: column;">
-                <h3 id="title">User Calendar</h3>
-              </div>
-              <div class="section-nav-buttons" style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; width: 100%;">
-                <button class="btn calendars-btn" onclick="CalendarUI.openCalendars({ returnFocus: this })">Calendars</button>
-                <button class="btn" onclick="goToToday()" style="margin-right: 8px;">Today</button>
-                <button class="btn chevron-prev" id="prevMonth" aria-label="Previous month">◀︎</button>
-                <button class="btn chevron-next" id="nextMonth" aria-label="Next month">▶︎</button>
-              </div>
-            </div>
-
-            <div class="calendar-grid-header">
-              <div>MO</div>
-              <div>DI</div>
-              <div>MI</div>
-              <div>DO</div>
-              <div>FR</div>
-              <div>SA</div>
-              <div>SO</div>
-            </div>
-
-            <div class="calendar-grid" id="calendar">
-              <!-- JS generates Calendar -->
-            </div>
-
-            <!-- Phone/tablet: tasks of the selected day (filled by renderCalendarAgenda in js/app.js) -->
-            <div class="calendar-agenda" id="calendarAgenda" data-mobile-only></div>
-          </div>
-        </div>
-      </div>
-    </section>
-    <script>
-      if (document.documentElement.classList.contains('touch-layout')) window.placePageOrder();
-    </script>
 
     <div class="divider"></div>
 
@@ -564,6 +525,9 @@
           <h2>🔋 Health Hub</h2>
           <span class="gym-hub-toggle" id="gymHubToggle">▼</span>
         </div>
+
+        <!-- Step Challenge (rendered by js/steps.js once the user is known) -->
+        <section class="glass-panel step-card" id="stepChallenge" aria-labelledby="stepChallengeTitle" hidden></section>
 
         <!-- Hero section always visible -->
         <div class="gym-hub-hero-always">
@@ -675,9 +639,6 @@
           </div>
         </div>
         <div class="streak-history" id="streakHistory"></div>
-
-        <!-- Step Challenge (rendered by js/steps.js once the user is known) -->
-        <section class="glass-panel step-card" id="stepChallenge" aria-labelledby="stepChallengeTitle" hidden></section>
 
         <!-- Collapsible content -->
         <div class="gym-hub-content collapsed" id="gymHubContent">
@@ -1144,14 +1105,14 @@
   <script src="js/supabase.js?v=20261016d"></script>
   <script src="js/steps-core.js?v=20261016"></script>
   <script src="js/steps.js?v=20261017"></script>
-  <script src="js/mobile.js?v=20261017d"></script>
-  <script src="js/swipe.js?v=20261017b"></script>
-  <script src="js/app.js?v=20261017f"></script>
+  <script src="js/mobile.js?v=20261017e"></script>
+  <script src="js/swipe.js?v=20261017c"></script>
+  <script src="js/app.js?v=20261017g"></script>
   <script src="js/calendar-ui.js?v=20261017c"></script>
   <script src="js/matrix-ui.js?v=20261017e"></script>
   <script src="js/home-core.js?v=20261017c"></script>
   <script src="js/weather.js?v=20261017b"></script>
-  <script src="js/home-ui.js?v=20261017g"></script>
+  <script src="js/home-ui.js?v=20261017h"></script>
 </body>
 
 </html>

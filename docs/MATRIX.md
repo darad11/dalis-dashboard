@@ -27,14 +27,14 @@ Stand 17.10.2026. Im Bereich **Lists** steht ganz oben die **Matrix** mit vier B
   31.3.).
 - **Fälligkeit** neben der Aufgabe: „Today“ (fett), „Tomorrow“, „Yesterday“ oder ein kurzes
   Datum („Di., 20. Okt.“); überfällig in Rot. Wiederholung und Notiz als kleine Symbole.
-- **Die Matrix verschieben** wie eine Liste: auf Handy und Tablet über **⋯** neben „Matrix“ →
-  **Move Up / Move Down**, am Desktop per Drag & Drop (Griff links oben, auf den Titel einer Liste
-  ziehen).
+- **Die Matrix verschieben** wie eine Liste: über **⋯** neben „Matrix“ → **Move Up / Move
+  Down**; mit der Maus auch per Drag & Drop (die Karte auf den Titel einer Liste ziehen).
 
-Handy und Tablet: iOS-Sheets von unten (✕ links, ✓ rechts, nach unten wischen schließt). „+“
+Auf jedem Gerät iOS-Sheets von unten (✕ links, ✓ rechts, nach unten ziehen schließt). „+“
 öffnet mit der Tastatur; das Sheet steht dann sofort an seinem Platz und blendet ein, die Seite
-dahinter bleibt stehen (warum: [MOBILE.md](MOBILE.md), „Sheets und Tastatur“). Desktop:
-derselbe Inhalt als Dialog. Beide nutzen das Sheet des Kalender-Editors (`window.SheetUI`).
+dahinter bleibt bei Touch stehen (warum: [MOBILE.md](MOBILE.md), „Sheets und Tastatur“). Mit
+Hardware-Tastatur fügt Return hinzu. Sie nutzen das Sheet des Kalender-Editors
+(`window.SheetUI`); bis 17.10.2026 war es am Desktop ein Dialog.
 
 ## Daten und Sync
 
@@ -65,7 +65,7 @@ anderen Listen:
 |---|---|
 | `js/matrix-core.js` | Regeln ohne DOM: Bereiche, Eintrag in der Reihenfolge, Aufgaben prüfen, Abhaken, nächster Termin, Fälligkeitstext (Unit-Tests: `tests/unit/matrix-core.test.js`) |
 | `js/matrix-ui.js` | Karte, Bereichs-Sheet mit Umbenennen, Aufgaben-Sheet |
-| `css/matrix.css` | Aussehen (hell/dunkel, Handy/Desktop) |
+| `css/matrix.css` | Aussehen (hell/dunkel) |
 | `js/app.js` | `listMeta()` (Reihenfolge mit Matrix), Darstellung in `renderUnifiedLists`, Verschieben, Sync |
 
 Farben der Bereiche: Titel und Symbole mit mindestens 4,5:1 gegen die Karte (hell: Rot 5,4,
