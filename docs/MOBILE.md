@@ -54,7 +54,7 @@ iPhone quer):
   Desktop) – wie UIKit-Labels mit „adjustsFontSizeToFitWidth“.
 - **Leiste oben** (bleibt stehen, Inhalt läuft weich darunter aus): Logo und Name, rechts eine
   Glas-Kapsel mit **+** (neuer Kalendereintrag für heute) und **⋯** (Dark Mode, Focus Mode,
-  Sync & Backup, Abmelden). Ein Punkt am ⋯ zeigt ausstehende Uploads (orange) oder einen
+  Sync & Backup, Abmelden; seit Home auch „Your Name…“ für die Begrüßung). Ein Punkt am ⋯ zeigt ausstehende Uploads (orange) oder einen
   Sync-Fehler (rot), im Menü steht der Grund unter „Sync & Backup“.
 - **Leiste unten**: schwebende Glas-Kapsel mit gefüllten Symbolen, die Markierung gleitet zum
   aktuellen Abschnitt (iOS 26 Tab Bar). Die Markierung ist im Dark Mode dunkler als die Leiste.

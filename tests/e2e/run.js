@@ -815,7 +815,7 @@ scenario('scroll: phones show one continuous page; the section bar follows and j
   await page.locator('#appBarMore').tap();
   await page.waitForSelector('.menu-layer.open');
   assert.deepEqual(await page.$$eval('.menu-layer.open .menu-item', els => els.map(e => e.dataset.action)),
-    ['dark-mode', 'focus-mode', 'sync', 'sign-out']);
+    ['dark-mode', 'name', 'focus-mode', 'sync', 'sign-out']);
   assert.equal(await page.getAttribute('.menu', 'role'), 'menu');
   await menuAction(page, 'dark-mode');
   assert.equal(await page.evaluate(() => document.body.classList.contains('dark')), true, 'dark mode from the menu');
@@ -2093,8 +2093,11 @@ scenario('home on phones: the day at a glance from the other sections; ticks cha
   await page.locator('.event-editor .sheet-leading').tap();
   await waitFor(async () => (await editorOpen(page)) === 0, 'editor closed');
 
-  // The name: the pencil opens the input; greeting and cloud follow
-  await page.locator('.home-name-btn').tap();
+  // The name lives in the "⋯" menu (no pencil in the greeting); greeting and cloud follow
+  await page.locator('#appBarMore').tap();
+  await page.waitForSelector('.menu-layer.open');
+  assert.equal(await page.evaluate(() => document.querySelector('.menu-layer.open .menu-item[data-action="name"]').innerText.replace(/\s+/g, ' ').trim()), 'Your Name… Dali');
+  await menuAction(page, 'name');
   assert.equal(await page.inputValue('#inputModalField'), 'Dali');
   await page.fill('#inputModalField', 'Dalibor');
   await page.locator('#inputModalSubmit').tap();
@@ -2115,7 +2118,12 @@ scenario('home on phones: the day at a glance from the other sections; ticks cha
 scenario('home with empty data: quiet empty states, nothing invented; "+" adds where the data lives', async (env) => {
   const { page, errors, context } = await openPhone(env);
   assert.equal(await text(page, '.home-greeting-text'), 'Good morning.');
-  assert.equal(await page.getAttribute('.home-name-btn', 'aria-label'), 'Add your name');
+  assert.equal(await page.locator('.home-header button').count(), 0, 'nothing but the greeting in the header');
+  await page.locator('#appBarMore').tap();
+  await page.waitForSelector('.menu-layer.open');
+  assert.equal(await page.evaluate(() => document.querySelector('.menu-layer.open .menu-item[data-action="name"]').innerText.replace(/\s+/g, ' ').trim()), 'Add Your Name…');
+  await page.keyboard.press('Escape');
+  await waitFor(async () => (await page.locator('.menu-layer.open').count()) === 0, 'menu closed');
   assert.equal(await text(page, '.home-today .home-card-meta'), 'No events');
   assert.equal(await text(page, '.home-today .home-empty'), 'No events today.');
   assert.equal(await text(page, '.home-tasks .home-empty'), 'No tasks this week yet.');
@@ -2298,6 +2306,14 @@ scenario('home on the desktop: first on the page, a grid of cards, links scroll 
   await waitFor(() => (boardTask(env, 'FR', 'Laufen 5 km') || {}).done === true, 'ticked with the keyboard');
   await waitFor(() => page.evaluate(() => document.activeElement.getAttribute('aria-label') === 'Laufen 5 km' && document.activeElement.getAttribute('aria-checked') === 'true'), 'focus kept on the same task');
   assert.equal(await text(page, '#pomoStart'), '▶ Start', 'the focus timer did not start');
+
+  // The name is changed from the floating menu on the desktop
+  await page.click('.fab-trigger');
+  await page.click('.fab-item[title="Your Name"]');
+  assert.equal(await page.inputValue('#inputModalField'), 'Dali');
+  await page.fill('#inputModalField', 'Dalibor');
+  await page.click('#inputModalSubmit');
+  await waitFor(async () => (await text(page, '.home-greeting-text')) === 'Good morning, Dalibor.', 'greeting follows on the desktop');
 
   // A link scrolls to the section
   await page.click('.home-tasks .home-link');

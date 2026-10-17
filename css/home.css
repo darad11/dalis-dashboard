@@ -40,7 +40,6 @@
 .home-icon,
 .home-link-icon,
 .home-add-icon,
-.home-name-icon,
 .home-chip-icon,
 .home-weather-icon,
 .home-weather-empty-icon,
@@ -53,7 +52,6 @@
 .home-icon svg,
 .home-link-icon svg,
 .home-add-icon svg,
-.home-name-icon svg,
 .home-chip-icon svg,
 .home-weather-icon svg,
 .home-weather-empty-icon svg,
@@ -86,33 +84,6 @@
     line-height: 1.2;
     color: var(--text-primary);
     overflow-wrap: anywhere;
-}
-
-.home-greeting-tail {
-    white-space: nowrap;
-}
-
-/* The pencil follows the last word of the greeting */
-.home-name-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    vertical-align: middle;
-    width: 44px;
-    height: 44px;
-    margin: -10px 0 -8px 2px;
-    padding: 0;
-    border: none;
-    border-radius: 50%;
-    background: none;
-    color: var(--text-secondary);
-    opacity: 0.6;
-    cursor: pointer;
-}
-
-.home-name-icon {
-    width: 18px;
-    height: 18px;
 }
 
 /* The date on the left, the clock on the right edge */
@@ -758,7 +729,6 @@ body.dark .home-check::before {
 }
 
 /* ---- Focus rings ---- */
-.home-name-btn:focus-visible,
 .home-link:focus-visible,
 .home-more:focus-visible,
 .home-add:focus-visible,
@@ -774,11 +744,6 @@ button.home-row:focus-visible,
 
 /* ---- Desktop and mouse: hover like the other controls ---- */
 @media (hover: hover) {
-    .home-name-btn:hover {
-        opacity: 1;
-        background: var(--fill-3, rgba(120, 120, 128, 0.12));
-    }
-
     .home-link:hover,
     .home-more:hover,
     .home-weather-place:hover {

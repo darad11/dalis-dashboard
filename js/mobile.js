@@ -715,6 +715,10 @@
     return '';
   }
 
+  function homeName() {
+    return window.HomeUI && typeof window.HomeUI.currentName === 'function' ? window.HomeUI.currentName() : '';
+  }
+
   function moreMenu() {
     const call = (name) => () => { if (typeof window[name] === 'function') window[name](); };
     return {
@@ -722,6 +726,9 @@
         // A setting that is on or off: checkmark (HIG Menus, toggled items)
         { id: 'dark-mode', label: 'Dark Mode', checked: document.body.classList.contains('dark'), role: 'menuitemcheckbox', onSelect: call('toggleDark') },
         '-',
+        // The name of the Home greeting (js/home-ui.js)
+        { id: 'name', label: homeName() ? 'Your Name…' : 'Add Your Name…', icon: 'pencil', subtitle: homeName() || null,
+          onSelect: () => { if (window.HomeUI) window.HomeUI.editName(); } },
         { id: 'focus-mode', label: 'Focus Mode', icon: 'focus', onSelect: call('enterFocusMode') },
         { id: 'sync', label: 'Sync & Backup', icon: 'cloud', subtitle: syncSubtitle(), onSelect: call('showSyncDetails') },
         '-',

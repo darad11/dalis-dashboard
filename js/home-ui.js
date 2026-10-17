@@ -165,21 +165,12 @@
     return ms ? new Date(ms).toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' }) : '';
   }
 
-  // ===== Header: greeting and date =====
+  // ===== Header: greeting and date (the name is changed in the "⋯" menu, js/mobile.js, and
+  // in the desktop's floating menu, index.html: editName) =====
   function renderHeader(d) {
     const line = Core.greetingLine(d.settings.name, d.now.getHours());
-    const edit = h('button', {
-      type: 'button', class: 'home-name-btn', 'data-focus': 'name',
-      'aria-label': d.settings.name ? 'Change your name' : 'Add your name', title: d.settings.name ? 'Change your name' : 'Add your name',
-      onclick: editName
-    }, icon('pencil', 'home-name-icon'));
-    // The pencil stays with the last word: a line breaks before the word, never before the pencil
-    const cut = line.lastIndexOf(' ');
-    const head = cut > 0 ? line.slice(0, cut + 1) : '';
-    const tail = cut > 0 ? line.slice(cut + 1) : line;
     return h('header', { class: 'home-header' },
-      h('h1', { class: 'home-greeting' },
-        h('span', { class: 'home-greeting-text' }, head, h('span', { class: 'home-greeting-tail' }, tail, edit))),
+      h('h1', { class: 'home-greeting' }, h('span', { class: 'home-greeting-text' }, line)),
       // The date on the left, the clock flush right (css/home.css)
       h('p', { class: 'home-date' },
         h('span', { class: 'home-date-text' }, Core.dateLabel(d.now)),
@@ -669,7 +660,7 @@
     render();
   }
 
-  window.HomeUI = { refresh: schedule, render, goTo, openLocationSheet, editName };
+  window.HomeUI = { refresh: schedule, render, goTo, openLocationSheet, editName, currentName: () => settings().name };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();

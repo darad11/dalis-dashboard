@@ -61,7 +61,7 @@
   <link rel="stylesheet" href="css/calendar.css?v=20261017">
   <link rel="stylesheet" href="css/mobile.css?v=20261017b">
   <link rel="stylesheet" href="css/matrix.css?v=20261017b">
-  <link rel="stylesheet" href="css/home.css?v=20261017e">
+  <link rel="stylesheet" href="css/home.css?v=20261017f">
   <style>
     /* Nutrition Settings Styles */
     .settings-icon-btn {
@@ -339,6 +339,9 @@
         <button class="fab-item" id="btnToggleDark" onclick="toggleDark(); toggleFabMenu();" title="Toggle Dark Mode"
           data-tooltip="Dark Mode">
           <span class="fab-item-icon">🌙</span><span class="fab-item-label" data-mobile-only>Dark mode</span>
+        </button>
+        <button class="fab-item" onclick="if (window.HomeUI) HomeUI.editName(); toggleFabMenu();" title="Your Name" data-tooltip="Name">
+          <span class="fab-item-icon">✏️</span><span class="fab-item-label" data-mobile-only>Your name</span>
         </button>
         <button class="fab-item" onclick="enterFocusMode(); toggleFabMenu();" title="Focus Mode" data-tooltip="Focus">
           <span class="fab-item-icon">🧠</span><span class="fab-item-label" data-mobile-only>Focus mode</span>
@@ -1138,13 +1141,13 @@
   <script src="js/supabase.js?v=20261016d"></script>
   <script src="js/steps-core.js?v=20261016"></script>
   <script src="js/steps.js?v=20261017"></script>
-  <script src="js/mobile.js?v=20261017b"></script>
+  <script src="js/mobile.js?v=20261017c"></script>
   <script src="js/app.js?v=20261017d"></script>
   <script src="js/calendar-ui.js?v=20261017c"></script>
   <script src="js/matrix-ui.js?v=20261017c"></script>
   <script src="js/home-core.js?v=20261017c"></script>
   <script src="js/weather.js?v=20261017b"></script>
-  <script src="js/home-ui.js?v=20261017d"></script>
+  <script src="js/home-ui.js?v=20261017e"></script>
 </body>
 
 </html>
