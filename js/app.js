@@ -4743,10 +4743,10 @@ function deleteKanbanItem(col, index, isWeekBased) {
 }
 
 // ===== SWIPE TO DELETE (js/swipe.js) =====
-// Each removes one entry where its section keeps it and returns how to put it back: Undo puts
-// it at the same place (as far as the list still reaches there) and uploads it again. They
-// find the entry again by its text (calendar entries by their identity), so a re-render or a
-// sync in between cannot hit a different one; null when it is gone already.
+// Each removes one entry where its section keeps it - the same storage as "Delete" in the "⋯"
+// menu - and returns true. They find the entry again by its text (calendar entries by their
+// identity), so a re-render or a sync in between cannot hit a different one; false when it is
+// gone already.
 
 function swipeToDelete(row, label, remove) {
   if (window.SwipeActions) window.SwipeActions.enable(row, { label, remove });
@@ -4764,66 +4764,45 @@ function entryIndex(items, index, entry) {
   return items.findIndex(item => entryText(item) === text);
 }
 
-function putBack(items, index, entry) {
-  items.splice(Math.min(index, items.length), 0, entry);
-  return items;
-}
-
 function swipeRemoveGoal(date, index, goal) {
   const goals = db.getGoals(date);
   const at = entryIndex(goals, index, goal);
-  if (at === -1) return null;
-  const [removed] = goals.splice(at, 1);
+  if (at === -1) return false;
+  goals.splice(at, 1);
   db.setGoals(goals, date);
   renderGoals();
-  return () => {
-    db.setGoals(putBack(db.getGoals(date), at, removed), date);
-    renderGoals();
-  };
+  return true;
 }
 
 function swipeRemoveTask(weekDate, column, index, task) {
   const board = db.getKanban(weekDate);
   const at = entryIndex(board[column], index, task);
-  if (at === -1) return null;
-  const [removed] = board[column].splice(at, 1);
+  if (at === -1) return false;
+  board[column].splice(at, 1);
   db.setKanban(board, weekDate);
   renderKanban();
-  return () => {
-    const now = db.getKanban(weekDate);
-    if (!Array.isArray(now[column])) now[column] = [];
-    putBack(now[column], at, removed);
-    db.setKanban(now, weekDate);
-    renderKanban();
-  };
+  return true;
 }
 
 function swipeRemoveCalendarEntry(date, index, entry) {
   const tasks = db.getCalendarTasks(date);
   const at = findCalendarEntry(tasks, index, entry);
-  if (at === -1) return null;
-  const [removed] = tasks.splice(at, 1);
+  if (at === -1) return false;
+  tasks.splice(at, 1);
   db.setCalendarTasks(date, tasks);
   renderCalendar();
   renderKanban();
-  return () => {
-    db.setCalendarTasks(date, putBack(db.getCalendarTasks(date), at, removed));
-    renderCalendar();
-    renderKanban();
-  };
+  return true;
 }
 
 function swipeRemoveListItem(listName, index, item) {
   const items = getListItems(listName);
   const at = entryIndex(items, index, item);
-  if (at === -1) return null;
-  const [removed] = items.splice(at, 1);
+  if (at === -1) return false;
+  items.splice(at, 1);
   setListItems(listName, items);
   renderSimpleList(listName);
-  return () => {
-    setListItems(listName, putBack(getListItems(listName), at, removed));
-    renderSimpleList(listName);
-  };
+  return true;
 }
 
 // The training goals of the Health Hub
@@ -4831,18 +4810,12 @@ function swipeRemoveTrainingGoal(index, goal) {
   const data = db.get('gymHubData', {});
   const goals = data.trainingGoals || [];
   const at = entryIndex(goals, index, goal);
-  if (at === -1) return null;
-  const [removed] = goals.splice(at, 1);
+  if (at === -1) return false;
+  goals.splice(at, 1);
   db.set('gymHubData', data);
   renderTrainingGoals();
   syncGymData();
-  return () => {
-    const now = db.get('gymHubData', {});
-    now.trainingGoals = putBack(now.trainingGoals || [], at, removed);
-    db.set('gymHubData', now);
-    renderTrainingGoals();
-    syncGymData();
-  };
+  return true;
 }
 
 // ===== EXPORT / IMPORT =====

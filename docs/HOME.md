@@ -29,8 +29,8 @@ der Fokus bleibt nach dem Neuzeichnen auf demselben Element; die Leertaste start
 Focus-Timer.
 
 Termine, Aufgaben und Ziele lassen sich auf Handy und Tablet nach links wischen: „Delete“ löscht
-den Eintrag dort, wo er gespeichert ist (Kalendertag, Wochenboard, Zielliste), mit Undo – wie in
-den Bereichen selbst ([MOBILE.md](MOBILE.md), „Wischen zum Löschen“). Solange eine Zeile gewischt
+den Eintrag dort, wo er gespeichert ist (Kalendertag, Wochenboard, Zielliste) – wie in den
+Bereichen selbst ([MOBILE.md](MOBILE.md), „Wischen zum Löschen“). Solange eine Zeile gewischt
 wird oder „Delete“ offen steht, wartet das Neuzeichnen von Home.
 
 Sprache: Englisch wie die übrige Oberfläche („Today's Goals“, „New Event“); das Datum der

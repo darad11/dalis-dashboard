@@ -101,16 +101,37 @@ iPhone quer):
 | Liste | – | – | Rename…, Move Up/Down, Delete List (mit Rückfrage) |
 | Habit | – | – | Rename…, Delete Habit (mit Rückfrage) |
 
-**Wischen zum Löschen** (`js/swipe.js`, wie in iOS-Listen):
+**Wischen zum Löschen** (`js/swipe.js`, `css/swipe.css`, wie in iOS 26):
 
-- Kurz nach links wischen zeigt ein rotes „Delete“ hinter der Zeile, Antippen löscht. Lang
-  wischen (über 60 % der Zeile) löscht sofort. Danach steht „Deleted “…” · Undo“ 6 Sekunden
-  über der Leiste; Undo legt den Eintrag an dieselbe Stelle zurück, auch in der Cloud. In einem
-  Sheet (Matrix-Bereich) steht Undo im Sheet – alles hinter einem Sheet ist nicht bedienbar;
-  schließt das Sheet vorher, wandert Undo auf die Seite.
-- Antippen woanders, Scrollen oder Zurückwischen schließt. Es ist immer nur eine Zeile offen;
-  ein Tippen auf eine andere Zeile schließt nur und hakt nichts ab. Von einem offenen „Delete“
-  aus weiterwischen löscht wie ein langer Wisch.
+- Kurz nach links wischen: Die Zeile gleitet als Ganzes nach links – über die ganze Breite
+  ihrer Karte, wie eine Zelle über ihren Abschnitt – und gibt ein rotes „Delete“ frei: eine
+  Kapsel 6 px innerhalb des Kartenrands und der Zeile, die unter der Zeile hervorkommt.
+  Antippen löscht.
+- Weiterziehen dehnt „Delete“ mit. Über 60 % der Kartenbreite rückt „Delete“ neben die Zeile
+  (voller Wisch), Loslassen löscht sofort; zurück unter 52 % gibt es wieder frei (kein Flackern
+  an der Schwelle). Von einem offenen „Delete“ aus weiterwischen geht genauso.
+- Beim Loslassen entscheidet, wohin der Schwung des Fingers die Zeile trägt (120 ms weiter): ein
+  kurzer schneller Wisch öffnet, ein schneller Wisch zurück schließt, auch wenn die Zeile noch
+  mehr als halb offen ist. Ein Finger, der vor dem Loslassen stillhält (60 ms), hat keinen
+  Schwung.
+- Öffnen, Schließen und Hinausgleiten folgen einer Feder (wie SwiftUI
+  `spring(response: 0.38, dampingFraction: 0.86)`), die mit der Geschwindigkeit des Fingers
+  startet; eine Zeile lässt sich mitten in der Bewegung wieder greifen.
+- Gelöscht wird ohne Rückfrage und ohne Undo-Leiste, wie in Erinnerungen und Mail: Die Zeile
+  gleitet hinaus, die Zeilen darunter rücken schon dabei nach (zusammen etwa 0,5 s). Apple sieht
+  Rückgängig auf dem iPhone über Schütteln und das Wischen mit drei Fingern vor, eigene
+  Undo-Knöpfe nur „wenn nötig“ und dann in der Symbolleiste (HIG „Undo and redo“). Das kann eine
+  Web-App nicht anbieten – die Undo-Leiste der ersten Fassung ist deshalb wieder weg.
+- Farbe: systemRed von iOS 26 laut HIG (hell 255/56/60, dunkel 255/66/69; mit „Kontrast
+  erhöhen“ 233/21/45 bzw. 255/97/101), Beschriftung weiß.
+- Antippen woanders, Scrollen (auch mit dem Finger auf der offenen Zeile oder mit dem Trackpad)
+  oder Zurückwischen schließt. Bewegt sich die Seite von selbst – ein Abschnitt darüber wird
+  neu gezeichnet, der Browser hält die Stelle –, bleibt die Zeile offen (vorher schloss sie sich
+  dabei: im Test direkt nach dem Löschen eines Ziels, weil Home oben neu zeichnete). Es ist
+  immer nur eine Zeile offen; ein Tippen auf eine andere Zeile schließt nur und hakt nichts ab.
+- Während des Wischens fällt der Gedrückt-Zustand der Zeile weg (wie die Markierung einer Zelle
+  in iOS); ganz abgeblendete Zeilen (vergangene Termine in der Woche, erledigte Gym-Ziele)
+  blenden dann nur ihren Inhalt ab, „Delete“ bleibt kräftig rot.
 - Auf- und Abwärtsziehen scrollt wie bisher (die Richtung entscheidet sich nach 10 px).
 - **Nicht in der Tagesleiste der Woche auf dem Handy**: Dort blättert ein Wisch zum nächsten
   Tag – beides auf derselben Geste wäre nicht eindeutig. Löschen dort über ⋯ → Delete, oder per
@@ -120,6 +141,8 @@ iPhone quer):
   und fragt deshalb nach.
 - Nur mit dem Finger (oder Stift). Mit Maus/Trackpad, VoiceOver und Tastatur bleibt „Delete“
   im ⋯-Menü; das rote „Delete“ ist für VoiceOver ausgeblendet.
+- Kein spürbares Tippen (Haptik) beim vollen Wisch wie in iOS: Safari bietet Web-Seiten keine
+  Vibration an.
 - Ein Sync baut die Listen neu auf. Liegt dabei ein Finger auf einer Zeile oder steht „Delete“
   offen, wartet der Neuaufbau, bis die Zeile losgelassen und geschlossen ist – sonst würde die
   Zeile unter dem Finger ersetzt (im Test baute der Sync die Zielliste zweimal neu auf, direkt
@@ -145,6 +168,7 @@ iPhone quer):
 | Datum/Uhrzeit | native Felder `type="date"`/`type="time"` – Safari zeigt die kompakten iOS-Picker | [Pickers](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/pickers.md) |
 | Schalter „All-day“ | `<input type="checkbox" switch>`: Safari 17.4+ zeigt den nativen iOS-Schalter, andere Browser eine Checkbox | [WebKit: HTML Switch Control](https://webkit.org/blog/15054/an-html-switch-control/) |
 | Sheets | ✕ links, ✓ rechts (gefüllt), Wischen nach unten, Rückfrage bei Änderungen | [Sheets](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/sheets.md) |
+| Wischen zum Löschen | voller Wisch führt „Delete“ aus (Standard in iOS), Rot nach Rolle „destructive“, systemRed von iOS 26, keine eigene Undo-Leiste; Kapsel und abgerundete Zeile wie in iOS 26 (Apple veröffentlicht dafür keine Maße: Abstände und Schwellen sind Annahmen, siehe Grenzen) | [swipeActions (SwiftUI)](https://developer.apple.com/tutorials/data/documentation/swiftui/view/swipeactions(edge:allowsfullswipe:content:).md), [Undo and redo](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/undo-and-redo.md), [Color](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/color.md), Aussehen in iOS 26: [Apple Developer Forums](https://developer.apple.com/forums/thread/811328) |
 | Segmented Control | Focus/Break/Long als Kapsel mit hervorgehobenem Segment | [Segmented controls](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/segmented-controls.md) |
 | Schrift | Systemschrift (SF Pro), Größen nach iOS-Textstilen (Body 17, Headline 17, Title 2 22 …), Dynamic Type über `-apple-system-body` | [Typography](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/typography.md), [WebKit: System Font](https://webkit.org/?p=3709), [Dynamic Type on the Web](https://furbo.org/?p=2791) |
 | Farben | iOS-Systemfarben hell/dunkel/erhöhter Kontrast, Akzent = Indigo (Markenfarbe) | [Color](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/color.md) |
@@ -194,7 +218,7 @@ an allen vier Seiten berücksichtigt.
 | `index.html` | sechs `section.page-section` (`#section-home`, `#section-today` … `#section-lists`) in der Desktop-Reihenfolge; `window.placePageOrder` (Inline-Skript) stellt auf Handy/Tablet Kalender, Woche, Ziele, Focus vor dem ersten Zeichnen um; Abschnittsleiste als Links (Home, dann Week), Leiste oben |
 | `js/home-ui.js`, `css/home.css` | Home: der Tag auf einen Blick als erster Abschnitt, siehe HOME.md |
 | `js/calendar-ui.js`, `css/calendar.css` | Kalender-Editor und Kalenderliste (Sheet bzw. Dialog), siehe CALENDAR.md |
-| `js/swipe.js`, `css/swipe.css` | Wischen zum Löschen (`SwipeActions.enable(row, { label, remove })`, Undo, `whenIdle` für den Neuaufbau nach einem Sync); die Zeilen melden sich in `js/app.js` (`swipeToDelete`, `swipeRemove…`), `js/matrix-ui.js` und `js/home-ui.js` an |
+| `js/swipe.js`, `css/swipe.css` | Wischen zum Löschen (`SwipeActions.enable(row, { label, remove })`, Feder als CSS-`linear()`-Kurve, `whenIdle` für den Neuaufbau nach einem Sync); die Karte einer Zeile ist ihr erster Vorfahr mit Hintergrund (eine Zeile mit eigener abgerundeter Kachel ist ihre eigene Karte); die Zeilen melden sich in `js/app.js` (`swipeToDelete`, `swipeRemove…`), `js/matrix-ui.js` und `js/home-ui.js` an |
 
 - Touch-Layout = `(pointer: coarse) and (max-width: 1099px)`; steht im Inline-Skript in
   `index.html` und in `js/mobile.js` (`TOUCH_LAYOUT_QUERY`) und muss gleich bleiben.
@@ -264,9 +288,15 @@ Chromium (Playwright) mit Touch-Emulation und Beispieldaten nur im lokalen Test-
   Safari laut MDN-Kompatibilitätsdaten (`mask-composite` ab 15.4, `mix-blend-mode` ab 8,
   `touch-action: none` ab 13).
 - **Wischen zum Löschen**: geprüft mit Touch-Ereignissen über das DevTools-Protokoll in
-  Chromium. Auf dem iPhone noch zu prüfen: wie sich die Schwellen anfühlen (10 px bis zur
-  Richtung, 44 px zum Offenbleiben, 60 % zum Löschen), dass senkrechtes Scrollen auf den Zeilen
-  wie bisher geht und dass die Zeile flüssig mitläuft (`@property`-Animation, Safari ab 16.4).
+  Chromium (Flicks als Pointer-Ereignisse im Abstand von 8 ms direkt in der Seite, weil das
+  Protokoll hier etwa 50 ms je Berührung braucht). Apple veröffentlicht keine Maße für die
+  Wisch-Aktionen von iOS 26 – Kapsel 6 px vom Rand, Schwellen (10 px Richtung, halbe Breite von
+  „Delete“ zum Offenbleiben, 60 % der Karte zum Löschen) und die Feder sind Annahmen nach
+  Beschreibungen und dem bisherigen Verhalten. Auf dem iPhone noch zu prüfen: das Gefühl der
+  Schwellen und der Feder, der Vergleich mit Erinnerungen/Mail, dass der Gedrückt-Zustand
+  beim Wischen wegfällt (Chromium setzt `:active` bei simulierten Berührungen nicht) und dass
+  senkrechtes Scrollen auf den Zeilen wie bisher geht. Safari: `@property` ab 16.4,
+  `linear()` ab 17.2 (davor eine feste Kurve statt der Feder), `overflow: clip` ab 16.
 - **Tastatur in Sheets**: Chromium hat keine Bildschirmtastatur. Die Tests prüfen die
   Bedingungen (Feld beim Fokus an seinem Platz, Seite dahinter nicht verschiebbar und danach an
   derselben Stelle); dass iOS dabei nicht mehr springt, zeigt erst das iPhone.

@@ -1,13 +1,39 @@
 /*
- * Swipe left to delete (js/swipe.js): the row's content moves left over a red "Delete";
- * "Deleted “…” · Undo" above the section bar afterwards. Touch layout only.
+ * Swipe left to delete (js/swipe.js), as in iOS 26: while it is swiped, the row spans its card,
+ * slides left as one piece - rounded on its trailing side - and uncovers a red "Delete" capsule
+ * at the card's edge. Touch layout only.
  */
 
-/* Registered, so it animates and the content and "Delete" move as one */
+/* Registered, so they animate (and can be read back in the middle of an animation) */
 @property --swipe-x {
     syntax: '<length>';
     inherits: true;
     initial-value: 0px;
+}
+
+@property --swipe-grow {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 0;
+}
+
+/* systemRed of iOS 26 (Human Interface Guidelines, Color): default and Increase Contrast */
+html.touch-layout body {
+    --swipe-destructive: rgb(255, 56, 60);
+}
+
+html.touch-layout body.dark {
+    --swipe-destructive: rgb(255, 66, 69);
+}
+
+@media (prefers-contrast: more) {
+    html.touch-layout body {
+        --swipe-destructive: rgb(233, 21, 45);
+    }
+
+    html.touch-layout body.dark {
+        --swipe-destructive: rgb(255, 97, 101);
+    }
 }
 
 html.touch-layout .swipe-row {
@@ -22,51 +48,107 @@ html.touch-layout .week-kanban.is-pager .swipe-row {
     touch-action: auto;
 }
 
-.swipe-row.swipe-shifted {
-    overflow: hidden;
+/* While it is out: a stacking of its own (the lifted row and "Delete" lie behind the content) */
+html.touch-layout .swipe-row.swipe-shifted {
+    isolation: isolate;
     -webkit-user-select: none;
     user-select: none;
+    transition: --swipe-grow 0.25s cubic-bezier(0.2, 0.9, 0.25, 1);
 }
 
-.swipe-row.swipe-shifted > :not(.swipe-action) {
+html.touch-layout .swipe-row.swipe-full {
+    --swipe-grow: 1;
+}
+
+html.touch-layout .swipe-row.swipe-animate {
+    transition:
+        --swipe-x var(--swipe-dur, 300ms) var(--swipe-ease, ease),
+        --swipe-grow 0.25s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+/* The content and the lifted row move as one */
+html.touch-layout .swipe-row.swipe-shifted > :not(.swipe-action) {
     transform: translateX(var(--swipe-x));
 }
 
-.swipe-row.swipe-animate {
-    transition: --swipe-x 0.28s cubic-bezier(0.2, 0.9, 0.25, 1);
+/* A swipe cancels the pressed look of a row, as it cancels a cell's highlight in iOS */
+html.touch-layout .swipe-row.swipe-shifted:active,
+html.touch-layout .swipe-row.swipe-shifted :active {
+    opacity: 1;
 }
 
-/* The darker system red in both themes: white text on it at 5:1 (as the matrix buttons) */
-.swipe-action {
+/* Rows dimmed as a whole (past entries in the week, done gym goals) dim their content while
+   they are out, so "Delete" stays solid */
+html.touch-layout .kanban-card.past.swipe-shifted,
+html.touch-layout .weekly-goal-item.done.swipe-shifted {
+    opacity: 1;
+}
+
+html.touch-layout .kanban-card.past.swipe-shifted > :not(.swipe-action):not(.swipe-lift) {
+    opacity: 0.5;
+}
+
+html.touch-layout .weekly-goal-item.done.swipe-shifted > :not(.swipe-action):not(.swipe-lift) {
+    opacity: 0.6;
+}
+
+/* The card clips the row at its edges while one of its rows is out */
+html.touch-layout .swipe-cell-host {
+    overflow: hidden !important;
+    overflow: clip !important;
+}
+
+/* The row lifted off its card: the card's colour, across the whole card, rounded at the side
+   "Delete" comes out of. It covers "Delete" until the row moves away. */
+html.touch-layout .swipe-row > .swipe-lift {
     position: absolute;
+    z-index: -1;
     top: 0;
-    right: 0;
     bottom: 0;
-    z-index: 2;
+    left: calc(-1 * var(--swipe-bleed-l, 0px));
+    right: calc(-1 * var(--swipe-bleed-r, 0px));
     display: none;
-    align-items: center;
-    justify-content: center;
-    width: calc(-1 * var(--swipe-x));
+    border-radius: 0 var(--swipe-lift-r, 0px) var(--swipe-lift-r, 0px) 0;
+    background: var(--swipe-surface, transparent);
+    pointer-events: none;
+}
+
+/* "Delete": a capsule at the card's edge, inset from the row; it stretches while the row is
+   pulled on and spans the card when the row slides out */
+html.touch-layout .swipe-row > .swipe-action {
+    position: absolute;
+    z-index: -2;
+    top: var(--swipe-inset, 6px);
+    bottom: var(--swipe-inset, 6px);
+    right: calc(var(--swipe-inset, 6px) - var(--swipe-bleed-r, 0px));
+    display: none;
+    box-sizing: border-box;
+    width: max(var(--swipe-capsule, 76px), -1 * var(--swipe-x) - 2 * var(--swipe-inset, 6px));
     overflow: hidden;
-    background: rgb(215, 0, 21);
+    border-radius: 999px;
+    background: var(--swipe-destructive, rgb(255, 56, 60));
     color: #ffffff;
-    font: 600 0.941rem/1.2 var(--ios-font, system-ui);
+    font: 600 0.882rem/1 var(--ios-font, system-ui);
     white-space: nowrap;
     cursor: pointer;
 }
 
-.swipe-row.swipe-shifted > .swipe-action {
-    display: flex;
+html.touch-layout .swipe-row.swipe-shifted > .swipe-lift,
+html.touch-layout .swipe-row.swipe-shifted > .swipe-action {
+    display: block;
 }
 
-/* Past the point of a full swipe the label stays with the content's edge (as in iOS) */
-.swipe-row.swipe-full > .swipe-action {
-    justify-content: flex-start;
-    padding-left: 22px;
+/* The label sits in the middle; at the full swipe it moves next to the row */
+html.touch-layout .swipe-action > swipe-label {
+    position: absolute;
+    top: 50%;
+    left: calc(50% * (1 - var(--swipe-grow)) + var(--swipe-pad, 14px) * var(--swipe-grow));
+    display: block;
+    transform: translate(calc(-50% * (1 - var(--swipe-grow))), -50%);
 }
 
-/* Folding up after the delete; the section re-renders right after */
-.swipe-row.swipe-collapse {
+/* Folding up after the delete (the rows below close up); the section re-renders right after */
+html.touch-layout .swipe-row.swipe-collapse {
     height: 0 !important;
     min-height: 0 !important;
     margin-top: 0 !important;
@@ -74,75 +156,14 @@ html.touch-layout .week-kanban.is-pager .swipe-row {
     padding-top: 0 !important;
     padding-bottom: 0 !important;
     opacity: 0;
-    transition: height 0.2s ease, padding 0.2s ease, margin 0.2s ease, opacity 0.2s ease;
-}
-
-/* ---- Undo, above the section bar ---- */
-.swipe-undo {
-    position: fixed;
-    inset: auto auto calc(var(--tabbar-bottom, 16px) + var(--tabbar-height, 0px) + 12px) 50%;
-    z-index: 1150;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: max-content;
-    max-width: min(440px, calc(100vw - 32px));
-    margin: 0;
-    padding: 4px 4px 4px 18px;
-    overflow: visible;
-    border: none;
-    border-radius: 999px;
-    background: rgba(28, 28, 30, 0.94);
-    color: #ffffff;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    backdrop-filter: blur(20px) saturate(180%);
-    font: 500 0.941rem/1.3 var(--ios-font, system-ui);
-    transform: translateX(-50%);
-}
-
-/* Dark mode: lighter than the cards beneath (an elevated surface), else it melts into them */
-body.dark .swipe-undo {
-    background: rgba(72, 72, 74, 0.92);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
-}
-
-.swipe-undo[hidden] {
-    display: none;
-}
-
-.swipe-undo-text {
-    display: flex;
-    min-width: 0;
-    white-space: nowrap;
-}
-
-.swipe-undo-title {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.swipe-undo-btn {
-    flex-shrink: 0;
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0 18px;
-    border: none;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.16);
-    color: #ffffff;
-    font: 600 0.941rem/1.2 var(--ios-font, system-ui);
-    cursor: pointer;
-}
-
-.swipe-undo-btn:focus-visible {
-    outline: 2px solid #ffffff;
-    outline-offset: 2px;
+    /* The slide out goes on while the row folds */
+    transition:
+        --swipe-x var(--swipe-dur, 300ms) var(--swipe-ease, ease),
+        height 0.24s ease, padding 0.24s ease, margin 0.24s ease, opacity 0.2s ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .swipe-row.swipe-collapse {
+    html.touch-layout .swipe-row.swipe-collapse {
         transition: none;
     }
 }
