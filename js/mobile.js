@@ -8,7 +8,8 @@
  *   index.html). The floating section bar at the bottom marks the section on screen and jumps
  *   to a section when tapped or clicked. A finger on the bar lifts the selection into a glass
  *   lens that can be dragged to a section (as in iOS 26). With a mouse or trackpad (desktop)
- *   the bar minimizes into a circle while scrolling down, as a tab bar in iOS 26 can.
+ *   the bar minimizes into a circle at the bottom right while scrolling down, as a tab bar in
+ *   iOS 26 can (there at the leading edge).
  * - The width only picks the arrangement (css/mobile.css: one column below 700px, then more
  *   columns; css/home.css: the wide Home grid from 1100px; on large screens the page keeps the
  *   width of the 13" iPad and stays centred). Apple HIG, Layout: "Determine layout based on
@@ -602,9 +603,10 @@
   // by tapping a tab or scrolling to the top of the view." Measured from a screen recording of
   // iOS 26: the bar shrinks toward its leading edge into a 48pt circle, centred on the bar's
   // line, that shows the selected item; the other items blur and fade; about a quarter of a
-  // second. Apple minimizes tab bars on iPhone only; here it is on with a mouse or trackpad
-  // (desktop), where the bar floats over wide content. Touch screens keep the bar as it is.
-  // The distances below are ours (Apple gives none).
+  // second. Here the circle goes to the right edge of the window instead (chosen for this
+  // dashboard; css/mobile.css). Apple minimizes tab bars on iPhone only; here it is on with a
+  // mouse or trackpad (desktop), where the bar floats over wide content. Touch screens keep
+  // the bar as it is. The distances below are ours (Apple gives none).
   // Only the person's own scrolling counts: not a jump to a section, nor the page moving
   // because content above it changed size (sync, weather) - a scroll counts when it comes
   // soon after wheel, keyboard, touch or drag input (the browser's smooth scrolling of a wheel

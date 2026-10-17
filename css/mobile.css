@@ -938,11 +938,11 @@ html.touch-layout .mobile-tabbar {
 }
 
 /* ---- Desktop: the bar minimizes while the person scrolls down (js/mobile.js) ----
-   As a tab bar in iOS 26 with tabBarMinimizeBehavior(.onScrollDown): it shrinks toward the
-   leading edge into a circle that shows the selected item, so the content behind it has more
-   room; the other items blur and fade. With a mouse or trackpad only (js/mobile.js sets the
-   classes). The circle sits at the left edge of the window, centred on the line of the full
-   bar. --icon-x and --icon-dy: the selected icon in the full bar (measured in js/mobile.js);
+   As a tab bar in iOS 26 with tabBarMinimizeBehavior(.onScrollDown): it shrinks into a circle
+   that shows the selected item, so the content behind it has more room; the other items blur
+   and fade. With a mouse or trackpad only (js/mobile.js sets the classes). The circle sits at
+   the right edge of the window (iOS puts it at the leading edge, the left; this dashboard
+   chose the right), centred on the line of the full bar. --icon-x and --icon-dy: the selected icon in the full bar (measured in js/mobile.js);
    the items keep the full bar's width (--items-w), so they do not squeeze while it changes size.
    .minimized: small or getting small; .collapsed: also while growing back (until it is full).
    Timing: 0.4s, as MINIMIZE.morph in js/mobile.js; no overshoot (the circle must not leave
@@ -955,8 +955,8 @@ html.touch-layout .mobile-tabbar.collapsed {
 }
 
 html.touch-layout .mobile-tabbar.minimized {
-    /* translateX(-50%) stays: the circle's centre */
-    left: calc(var(--safe-left) + var(--gutter) + var(--tabbar-min) / 2);
+    /* translateX(-50%) stays: the circle's centre, a gutter from the right edge */
+    left: calc(100% - var(--safe-right) - var(--gutter) - var(--tabbar-min) / 2);
     bottom: calc(var(--tabbar-bottom) + (var(--tabbar-height) - var(--tabbar-min)) / 2);
     width: var(--tabbar-min);
     height: var(--tabbar-min);

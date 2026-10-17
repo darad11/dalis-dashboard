@@ -2,7 +2,7 @@
 
 Stand 17.10.2026 (dritte Ausbaustufe: Glas-Linse in der Leiste unten; das iPad auch quer; seit
 dem Abend desselben Tages derselbe Look auch am Desktop, wo sich die Leiste unten beim
-Runterscrollen zu einem Kreis minimiert). Ziel: auf iPhone, iPhone Duo (zu- und
+Runterscrollen zu einem Kreis rechts unten minimiert). Ziel: auf iPhone, iPhone Duo (zu- und
 aufgeklappt), iPad und am Desktop bedienbar wie eine iOS-App – durchgehend scrollbar,
 Bedienelemente im Stil von iOS 26/27 (Liquid Glass) nach den Apple Human Interface Guidelines
 (HIG). Was nur der Finger braucht (Wischen, Antippen zum Abhaken), hängt an der Eingabe, nicht
@@ -105,7 +105,8 @@ Derselbe Look wie auf iPhone und iPad, mit Maus und Tastatur:
   weiterhin.
 - **Leiste unten minimiert sich beim Runterscrollen** (seit 17.10.2026, wie eine Tab Bar in
   iOS 26 mit „minimize on scroll“, nach deiner Bildschirmaufnahme): Sie schrumpft in gut einer
-  Viertelsekunde zu einem runden Glas-Knopf (48 px) ganz links unten im Fenster, der das Symbol
+  Viertelsekunde zu einem runden Glas-Knopf (48 px) ganz rechts unten im Fenster (auf deinen
+  Wunsch; iOS legt ihn an den vorderen, linken Rand), der das Symbol
   des Abschnitts auf dem Bildschirm zeigt; die übrigen Einträge verschwimmen und blenden aus. Der
   Inhalt, den die Leiste vorher verdeckte, ist frei. Die volle Leiste kommt zurück beim
   Hochscrollen, ganz oben auf der Seite, per Klick auf den Knopf (wählt nichts, die Seite bleibt
@@ -215,7 +216,7 @@ Derselbe Look wie auf iPhone und iPad, mit Maus und Tastatur:
 |---|---|---|
 | Liquid Glass nur für die Navigationsebene | Leiste oben (Knöpfe), Leiste unten, Menüs, Sheet-Knöpfe, Mini-Timer; Inhalt auf festen Karten ohne Glas | [Adopting Liquid Glass](https://developer.apple.com/tutorials/data/documentation/technologyoverviews/adopting-liquid-glass.md), [Materials](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/materials.md) |
 | Tab Bar | schwebend, Glas, Beschriftung je ein Wort, gefüllte Symbole, immer sichtbar (am Desktop beim Runterscrollen minimiert, siehe nächste Zeile), nur Navigation (das „+“ sitzt deshalb oben) | [Tab bars](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/tab-bars.md) |
-| Tab Bar minimieren (Desktop) | beim Runterscrollen zum Kreis mit dem gewählten Symbol am vorderen (linken) Rand, zurück beim Hochscrollen, oben auf der Seite und per Klick – wie `tabBarMinimizeBehavior(.onScrollDown)`: „minimizes the tab bar as soon as someone scrolls down … and restores it when they scroll back up“; HIG: „A person can exit the minimized state by tapping a tab or scrolling to the top of the view.“ Größe (48 pt, mittig auf der Linie der Leiste) und Dauer aus deiner Aufnahme gemessen; Apple bietet das nur auf dem iPhone an („Minimizing is supported for tab bars on only iPhone“) und nennt keine Schwellen | [TabBarMinimizeBehavior](https://developer.apple.com/documentation/swiftui/tabbarminimizebehavior), [tabBarMinimizeBehavior(_:)](https://developer.apple.com/documentation/swiftui/view/tabbarminimizebehavior(_:)), [Tab bars](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/tab-bars.md) |
+| Tab Bar minimieren (Desktop) | beim Runterscrollen zum Kreis mit dem gewählten Symbol am rechten Rand (bewusste Abweichung: iOS legt ihn an den vorderen, linken Rand), zurück beim Hochscrollen, oben auf der Seite und per Klick – wie `tabBarMinimizeBehavior(.onScrollDown)`: „minimizes the tab bar as soon as someone scrolls down … and restores it when they scroll back up“; HIG: „A person can exit the minimized state by tapping a tab or scrolling to the top of the view.“ Größe (48 pt, mittig auf der Linie der Leiste) und Dauer aus deiner Aufnahme gemessen; Apple bietet das nur auf dem iPhone an („Minimizing is supported for tab bars on only iPhone“) und nennt keine Schwellen | [TabBarMinimizeBehavior](https://developer.apple.com/documentation/swiftui/tabbarminimizebehavior), [tabBarMinimizeBehavior(_:)](https://developer.apple.com/documentation/swiftui/view/tabbarminimizebehavior(_:)), [Tab bars](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/tab-bars.md) |
 | Glas reagiert auf Berührung | Linse unter dem Finger, Leiste wächst und hellt auf; Maße und Zeiten aus deiner Bildschirmaufnahme gemessen (Apple beschreibt nur, *dass* Liquid Glass in Echtzeit auf Berührung reagiert, nicht wie genau) | [Applying Liquid Glass to custom views](https://developer.apple.com/documentation/swiftui/applying-liquid-glass-to-custom-views), [`Glass.interactive(_:)`](https://developer.apple.com/documentation/swiftui/glass/interactive(_:)) |
 | Menüs | Titel-Schreibweise („Move to Day“), „…“ wenn danach eine Eingabe folgt, Symbole vorne und einheitlich je Gruppe, Untermenü mit Pfeil, Haken bei Auswahl, Löschen rot, Gruppen mit Trennlinie | [Menus](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/menus.md), [Apple Developer Forums: Symbol vorne ab iOS 26](https://developer.apple.com/forums/thread/793069) |
 | Auswahl im Editor | Kalender und Priorität als Pop-up-Button (natives `<select>`: iOS zeigt sein eigenes Menü) | [Pop-up buttons](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/pop-up-buttons.md) |
@@ -308,8 +309,10 @@ an allen vier Seiten berücksichtigt.
   - Nur wenn Maus oder Trackpad die Haupteingabe ist (`(hover: hover)`); wechselt sie zu Touch
     (Convertible), ist die Leiste sofort wieder voll.
   - Gemessen aus der Aufnahme (60 fps, 3×): Kreis 48 pt, mittig auf der Linie der Leiste, am
-    vorderen Rand; Symbol unverändert groß; Übergang rund 0,25 s. Hier: 0,4 s mit schnellem
-    Anfang (`--morph-ease`), ohne Überschwingen – der Kreis darf das Fenster nicht verlassen.
+    vorderen (linken) Rand; Symbol unverändert groß; Übergang rund 0,25 s. Hier: Kreis am
+    rechten Rand des Fensters (Abstand wie die Seite, 24 px bzw. 16 px unter 700 px Breite),
+    0,4 s mit schnellem Anfang (`--morph-ease`), ohne Überschwingen – der Kreis darf das
+    Fenster nicht verlassen.
   - Schwellen (eigene Werte, Apple nennt keine): 12 px nach unten bzw. oben, ganz oben (≤ 8 px)
     immer voll. Ein Scrollen zählt, wenn es bis 0,6 s nach Mausrad, Taste, Berührung oder
     Ziehen kommt oder während eine Maustaste gedrückt ist (Scrollleiste); ein Klick allein

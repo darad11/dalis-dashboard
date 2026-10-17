@@ -2913,8 +2913,8 @@ scenario('desktop with mouse: the iOS look of the phone and the iPad; double-cli
 });
 
 // The section bar on the desktop minimizes while scrolling down, as a tab bar in iOS 26 with
-// tabBarMinimizeBehavior(.onScrollDown): a 48px circle at the left edge of the window, on the
-// line of the full bar, with the icon of the section on screen (js/mobile.js)
+// tabBarMinimizeBehavior(.onScrollDown): a 48px circle at the right edge of the window (iOS: the
+// leading edge), on the line of the full bar, with the icon of the section on screen (js/mobile.js)
 const barState = (page) => page.evaluate(() => {
   const bar = document.getElementById('mobileTabbar');
   const r = bar.getBoundingClientRect();
@@ -2926,7 +2926,8 @@ const barState = (page) => page.evaluate(() => {
   return {
     minimized: bar.classList.contains('minimized'),
     collapsed: bar.classList.contains('collapsed'),
-    left: r.left, width: r.width, height: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2,
+    left: r.left, right: window.innerWidth - r.right, width: r.width, height: r.height,
+    cx: r.left + r.width / 2, cy: r.top + r.height / 2,
     iconX: icon.left + icon.width / 2, iconY: icon.top + icon.height / 2,
     visible: [...bar.querySelectorAll('.mobile-tab')].filter(el => getComputedStyle(el).visibility === 'visible').map(el => el.dataset.section),
     tabWidths: [...bar.querySelectorAll('.mobile-tab')].map(el => el.getBoundingClientRect().width),
@@ -2985,8 +2986,8 @@ scenario('desktop: the section bar minimizes into a circle while scrolling down,
   assert.equal(Math.round(s.width), 560, 'full at the top');
   const line = s.cy;
 
-  // Scrolling down with the wheel: it shrinks (animated) into a 48px circle at the left edge of
-  // the window (the gutter), centred on the line of the full bar, the icon of the section on
+  // Scrolling down with the wheel: it shrinks (animated) into a 48px circle at the right edge
+  // of the window (the gutter), centred on the line of the full bar, the icon of the section on
   // screen in its middle; the other items are hidden (pointer, keyboard, VoiceOver), and the
   // content where the bar was is free
   await watchFirstFrame(page);
@@ -2996,7 +2997,7 @@ scenario('desktop: the section bar minimizes into a circle while scrolling down,
   await waitFor(() => barSmall(page), 'small after scrolling down');
   await settle(page, 500);
   s = await barState(page);
-  assert.equal(Math.round(s.left), 24, 'at the left edge');
+  assert.equal(Math.round(s.right), 24, 'at the right edge');
   assert.ok(Math.abs(s.cy - line) <= 0.5, `on the line of the full bar: ${s.cy} / ${line}`);
   assert.ok(Math.abs(s.iconX - s.cx) <= 0.5 && Math.abs(s.iconY - s.cy) <= 0.5, `icon in the middle: ${JSON.stringify(s)}`);
   assert.deepEqual(s.visible, [await currentSection(page)], 'only the item of the section on screen');
@@ -3094,7 +3095,7 @@ scenario('desktop: the section bar minimizes into a circle while scrolling down,
   await settle(page, 600);
   s = await barState(page);
   assert.equal(s.minimized, true);
-  assert.equal(Math.round(s.left), 16, 'at the narrow gutter');
+  assert.equal(Math.round(s.right), 16, 'at the narrow gutter');
   assert.ok(Math.abs(s.cy - (760 - 10 - 31)) <= 0.5, `on the line of the 62px bar: ${s.cy}`);
   assert.ok(Math.abs(s.iconX - s.cx) <= 0.5 && Math.abs(s.iconY - s.cy) <= 0.5, `icon in the middle after resizing: ${JSON.stringify(s)}`);
   await watchGrowth(page);
