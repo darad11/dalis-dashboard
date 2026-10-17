@@ -185,6 +185,20 @@
 </head>
 
 <body>
+  <script>
+    // The saved theme before the first paint. The body gets "dark" here and not only in
+    // initTheme (js/app.js), which runs after the sign-in and the first sync: until then the
+    // page was painted light for about a second on a dark-mode device. Colours as in
+    // syncThemeColor (js/mobile.js).
+    (function () {
+      try {
+        if (localStorage.getItem('darkMode') !== 'true') return;
+        document.body.classList.add('dark');
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', document.documentElement.classList.contains('touch-layout') ? '#000000' : '#0f172a');
+      } catch (e) { }
+    })();
+  </script>
   <!-- Quick Capture Button -->
   <button class="quick-capture-btn" id="quickCapture" title="Quick Add (Q)">+</button>
 

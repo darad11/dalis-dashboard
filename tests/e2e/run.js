@@ -857,6 +857,51 @@ scenario('phones: the calendar stands first already while the scripts load', asy
   await context.close();
 });
 
+// The theme used to be applied by initTheme (js/app.js) after the sign-in and the first sync:
+// a dark-mode device painted the page light for about a second on every start. The body gets
+// "dark" from an inline script at the top of the body now, before anything is painted.
+scenario('dark mode shows from the first paint, not only after the sign-in and the first sync', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const context = await env.browser.newContext(Object.assign({ locale: 'de-AT', timezoneId: 'Europe/Vienna' }, PHONE));
+  openContexts.add(context);
+  const page = await context.newPage();
+  await page.addInitScript(() => { try { localStorage.setItem('darkMode', 'true'); } catch (e) { /* blocked */ } });
+  let release;
+  const held = new Promise(resolve => { release = resolve; });
+  const mock = fs.readFileSync(path.join(__dirname, 'mock-supabase.js'), 'utf8');
+  await page.route(/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js/, async route => {
+    await held;
+    await route.fulfill({ status: 200, contentType: 'application/javascript', body: mock }).catch(() => { });
+  });
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, route => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  await page.route(/open-meteo\.com/, route => route.abort('failed'));
+  const loading = page.goto(env.url).catch(() => { });
+  await page.waitForSelector('#section-lists', { state: 'attached' });
+  // The scripts at the end of the page have not run, yet the page is already dark
+  assert.equal(await page.evaluate(() => !!window.MobileUI), false, 'js/mobile.js has not run yet');
+  assert.equal(await page.evaluate(() => document.body.classList.contains('dark')), true, 'dark before the scripts run');
+  // Once the stylesheets are in (the DOM is parsed before they arrive), the first paint is black
+  await page.waitForFunction(() => [...document.styleSheets].some(s => s.href && s.href.includes('mobile.css') && s.cssRules.length > 0));
+  assert.equal(await page.evaluate(() => !!window.MobileUI), false, 'still before the scripts');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(0, 0, 0)', 'painted on the iOS dark background');
+  assert.equal(await page.evaluate(() => document.querySelector('meta[name="theme-color"]').content), '#000000', 'the browser chrome is dark as well');
+  release();
+  await loading;
+  await page.waitForFunction(() => !!window.MobileUI);
+  await page.waitForSelector('#stepChallenge:not([hidden])');
+  await settle(page, 300);
+  assert.equal(await page.evaluate(() => document.body.classList.contains('dark')), true, 'still dark after the sign-in and the sync');
+  assert.equal(await page.evaluate(() => document.querySelector('meta[name="theme-color"]').content), '#000000');
+  await context.close();
+
+  // Without the setting the page stays light
+  const light = await openPhone(env);
+  assert.equal(await light.page.evaluate(() => document.body.classList.contains('dark')), false);
+  assert.equal(await light.page.evaluate(() => document.querySelector('meta[name="theme-color"]').content), '#f2f2f7');
+  assert.deepEqual(light.errors, []);
+  await light.context.close();
+});
+
 scenario('scroll: a short last section is marked at the end of the page; a chosen one stays marked', async (env) => {
   seedDemo(env.store, { steps: false });
   const { page, errors, context } = await openPhone(env);

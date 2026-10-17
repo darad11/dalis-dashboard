@@ -78,7 +78,12 @@ iPhone quer):
   Sheet offen ist, bleibt die Seite dahinter stehen, und nach dem Schließen steht sie an
   derselben Stelle wie vorher (siehe unten „Sheets und Tastatur“).
 - **Textgröße**: folgt in Safari der Einstellung „Textgröße“ von iOS (Dynamic Type).
-- **Dark Mode**: echtes iOS-Schwarz (#000) mit Karten in #1C1C1E, die Browserleiste folgt.
+- **Dark Mode**: echtes iOS-Schwarz (#000) mit Karten in #1C1C1E, die Browserleiste folgt. Seit
+  17.10.2026 gilt das gespeicherte Theme ab dem ersten Bild: Ein Inline-Skript am Anfang von
+  `<body>` setzt `dark` (und die Farbe der Browserleiste), bevor etwas gezeichnet wird. Vorher
+  kam die Klasse erst aus `initTheme` in `js/app.js` – nach der Anmeldung und dem ersten
+  Sync –, sodass die Seite auf einem dunklen Gerät bei jedem Start etwa eine Sekunde hell war
+  (Aufnahme vom 17.10., 07:36).
 - Mit **Maus/Trackpad oder ab 1100 px** (Desktop, iPad quer) bleibt das Desktop-Layout.
 
 ### Bedienung per Touch
