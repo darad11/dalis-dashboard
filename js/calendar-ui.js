@@ -173,9 +173,13 @@
       sheet.dialog.close();
       sheet.closing = null;
       if (!document.querySelector('dialog[open]')) root.classList.remove('dialog-open');
-      // Taps do not focus buttons on iOS: give focus back to the opener explicitly
+      // Taps do not focus buttons on iOS: give focus back to the opener explicitly. The
+      // browser returns it only to an opener that is still there; until its focus fixup the
+      // focus may still sit in the closed dialog (the opener was rebuilt meanwhile)
       const active = document.activeElement;
-      if ((!active || active === document.body) && sheet.opener && sheet.opener.isConnected) focusWithoutScroll(sheet.opener);
+      if ((!active || active === document.body || sheet.dialog.contains(active)) && sheet.opener && sheet.opener.isConnected) {
+        focusWithoutScroll(sheet.opener);
+      }
       resolveClosed();
     };
     if (reducedMotion.matches || !isTouchLayout()) finish();
