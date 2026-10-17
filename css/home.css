@@ -631,6 +631,15 @@ body.dark .home-check::before {
     color: var(--text-primary);
 }
 
+.home-weather-range {
+    margin: 2px 0 0;
+    font-size: 0.9rem;
+    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
 .home-weather-place {
     display: inline-flex;
     align-items: center;
@@ -854,6 +863,7 @@ html.touch-layout .home-row-meta,
 html.touch-layout .home-event-end,
 html.touch-layout .home-event-next,
 html.touch-layout .home-tile-due,
+html.touch-layout .home-weather-range,
 html.touch-layout .home-weather-note {
     font-family: var(--ios-font);
 }

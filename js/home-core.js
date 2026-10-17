@@ -310,7 +310,7 @@
   /**
    * The forecast response reduced to what Home shows, or null when the shape is not the
    * documented one (current.temperature_2m, current.weather_code, current.is_day,
-   * daily.sunrise[0], daily.sunset[0]).
+   * daily.sunrise[0], daily.sunset[0], daily.temperature_2m_max[0], daily.temperature_2m_min[0]).
    */
   function parseForecast(json) {
     if (!json || typeof json !== 'object' || !json.current || typeof json.current !== 'object') return null;
@@ -319,6 +319,7 @@
     const daily = json.daily && typeof json.daily === 'object' ? json.daily : {};
     const sunrise = Array.isArray(daily.sunrise) ? timeOfIso(daily.sunrise[0]) : '';
     const sunset = Array.isArray(daily.sunset) ? timeOfIso(daily.sunset[0]) : '';
+    const dailyNumber = (key) => (Array.isArray(daily[key]) && Number.isFinite(daily[key][0]) ? daily[key][0] : null);
     return {
       temperature: c.temperature_2m,
       code: c.weather_code,
@@ -326,6 +327,8 @@
       time: typeof c.time === 'string' ? c.time : '',
       sunrise,
       sunset,
+      high: dailyNumber('temperature_2m_max'),
+      low: dailyNumber('temperature_2m_min'),
       unit: json.current_units && typeof json.current_units.temperature_2m === 'string' ? json.current_units.temperature_2m : '°C'
     };
   }

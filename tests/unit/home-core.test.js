@@ -168,10 +168,14 @@ test('weather: the documented WMO codes, symbols by day and night, the forecast 
   const parsed = Core.parseForecast({
     current_units: { temperature_2m: '°C' },
     current: { time: '2026-10-16T09:30', interval: 900, temperature_2m: 13.6, weather_code: 2, is_day: 1 },
-    daily: { time: ['2026-10-16'], sunrise: ['2026-10-16T07:21'], sunset: ['2026-10-16T18:12'] },
+    daily: { time: ['2026-10-16'], sunrise: ['2026-10-16T07:21'], sunset: ['2026-10-16T18:12'], temperature_2m_max: [14.3], temperature_2m_min: [5.8] },
     timezone: 'Europe/Vienna', utc_offset_seconds: 7200
   });
-  assert.deepEqual(parsed, { temperature: 13.6, code: 2, isDay: true, time: '2026-10-16T09:30', sunrise: '07:21', sunset: '18:12', unit: '°C' });
+  assert.deepEqual(parsed, { temperature: 13.6, code: 2, isDay: true, time: '2026-10-16T09:30', sunrise: '07:21', sunset: '18:12', high: 14.3, low: 5.8, unit: '°C' });
+  // An answer without the day's range (cached before it was requested) still counts, without it
+  const older = Core.parseForecast({ current: { temperature_2m: 10, weather_code: 0 }, daily: { sunrise: ['2026-10-16T07:21'], sunset: ['2026-10-16T18:12'] } });
+  assert.equal(older.high, null);
+  assert.equal(older.low, null);
   assert.equal(Core.parseForecast({ current: { temperature_2m: 'warm', weather_code: 1 } }), null);
   assert.equal(Core.parseForecast({ reason: 'error' }), null);
   assert.equal(Core.parseForecast(null), null);

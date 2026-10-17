@@ -236,6 +236,11 @@
         h('div', { class: 'home-weather-main' },
           h('p', { class: 'home-weather-temp' }, Core.formatTemperature(data.temperature)),
           h('p', { class: 'home-weather-text' }, Core.weatherDescription(data.code)),
+          data.high !== null && data.low !== null
+            ? h('p', { class: 'home-weather-range' }, // reads "High 14° Low 6°", shows "H:14° L:6°" as the Weather app
+              h('span', { class: 'visually-hidden' }, 'High '), h('span', { 'aria-hidden': 'true' }, 'H:'), Core.formatTemperature(data.high), ' ',
+              h('span', { class: 'visually-hidden' }, 'Low '), h('span', { 'aria-hidden': 'true' }, 'L:'), Core.formatTemperature(data.low))
+            : null,
           placeButton(loc.name)),
         h('dl', { class: 'home-sun' },
           h('div', { class: 'home-sun-item' },

@@ -1,5 +1,6 @@
 /*
- * Weather for Home: current conditions and today's sunrise and sunset from Open-Meteo
+ * Weather for Home: current conditions, today's high and low and today's sunrise and sunset
+ * from Open-Meteo
  * (https://open-meteo.com - free for non-commercial use, no API key, weather data CC BY 4.0;
  * the API documents the request and the WMO codes used in js/home-core.js).
  *
@@ -48,7 +49,7 @@
       latitude: String(location.latitude),
       longitude: String(location.longitude),
       current: 'temperature_2m,weather_code,is_day',
-      daily: 'sunrise,sunset',
+      daily: 'sunrise,sunset,temperature_2m_max,temperature_2m_min',
       timezone: 'auto',
       forecast_days: '1'
     });
@@ -86,7 +87,8 @@
       state.fetchedAt = cache.fetchedAt;
       state.status = 'ok';
     }
-    refresh();
+    // An answer cached before the day's high and low were requested is replaced right away
+    refresh(!!cached && cached.high === null);
   }
 
   /** Fetches unless the weather is fresh (force: always). One request at a time. */

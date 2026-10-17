@@ -9,7 +9,7 @@ Bereichen, jede Karte führt dorthin.
 | Karte | Inhalt | Quelle (so gespeichert wie bisher) |
 |---|---|---|
 | **Begrüßung** | „Good morning / afternoon / evening, ‹Name›.“ nach der Uhrzeit (ab 5, 12, 18 Uhr) und das Datum („Freitag, 16. Oktober“). Der Stift ändert den Namen; ohne Namen „Good morning.“ und „Add your name“. | Name: Einstellung `home` (Tabelle `settings`), wie `calendars` synchronisiert |
-| **Weather** | Temperatur, Wetterlage mit Symbol, Sonnenaufgang und -untergang, Ort. Ohne Ort: „Set location“. | Open-Meteo (unten) |
+| **Weather** | Temperatur, Wetterlage mit Symbol, Höchst- und Tiefsttemperatur des Tages („H:14° L:6°“), Sonnenaufgang und -untergang, Ort. Ohne Ort: „Set location“. | Open-Meteo (unten) |
 | **Today** | Die Einträge von heute in der Reihenfolge des Kalenders (ganztägig zuerst, dann nach Uhrzeit), vergangene gedämpft, der nächste hervorgehoben mit „in 20 min“ / „until 10:30“. **+** = neuer Termin für heute, Antippen öffnet den Eintrag im Kalender-Editor. | Kalendertag `cal-…` von heute |
 | **Tasks** | Aus dem Wochenboard („Weekly Overview & Tasks“): **überfällige** Aufgaben (offen, an einem vergangenen Tag dieser Woche, rot mit „Overdue · Mi“) zuerst, dann die von **heute** nach Priorität (`!!!`, `!!`, `!`), dann die **nächsten Tage**; erledigte von heute zuletzt; höchstens 6 Zeilen, Rest als „… more this week“. Zähler „2 open today · 1 overdue · 1 done“, Fuß „3 of 7 done this week“. Abhaken ändert die Aufgabe auf dem Board. **+** legt eine Aufgabe in der Spalte von heute an. | Board `week-JJJJ-Wnn` der aktuellen Woche |
 | **Today's Goals** | Der **Focus**: das erste offene Ziel nach Dringlichkeit (High, Medium, Low, keine) und Reihenfolge – bewusst wählen über „Urgency: High“ im ⋯-Menü des Ziels. Darunter die weiteren offenen Ziele (bis 4 Zeilen), „2 of 5 done“. Abhaken und **+** wirken auf die Zielliste von heute. | `goals-…` von heute |
@@ -38,7 +38,9 @@ sein soll.
   (unter 10.000 Anfragen pro Tag), **ohne API-Schlüssel**, Daten CC BY 4.0 (Nennung im
   Standort-Sheet). Es wird nichts im Frontend hinterlegt, was geheim wäre.
 - Anfrage nur mit den Koordinaten des gewählten Orts: `…/v1/forecast?latitude&longitude&
-  current=temperature_2m,weather_code,is_day&daily=sunrise,sunset&timezone=auto&forecast_days=1`.
+  current=temperature_2m,weather_code,is_day&daily=sunrise,sunset,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1`.
+  Eine im Gerät gespeicherte Antwort von vor dieser Erweiterung (ohne Höchst-/Tiefstwert) wird
+  beim nächsten Start sofort ersetzt.
   Zeiten kommen in der Ortszeit des Orts (`timezone=auto`) und werden als Text übernommen.
 - Ort wählen: Wetterkarte (bzw. „Set location“) → Sheet mit Ortssuche (Open-Meteo Geocoding,
   Treffer wie „Wien, Österreich“), „Use current location“ (Standort des Geräts, mit

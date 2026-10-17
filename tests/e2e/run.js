@@ -1975,8 +1975,8 @@ const FORECAST = {
   latitude: 48.2, longitude: 16.37, utc_offset_seconds: 7200, timezone: 'Europe/Vienna', timezone_abbreviation: 'CEST',
   current_units: { time: 'iso8601', interval: 'seconds', temperature_2m: '°C', weather_code: 'wmo code', is_day: '' },
   current: { time: '2026-10-16T09:45', interval: 900, temperature_2m: 13.6, weather_code: 2, is_day: 1 },
-  daily_units: { time: 'iso8601', sunrise: 'iso8601', sunset: 'iso8601' },
-  daily: { time: ['2026-10-16'], sunrise: ['2026-10-16T07:21'], sunset: ['2026-10-16T18:12'] }
+  daily_units: { time: 'iso8601', sunrise: 'iso8601', sunset: 'iso8601', temperature_2m_max: '°C', temperature_2m_min: '°C' },
+  daily: { time: ['2026-10-16'], sunrise: ['2026-10-16T07:21'], sunset: ['2026-10-16T18:12'], temperature_2m_max: [14.3], temperature_2m_min: [5.8] }
 };
 const PLACES = [
   { id: 1, name: 'Wien', latitude: 48.20849, longitude: 16.37208, country: 'Österreich', admin1: 'Wien', timezone: 'Europe/Vienna' },
@@ -2170,13 +2170,16 @@ scenario('home: weather for a chosen place from Open-Meteo - cached while offlin
   assert.equal(await text(page, '.home-weather-temp'), '14°');
   assert.equal(await text(page, '.home-weather-text'), 'Partly cloudy');
   assert.deepEqual(await page.$$eval('.home-sun dd', els => els.map(e => e.textContent)), ['07:21', '18:12']);
+  // Visible text without the words for screen readers ("High 14° Low 6°")
+  assert.equal(await page.evaluate(() => [...document.querySelector('.home-weather-range').childNodes]
+    .filter(n => !(n.nodeType === 1 && n.classList.contains('visually-hidden'))).map(n => n.textContent).join('')), 'H:14° L:6°', "the day's high and low");
   assert.equal(await text(page, '.home-weather-place'), 'Wien');
   assert.equal(await page.locator('.home-weather-note').count(), 0, 'fresh weather carries no note');
   // One request, with nothing but the coordinates and the documented parameters
   assert.equal(calls.length, 1);
   const url = new URL(calls[0]);
   assert.deepEqual(['latitude', 'longitude', 'current', 'daily', 'timezone', 'forecast_days'].map(k => url.searchParams.get(k)),
-    ['48.2085', '16.3721', 'temperature_2m,weather_code,is_day', 'sunrise,sunset', 'auto', '1']);
+    ['48.2085', '16.3721', 'temperature_2m,weather_code,is_day', 'sunrise,sunset,temperature_2m_max,temperature_2m_min', 'auto', '1']);
   assert.ok(!calls[0].includes('Wien'), 'no place name in the request');
   await waitFor(() => { const s = homeSetting(env); return !!s && !!s.location && s.location.name === 'Wien' && s.location.latitude === 48.2085; }, 'place stored in the settings');
 
