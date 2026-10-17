@@ -62,7 +62,7 @@
         { id: 'e5', title: 'Community-Call', day: 2, start: '17:00', end: '18:00', cal: 'work' },
         { id: 'e6', title: 'Bank: Finanzierungs­gespräch', day: 3, start: '11:00', end: '12:00', cal: 'work' },
         { id: 'e7', title: 'Gym', day: 3, start: '18:30', end: '19:30', cal: 'personal' },
-        { id: 'e8', title: 'Abnahme Bauabschnitt 2', day: 4, start: '09:00', end: '12:00', cal: 'work' },
+        { id: 'e8', title: 'Abnahme Bauabschnitt 2', day: 4, start: '09:00', end: '13:00', cal: 'work' },
         { id: 'e9', title: 'Bauernmarkt', day: 5, start: '09:30', end: '10:30', cal: 'personal' }
       ],
       inbox: [
