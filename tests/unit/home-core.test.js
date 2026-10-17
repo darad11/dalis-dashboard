@@ -23,7 +23,10 @@ test('greeting follows the hour; the name is cleaned and optional', () => {
   assert.equal(Core.greetingLine('', 9), 'Good morning.');
   assert.equal(Core.greetingLine(null, 20), 'Good evening.');
   assert.equal(Core.cleanName('x'.repeat(60)).length, Core.MAX_NAME);
-  assert.equal(Core.dateLabel(FRIDAY), 'Freitag, 16. Oktober');
+  assert.equal(Core.dateLabel(FRIDAY), 'Friday, 16 October');
+  assert.equal(Core.dateLabel(new Date(2027, 0, 5)), 'Tuesday, 5 January');
+  assert.equal(Core.clockLabel(new Date(2026, 9, 17, 8, 0, 26)), '08:00:26');
+  assert.equal(Core.clockLabel(new Date(2026, 9, 17, 23, 59, 5)), '23:59:05');
   assert.equal(Core.dayKey(FRIDAY), TODAY);
   assert.equal(Core.weekdayIndex(FRIDAY), 4);
   assert.equal(Core.dayKey(Core.mondayOf(FRIDAY)), '2026-10-12');

@@ -8,7 +8,7 @@ Bereichen, jede Karte führt dorthin.
 
 | Karte | Inhalt | Quelle (so gespeichert wie bisher) |
 |---|---|---|
-| **Begrüßung** | „Good morning / afternoon / evening, ‹Name›.“ nach der Uhrzeit (ab 5, 12, 18 Uhr) und das Datum („Freitag, 16. Oktober“). Der Stift ändert den Namen; ohne Namen „Good morning.“ und „Add your name“. | Name: Einstellung `home` (Tabelle `settings`), wie `calendars` synchronisiert |
+| **Begrüßung** | „Good morning / afternoon / evening, ‹Name›.“ nach der Uhrzeit (ab 5, 12, 18 Uhr), darunter das Datum auf Englisch („Friday, 16 October“) und daneben die Uhr mit Sekunden („08:00:26“, vorher über „Today's Goals“). Der Stift ändert den Namen; ohne Namen „Good morning.“ und „Add your name“. | Name: Einstellung `home` (Tabelle `settings`), wie `calendars` synchronisiert |
 | **Weather** | Temperatur, Wetterlage mit Symbol, Höchst- und Tiefsttemperatur des Tages („H:14° L:6°“), Sonnenaufgang und -untergang, Ort. Ohne Ort: „Set location“. | Open-Meteo (unten) |
 | **Today** | Die Einträge von heute in der Reihenfolge des Kalenders (ganztägig zuerst, dann nach Uhrzeit), vergangene gedämpft, der nächste hervorgehoben mit „in 20 min“ / „until 10:30“. **+** = neuer Termin für heute, Antippen öffnet den Eintrag im Kalender-Editor. | Kalendertag `cal-…` von heute |
 | **Tasks** | Aus dem Wochenboard („Weekly Overview & Tasks“): **überfällige** Aufgaben (offen, an einem vergangenen Tag dieser Woche, rot mit „Overdue · Mi“) zuerst, dann die von **heute** nach Priorität (`!!!`, `!!`, `!`), dann die **nächsten Tage**; erledigte von heute zuletzt; höchstens 6 Zeilen, Rest als „… more this week“. Zähler „2 open today · 1 overdue · 1 done“, Fuß „3 of 7 done this week“. Abhaken ändert die Aufgabe auf dem Board. **+** legt eine Aufgabe in der Spalte von heute an. | Board `week-JJJJ-Wnn` der aktuellen Woche |
@@ -28,9 +28,9 @@ Home aktualisiert sich bei jeder Änderung der Daten (`db.set`/`db.del` melden
 der Fokus bleibt nach dem Neuzeichnen auf demselben Element; die Leertaste startet dabei nicht den
 Focus-Timer.
 
-Sprache: Englisch wie die übrige Oberfläche („Today's Goals“, „New Event“), Datum deutsch wie im
-Kalender. Die Begrüßung steht in `js/home-core.js` (`greeting`) – eine Zeile, falls sie deutsch
-sein soll.
+Sprache: Englisch wie die übrige Oberfläche („Today's Goals“, „New Event“); das Datum der
+Begrüßung auf Englisch (Tag vor Monat), die Daten in den Bereichen bleiben deutsch wie bisher.
+Die Begrüßung steht in `js/home-core.js` (`greeting`, `dateLabel`).
 
 ## Wetter
 

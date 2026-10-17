@@ -3083,19 +3083,6 @@ body.dark .sync-modal-actions .sync-primary {
     /* Sidebar fills remaining width */
     min-width: 350px;
     position: relative;
-    /* For absolute datetime positioning */
-}
-
-.sidebar-datetime {
-    position: absolute;
-    top: -36px;
-    right: 0;
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-    text-align: right;
-    opacity: 0.8;
 }
 
 .dashboard-sidebar .goals-container {

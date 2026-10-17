@@ -121,6 +121,11 @@
     color: var(--text-secondary);
 }
 
+.home-clock {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
 /* ---- Card head: title, one line of numbers, actions on the right ---- */
 .home-card-head {
     display: flex;

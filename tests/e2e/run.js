@@ -2003,7 +2003,12 @@ scenario('home on phones: the day at a glance from the other sections; ticks cha
   // The page opens on Home: greeting with the name, the day as the calendar writes it
   assert.equal(await currentSection(page), 'home');
   assert.equal(await text(page, '.home-greeting-text'), 'Good morning, Dali.');
-  assert.equal(await text(page, '.home-date'), 'Freitag, 16. Oktober');
+  assert.equal(await text(page, '.home-date-text'), 'Friday, 16 October');
+  // The clock stands next to the date (moved here from above Today's Goals) and ticks
+  assert.match(await text(page, '.home-clock'), /^10:00:\d\d$/);
+  const clockBefore = await text(page, '.home-clock');
+  await waitFor(async () => (await text(page, '.home-clock')) !== clockBefore, 'the clock ticks');
+  assert.equal(await page.locator('#sidebarDateTime').count(), 0, 'no second clock above the goals');
   assert.deepEqual(await page.$$eval('.home-card', els => els.map(e => e.className.replace('home-card glass-panel ', '').split(' ')[0])),
     ['home-weather', 'home-today', 'home-tasks', 'home-goals', 'home-matrix', 'home-steps', 'home-habits']);
 

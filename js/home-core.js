@@ -52,9 +52,16 @@
     return who ? `${greeting(hour)}, ${who}.` : `${greeting(hour)}.`;
   }
 
-  /** "Freitag, 16. Oktober" - the day as the calendar and the week write it. */
+  /** "Friday, 16 October" - English like the rest of Home, day before month as read here. */
   function dateLabel(date) {
-    return date.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+    const weekday = date.toLocaleDateString('en-GB', { weekday: 'long' });
+    const month = date.toLocaleDateString('en-GB', { month: 'long' });
+    return `${weekday}, ${date.getDate()} ${month}`;
+  }
+
+  /** "08:00:26" - the clock next to the date (24 hours, with seconds as before). */
+  function clockLabel(date) {
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   }
 
   function mondayOf(date) {
@@ -384,6 +391,7 @@
     greeting,
     greetingLine,
     dateLabel,
+    clockLabel,
     mondayOf,
     weekdayIndex,
     todayEvents,

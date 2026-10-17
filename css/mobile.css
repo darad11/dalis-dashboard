@@ -154,12 +154,6 @@ body {
         flex: 1;
         justify-content: center;
     }
-
-    .sidebar-datetime {
-        position: static;
-        text-align: right;
-        margin-bottom: -12px;
-    }
 }
 
 /* ===================================================================
@@ -1486,18 +1480,6 @@ html.touch-layout .dashboard-sidebar {
     min-width: 0;
     width: 100%;
     gap: 6px;
-}
-
-html.touch-layout .sidebar-datetime {
-    position: static;
-    margin: 4px 4px 0;
-    text-align: left;
-    font-size: 0.765rem;   /* Footnote */
-    font-weight: 500;
-    letter-spacing: 0;
-    text-transform: none;
-    opacity: 1;
-    color: var(--text-secondary);
 }
 
 html.touch-layout .goals-container {

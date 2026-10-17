@@ -180,7 +180,16 @@
     return h('header', { class: 'home-header' },
       h('h1', { class: 'home-greeting' },
         h('span', { class: 'home-greeting-text' }, head, h('span', { class: 'home-greeting-tail' }, tail, edit))),
-      h('p', { class: 'home-date' }, Core.dateLabel(d.now)));
+      h('p', { class: 'home-date' },
+        h('span', { class: 'home-date-text' }, Core.dateLabel(d.now)),
+        h('span', { class: 'home-date-sep', 'aria-hidden': 'true' }, ' · '),
+        h('time', { class: 'home-clock' }, Core.clockLabel(d.now))));
+  }
+
+  // The clock ticks every second on its own; the rest of Home is re-rendered once a minute
+  function tickClock() {
+    const clock = view && view.querySelector('.home-clock');
+    if (clock) clock.textContent = Core.clockLabel(new Date());
   }
 
   // ===== Weather =====
@@ -655,6 +664,7 @@
       render();
       if (window.Weather) window.Weather.refresh();
     }, 60000);
+    setInterval(tickClock, 1000);
     syncWeather();
     render();
   }
