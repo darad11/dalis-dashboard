@@ -2912,6 +2912,242 @@ scenario('desktop with mouse: the iOS look of the phone and the iPad; double-cli
   await context.close();
 });
 
+// The section bar on the desktop minimizes while scrolling down, as a tab bar in iOS 26 with
+// tabBarMinimizeBehavior(.onScrollDown): a 48px circle at the left edge of the window, on the
+// line of the full bar, with the icon of the section on screen (js/mobile.js)
+const barState = (page) => page.evaluate(() => {
+  const bar = document.getElementById('mobileTabbar');
+  const r = bar.getBoundingClientRect();
+  const tab = bar.querySelector('.mobile-tab.active');
+  const icon = tab.querySelector('svg').getBoundingClientRect();
+  const t = tab.getBoundingClientRect();
+  const pill = bar.querySelector('.tabbar-indicator');
+  const p = pill.getBoundingClientRect();
+  return {
+    minimized: bar.classList.contains('minimized'),
+    collapsed: bar.classList.contains('collapsed'),
+    left: r.left, width: r.width, height: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2,
+    iconX: icon.left + icon.width / 2, iconY: icon.top + icon.height / 2,
+    visible: [...bar.querySelectorAll('.mobile-tab')].filter(el => getComputedStyle(el).visibility === 'visible').map(el => el.dataset.section),
+    tabWidths: [...bar.querySelectorAll('.mobile-tab')].map(el => el.getBoundingClientRect().width),
+    pill: +getComputedStyle(pill).opacity,
+    pillUnderTab: Math.abs(p.left + p.width / 2 - (t.left + t.width / 2)) <= 1,
+    scrollY: window.scrollY
+  };
+});
+const barSmall = async (page) => {
+  const s = await barState(page);
+  return s.minimized && Math.round(s.width) === 48 && Math.round(s.height) === 48;
+};
+const barFull = async (page, width = 560) => {
+  const s = await barState(page);
+  return !s.minimized && !s.collapsed && Math.round(s.width) === width && s.pill === 1;
+};
+const SECTION_TABS = ['home', 'week', 'today', 'health', 'habits', 'lists'];
+
+// Width of the bar in the first frame after it starts to minimize (js/mobile.js adds .minimized)
+const watchFirstFrame = (page) => page.evaluate(() => {
+  const bar = document.getElementById('mobileTabbar');
+  window.__firstFrame = null;
+  const watch = new MutationObserver(() => {
+    if (!bar.classList.contains('minimized')) return;
+    watch.disconnect();
+    requestAnimationFrame(() => { window.__firstFrame = bar.getBoundingClientRect().width; });
+  });
+  watch.observe(bar, { attributes: true, attributeFilter: ['class'] });
+});
+const firstFrame = async (page) => {
+  await waitFor(() => page.evaluate(() => window.__firstFrame !== null), 'the first frame of minimizing');
+  return page.evaluate(() => window.__firstFrame);
+};
+// The narrowest item in any frame while the bar grows back (started while it is small)
+const watchGrowth = (page) => page.evaluate(() => {
+  const bar = document.getElementById('mobileTabbar');
+  window.__growth = { frames: 0, narrowest: Infinity };
+  const tick = () => {
+    if (!bar.classList.contains('minimized')) {
+      window.__growth.frames++;
+      bar.querySelectorAll('.mobile-tab').forEach(t => {
+        window.__growth.narrowest = Math.min(window.__growth.narrowest, t.getBoundingClientRect().width);
+      });
+    }
+    if (bar.classList.contains('collapsed')) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+});
+
+scenario('desktop: the section bar minimizes into a circle while scrolling down, as in iOS 26, and comes back', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await open(env, { viewport: { width: 1440, height: 900 } });
+  await settle(page, 500);
+  let s = await barState(page);
+  assert.equal(s.minimized, false);
+  assert.equal(Math.round(s.width), 560, 'full at the top');
+  const line = s.cy;
+
+  // Scrolling down with the wheel: it shrinks (animated) into a 48px circle at the left edge of
+  // the window (the gutter), centred on the line of the full bar, the icon of the section on
+  // screen in its middle; the other items are hidden (pointer, keyboard, VoiceOver), and the
+  // content where the bar was is free
+  await watchFirstFrame(page);
+  await page.mouse.move(720, 400);
+  await page.mouse.wheel(0, 1000);
+  assert.ok(await firstFrame(page) > 300, 'it shrinks, not jumps');
+  await waitFor(() => barSmall(page), 'small after scrolling down');
+  await settle(page, 500);
+  s = await barState(page);
+  assert.equal(Math.round(s.left), 24, 'at the left edge');
+  assert.ok(Math.abs(s.cy - line) <= 0.5, `on the line of the full bar: ${s.cy} / ${line}`);
+  assert.ok(Math.abs(s.iconX - s.cx) <= 0.5 && Math.abs(s.iconY - s.cy) <= 0.5, `icon in the middle: ${JSON.stringify(s)}`);
+  assert.deepEqual(s.visible, [await currentSection(page)], 'only the item of the section on screen');
+  assert.equal(await page.evaluate(y => !!document.elementFromPoint(720, y).closest('#mobileTabbar'), line), false,
+    'the middle of the bottom edge is content again');
+
+  // Only the person's own scrolling counts: a script (or content above changing size) moving
+  // the page changes nothing
+  await page.evaluate(() => window.scrollBy(0, -300));
+  await settle(page, 500);
+  assert.equal((await barState(page)).minimized, true, 'a scroll by a script keeps it small');
+
+  // Scrolling on: the circle shows the next section
+  const first = await currentSection(page);
+  await page.mouse.wheel(0, 2600);
+  await waitFor(async () => (await currentSection(page)) !== first, 'another section on screen');
+  await settle(page, 600);
+  s = await barState(page);
+  assert.equal(s.minimized, true);
+  assert.deepEqual(s.visible, [await currentSection(page)]);
+  assert.ok(Math.abs(s.iconX - s.cx) <= 0.5, 'its icon in the middle');
+
+  // Scrolling up a little: full again - every item, the pill under the section on screen; the
+  // items keep their width in every frame while the bar grows (they do not squeeze)
+  await watchGrowth(page);
+  await page.mouse.wheel(0, -60);
+  await waitFor(() => barFull(page), 'full after scrolling up');
+  s = await barState(page);
+  assert.deepEqual(s.visible, SECTION_TABS);
+  const growth = await page.evaluate(() => window.__growth);
+  assert.ok(growth.frames >= 3 && growth.narrowest > 85, `items at full width while growing: ${JSON.stringify(growth)}`);
+  assert.equal(s.pillUnderTab, true, 'pill under the selected item');
+
+  // The keyboard scrolls too (Page Down)
+  await page.keyboard.press('PageDown');
+  await waitFor(() => barSmall(page), 'small after Page Down');
+  await settle(page, 500);
+
+  // A click on the circle: full again, nothing chosen, the page stays where it is
+  s = await barState(page);
+  const section = await currentSection(page);
+  await page.mouse.click(s.cx, s.cy);
+  await waitFor(() => barFull(page), 'full after a click on the circle');
+  assert.equal(Math.round((await barState(page)).scrollY), Math.round(s.scrollY), 'no jump');
+  assert.equal(await currentSection(page), section);
+
+  // Shift+Tab into the small bar: full again, so the keyboard reaches every section; while the
+  // keyboard is in the bar, scrolling keeps it full
+  await page.mouse.wheel(0, 300);
+  await waitFor(() => barSmall(page), 'small again');
+  // From a button right after the bar (only for this test; fixed, so the page neither grows
+  // nor scrolls): the hidden items are skipped
+  await page.evaluate(() => {
+    const after = document.createElement('button');
+    after.id = 'testAfterBar';
+    after.style.cssText = 'position: fixed; top: 0; left: 0';
+    document.body.appendChild(after);
+    after.focus({ preventScroll: true });
+  });
+  const keyboardAt = await page.evaluate(() => window.scrollY);
+  await page.keyboard.press('Shift+Tab');
+  assert.equal(await page.evaluate(() => document.activeElement.matches('.mobile-tab.active')), true, 'focus on the circle');
+  await page.evaluate(() => document.getElementById('testAfterBar').remove());
+  await waitFor(() => barFull(page), 'full when the keyboard comes in');
+  await page.keyboard.press('PageDown');
+  await settle(page, 700);
+  assert.ok(await page.evaluate(() => window.scrollY) > keyboardAt + 100, 'Page Down scrolled');
+  assert.equal((await barState(page)).minimized, false, 'full while the keyboard is in the bar');
+
+  // At the top of the page the bar is full, also when a script took the page there
+  await page.evaluate(() => { document.activeElement.blur(); window.scrollTo(0, 1500); });
+  await page.mouse.wheel(0, 300);
+  await waitFor(() => barSmall(page), 'small before going to the top');
+  await settle(page, 800); // long after the wheel: the script's scroll is not the person's
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await waitFor(() => barFull(page), 'full at the top');
+
+  // A jump from the bar does not minimize it on the way down, also when chosen with the
+  // keyboard (whose Enter counts as input for scrolling)
+  await page.focus('.mobile-tab[data-section="habits"]');
+  await page.keyboard.press('Enter');
+  await waitFor(async () => (await currentSection(page)) === 'habits' && await sectionAtTop(page, 'habits'), 'jump to habits');
+  await settle(page, 500);
+  assert.equal((await barState(page)).minimized, false, 'full after the jump');
+
+  // A narrow window while small (one column, the phone's bar: 62px, the icon above the label):
+  // at the narrow gutter, on the line of that bar, its icon in the middle; full again at the
+  // new layout, not squeezed while growing
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.mouse.move(720, 400);
+  await page.mouse.wheel(0, 1200);
+  await waitFor(() => barSmall(page), 'small before resizing');
+  await page.setViewportSize({ width: 600, height: 760 });
+  await page.mouse.move(300, 380);
+  await settle(page, 600);
+  s = await barState(page);
+  assert.equal(s.minimized, true);
+  assert.equal(Math.round(s.left), 16, 'at the narrow gutter');
+  assert.ok(Math.abs(s.cy - (760 - 10 - 31)) <= 0.5, `on the line of the 62px bar: ${s.cy}`);
+  assert.ok(Math.abs(s.iconX - s.cx) <= 0.5 && Math.abs(s.iconY - s.cy) <= 0.5, `icon in the middle after resizing: ${JSON.stringify(s)}`);
+  await watchGrowth(page);
+  await page.mouse.wheel(0, -60);
+  await waitFor(() => barFull(page), 'full after resizing');
+  const narrowGrowth = await page.evaluate(() => window.__growth);
+  assert.ok(narrowGrowth.frames >= 3 && narrowGrowth.narrowest > 85, `not squeezed: ${JSON.stringify(narrowGrowth)}`);
+  assert.equal((await barState(page)).pillUnderTab, true);
+
+  // The primary input becomes touch while the bar is small (a convertible going into tablet
+  // mode): the full bar at once, and scrolling leaves it full. (The way back is not tested: with the touch emulation off,
+  // headless Chromium reports no pointer at all, (hover: none), not a mouse.)
+  await page.mouse.wheel(0, 300);
+  await waitFor(() => barSmall(page), 'small before touch');
+  await setPrimaryTouch(page, true);
+  await waitFor(() => barFull(page), 'full with touch');
+  const touchAt = await page.evaluate(() => window.scrollY);
+  await page.mouse.wheel(0, 400);
+  await settle(page, 700);
+  assert.ok(await page.evaluate(() => window.scrollY) > touchAt + 100, 'the page scrolled');
+  assert.equal((await barState(page)).minimized, false, 'touch screens keep the bar');
+  assert.deepEqual(errors, []);
+  await context.close();
+
+  // Phones and tablets keep the bar as it is (a finger scrolling the page)
+  const phone = await openPhone(env);
+  const client = await phone.context.newCDPSession(phone.page);
+  const touch = (type, y) => client.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x: 200, y, id: 1 }] });
+  await touch('touchStart', 700);
+  for (let i = 1; i <= 15; i++) {
+    await touch('touchMove', 700 - i * 30);
+    await phone.page.waitForTimeout(16);
+  }
+  await touch('touchEnd');
+  await settle(phone.page, 900);
+  assert.ok(await phone.page.evaluate(() => window.scrollY) > 300, 'the page scrolled');
+  s = await barState(phone.page);
+  assert.equal(s.minimized || s.collapsed, false, 'full on the phone');
+  assert.deepEqual(phone.errors, []);
+  await phone.context.close();
+
+  // Reduce Motion: the same states, without the animation
+  const still = await open(env, { viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  await watchFirstFrame(still.page);
+  await still.page.mouse.move(720, 400);
+  await still.page.mouse.wheel(0, 800);
+  assert.equal(Math.round(await firstFrame(still.page)), 48, 'small at once');
+  await still.page.mouse.wheel(0, -60);
+  await waitFor(() => barFull(still.page), 'full with Reduce Motion');
+  assert.deepEqual(still.errors, []);
+  await still.context.close();
+});
+
 // ---------------------------------------------------------------- runner
 
 (async () => {

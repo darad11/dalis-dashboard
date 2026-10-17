@@ -7,7 +7,8 @@
  *   first in Week, the focus timer after today's goals; this is the source order of
  *   index.html). The floating section bar at the bottom marks the section on screen and jumps
  *   to a section when tapped or clicked. A finger on the bar lifts the selection into a glass
- *   lens that can be dragged to a section (as in iOS 26).
+ *   lens that can be dragged to a section (as in iOS 26). With a mouse or trackpad (desktop)
+ *   the bar minimizes into a circle while scrolling down, as a tab bar in iOS 26 can.
  * - The width only picks the arrangement (css/mobile.css: one column below 700px, then more
  *   columns; css/home.css: the wide Home grid from 1100px; on large screens the page keeps the
  *   width of the 13" iPad and stays centred). Apple HIG, Layout: "Determine layout based on
@@ -141,7 +142,8 @@
 
   function moveIndicator(animate) {
     const bar = document.getElementById('mobileTabbar');
-    if (!bar || !isTouchLayout()) return;
+    // Minimized (desktop): no pill; it comes back once the bar is full again (finishExpand)
+    if (!bar || !isTouchLayout() || mini.collapsed) return;
     const indicator = bar.querySelector('.tabbar-indicator');
     const tab = bar.querySelector(`.mobile-tab[data-section="${activeSection}"]`);
     if (!indicator || !tab) return;
@@ -165,6 +167,8 @@
       else tab.removeAttribute('aria-current');
     });
     moveIndicator(animate && changed);
+    // Minimized: the circle shows the new section's icon (the items slide)
+    if (changed && mini.collapsed) placeMiniItems();
     if (changed) window.dispatchEvent(new CustomEvent('dashboard:sectionchange', { detail: { section: name } }));
   }
 
@@ -521,7 +525,8 @@
   }
 
   function onLensDown(e) {
-    if (!isTouchLayout() || lens.pressed || !e.isPrimary || e.button !== 0) return;
+    // Not on the minimized bar or while it changes size: a click there makes it full (setupSections)
+    if (!isTouchLayout() || lens.pressed || mini.collapsed || !e.isPrimary || e.button !== 0) return;
     if (!lens.geo) lens.geo = measureLens();
     if (!lens.geo) return;
     clearTimeout(lens.pendingTimer);
@@ -589,6 +594,220 @@
     document.addEventListener('visibilitychange', () => { if (document.hidden) endLens(); });
   }
 
+  // ============================== Section bar: minimize while scrolling down (desktop)
+  // As a tab bar in iOS 26 with tabBarMinimizeBehavior(.onScrollDown): "A minimized tab bar
+  // becomes smaller so that the content behind it has more room" (Apple, SwiftUI
+  // TabBarMinimizeBehavior); Apple's example minimizes it when someone scrolls down "and
+  // restores it when they scroll back up". HIG Tab bars: "A person can exit the minimized state
+  // by tapping a tab or scrolling to the top of the view." Measured from a screen recording of
+  // iOS 26: the bar shrinks toward its leading edge into a 48pt circle, centred on the bar's
+  // line, that shows the selected item; the other items blur and fade; about a quarter of a
+  // second. Apple minimizes tab bars on iPhone only; here it is on with a mouse or trackpad
+  // (desktop), where the bar floats over wide content. Touch screens keep the bar as it is.
+  // The distances below are ours (Apple gives none).
+  // Only the person's own scrolling counts: not a jump to a section, nor the page moving
+  // because content above it changed size (sync, weather) - a scroll counts when it comes
+  // soon after wheel, keyboard, touch or drag input (the browser's smooth scrolling of a wheel
+  // notch or Page Down takes a few hundred ms), or while a pointer button is held (the
+  // scrollbar). A click alone does not count: what it changes may move the page.
+
+  const MINIMIZE = {
+    down: 12,     // px scrolled down before the bar minimizes ...
+    up: 12,       // ... and up before it comes back
+    top: 8,       // this close to the top the bar is full
+    input: 600,   // ms after input in which a scroll is the person's
+    morph: 400    // ms, as the transitions in css/mobile.css (.collapsed)
+  };
+
+  const mini = {
+    bar: null,
+    enabled: false,
+    minimized: false,  // small or getting small
+    collapsed: false,  // ... or growing back: the items keep the full bar's layout
+    geo: null,         // the full bar's layout: width of the items, centre of each icon
+    lastY: 0,
+    travel: 0,         // px scrolled in the current direction
+    inputAt: -Infinity,
+    pointerHeld: false,
+    finishTimer: 0
+  };
+
+  function focusVisible(node) {
+    try { return node.matches(':focus-visible'); } catch (e) { return false; }
+  }
+
+  function scrolledByPerson() {
+    return mini.pointerHeld || performance.now() - mini.inputAt < MINIMIZE.input;
+  }
+
+  // The full bar's layout (read while it is full and at rest): icon centres from the left edge
+  // of the minimized bar, and how far each icon sits from the middle line
+  function measureFullBar() {
+    const items = mini.bar.querySelector('.tabbar-items');
+    const box = items && items.getBoundingClientRect();
+    if (!box || !box.width) return null;
+    const border = parseFloat(getComputedStyle(mini.bar).borderLeftWidth) || 0;
+    const icons = {};
+    items.querySelectorAll('.mobile-tab').forEach(tab => {
+      const r = (tab.querySelector('svg') || tab).getBoundingClientRect();
+      icons[tab.dataset.section] = {
+        x: border + r.left + r.width / 2 - box.left,
+        dy: box.top + box.height / 2 - (r.top + r.height / 2)
+      };
+    });
+    return { width: box.width, icons };
+  }
+
+  // The items move so that the icon of the section on screen sits in the middle of the circle
+  function placeMiniItems() {
+    const g = mini.geo;
+    if (!g) return;
+    const icon = g.icons[activeSection] || g.icons[SECTIONS[0]];
+    if (!icon) return;
+    const style = mini.bar.style;
+    style.setProperty('--items-w', `${g.width}px`);
+    style.setProperty('--icon-x', `${icon.x}px`);
+    style.setProperty('--icon-dy', `${icon.dy}px`);
+  }
+
+  function minimizeBar() {
+    if (!mini.enabled || mini.minimized || lens.active || lens.pressed) return;
+    // Someone moving through the bar with the keyboard keeps it full
+    const focused = document.activeElement;
+    if (focused && mini.bar.contains(focused) && focusVisible(focused)) return;
+    if (!mini.collapsed) { // full and at rest (while growing back the last layout still holds)
+      const geo = measureFullBar();
+      if (!geo) return;
+      mini.geo = geo;
+    }
+    clearTimeout(mini.finishTimer);
+    placeMiniItems();
+    mini.minimized = true;
+    mini.collapsed = true;
+    mini.bar.classList.add('collapsed', 'minimized');
+  }
+
+  function expandBar() {
+    if (!mini.minimized) return;
+    mini.minimized = false;
+    mini.travel = 0;
+    mini.bar.classList.remove('minimized');
+    clearTimeout(mini.finishTimer);
+    // The items keep the full bar's layout until it has grown back: until its width transition
+    // has finished (none with Reduce Motion). Replaced or cancelled (small again, or a change of
+    // size or input): the state that follows takes over.
+    if (typeof mini.bar.getAnimations !== 'function') {
+      mini.finishTimer = setTimeout(finishExpand, MINIMIZE.morph + 60);
+      return;
+    }
+    const grow = mini.bar.getAnimations().find(a => a.transitionProperty === 'width');
+    if (grow) grow.finished.then(finishExpand, () => {});
+    else finishExpand();
+  }
+
+  function finishExpand() {
+    clearTimeout(mini.finishTimer);
+    if (mini.minimized || !mini.collapsed) return;
+    mini.collapsed = false;
+    mini.bar.classList.remove('collapsed');
+    // The selection pill comes back under the section on screen (it may have changed meanwhile)
+    // and fades in: an animation of its own, as the bar's ResizeObserver places the pill again
+    // without transitions in this same frame (its last change of size)
+    moveIndicator(false);
+    const indicator = mini.bar.querySelector('.tabbar-indicator');
+    if (indicator && typeof indicator.animate === 'function' && !reducedMotion.matches) {
+      indicator.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'ease-out' });
+    }
+  }
+
+  // Changes of state without the animation (the window or the input changes while small)
+  function withoutMorph(change) {
+    const bar = mini.bar;
+    bar.classList.add('no-morph');
+    change();
+    bar.getBoundingClientRect(); // the new state applies here, without transitions
+    bar.classList.remove('no-morph');
+  }
+
+  // The window changed size while the bar is small: the full bar's layout is read again
+  function onMiniResize() {
+    if (!mini.collapsed) return;
+    clearTimeout(mini.finishTimer);
+    withoutMorph(() => {
+      mini.bar.classList.remove('minimized', 'collapsed');
+      const geo = measureFullBar();
+      if (geo) mini.geo = geo;
+      if (mini.minimized) {
+        placeMiniItems();
+        mini.bar.classList.add('collapsed', 'minimized');
+      } else {
+        mini.collapsed = false; // was growing back: full now
+      }
+    });
+    if (!mini.collapsed) moveIndicator(false);
+  }
+
+  function setMinimizable(on) {
+    mini.enabled = on;
+    mini.travel = 0;
+    if (!on && mini.collapsed) { // now a touch screen: the full bar at once
+      clearTimeout(mini.finishTimer);
+      withoutMorph(() => {
+        mini.minimized = false;
+        mini.collapsed = false;
+        mini.bar.classList.remove('minimized', 'collapsed');
+      });
+      moveIndicator(false);
+    }
+  }
+
+  function onMiniScroll() {
+    const scroller = document.scrollingElement || root;
+    const max = Math.max(0, scroller.scrollHeight - window.innerHeight);
+    // The elastic overscroll at either end (Safari) is no direction
+    const y = Math.min(Math.max(0, window.scrollY), max);
+    const dy = y - mini.lastY;
+    mini.lastY = y;
+    if (!mini.enabled) return;
+    if (y <= MINIMIZE.top) {
+      mini.travel = 0;
+      expandBar();
+      return;
+    }
+    if (spyLocked || pageLocked() || !scrolledByPerson()) {
+      mini.travel = 0;
+      return;
+    }
+    if (!dy) return;
+    if (dy > 0 !== mini.travel > 0) mini.travel = 0;
+    mini.travel += dy;
+    if (mini.travel >= MINIMIZE.down) minimizeBar();
+    else if (mini.travel <= -MINIMIZE.up) expandBar();
+  }
+
+  function setupMinimize(bar) {
+    mini.bar = bar;
+    mini.lastY = window.scrollY;
+    const input = () => { mini.inputAt = performance.now(); };
+    ['wheel', 'keydown', 'touchmove', 'dragover'].forEach(type =>
+      window.addEventListener(type, input, { passive: true, capture: true }));
+    window.addEventListener('pointerdown', () => { mini.pointerHeld = true; }, { passive: true, capture: true });
+    ['pointerup', 'pointercancel'].forEach(type => window.addEventListener(type, () => {
+      mini.pointerHeld = false;
+    }, { passive: true, capture: true }));
+    window.addEventListener('blur', () => { mini.pointerHeld = false; });
+    window.addEventListener('scroll', onMiniScroll, { passive: true });
+    // The keyboard (Tab) into the small bar: full again, so every section can be reached
+    bar.addEventListener('focusin', (e) => {
+      if (mini.minimized && focusVisible(e.target)) expandBar();
+    });
+    // Desktop: a mouse or trackpad as the primary input (also when that changes)
+    const update = () => setMinimizable(isTouchLayout() && !isTouch());
+    if (touchMedia.addEventListener) touchMedia.addEventListener('change', update);
+    else if (touchMedia.addListener) touchMedia.addListener(update);
+    update();
+  }
+
   // A click between the items or at the rounded ends of the bar counts for the nearest item
   function clickedTab(bar, e) {
     const tab = e.target.closest('.mobile-tab');
@@ -610,6 +829,12 @@
     const bar = document.getElementById('mobileTabbar');
     if (bar) {
       bar.addEventListener('click', (e) => {
+        // Minimized: a click makes the bar full again and chooses nothing yet
+        if (mini.minimized) {
+          e.preventDefault();
+          expandBar();
+          return;
+        }
         const tab = clickedTab(bar, e);
         if (!tab) return;
         e.preventDefault(); // no "#section-…" in the address bar; the bar shows where we are
@@ -621,13 +846,17 @@
         scrollToSection(tab.dataset.section, { focus: true });
       });
       setupLens(bar);
+      setupMinimize(bar);
     }
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('scrollend', () => { if (spyLocked) unlockSoon(0); });
     window.addEventListener('resize', () => {
       scheduleSpy();
       resetLens();
-      window.requestAnimationFrame(() => moveIndicator(false));
+      window.requestAnimationFrame(() => {
+        if (mini.bar) onMiniResize();
+        moveIndicator(false);
+      });
     });
     // The person scrolls (or types) again: the bar follows the content again
     ['touchstart', 'wheel', 'pointerdown', 'keydown'].forEach(type =>

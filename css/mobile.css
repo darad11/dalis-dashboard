@@ -309,6 +309,8 @@ html.touch-layout {
     --ios-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", system-ui, "Helvetica Neue", Arial, sans-serif;
     --ios-font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", system-ui, "Helvetica Neue", Arial, sans-serif;
     --spring: cubic-bezier(0.32, 1.28, 0.52, 1);
+    /* Fast, then settling without overshoot (the section bar minimizing on the desktop) */
+    --morph-ease: cubic-bezier(0.22, 1, 0.36, 1);
     background-color: var(--page-bg, #f2f2f7);
 }
 
@@ -646,6 +648,8 @@ html.touch-layout .mobile-tabbar {
     padding: 4px;
     border-radius: 999px;
     transform: translateX(-50%);
+    /* Minimized (desktop, see below): a circle this wide */
+    --tabbar-min: 48px;
     /* A finger on the bar moves the selection (glass lens below), so no scrolling, zooming,
        text selection or link preview starts here */
     touch-action: none;
@@ -931,6 +935,83 @@ html.touch-layout .mobile-tabbar {
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
+}
+
+/* ---- Desktop: the bar minimizes while the person scrolls down (js/mobile.js) ----
+   As a tab bar in iOS 26 with tabBarMinimizeBehavior(.onScrollDown): it shrinks toward the
+   leading edge into a circle that shows the selected item, so the content behind it has more
+   room; the other items blur and fade. With a mouse or trackpad only (js/mobile.js sets the
+   classes). The circle sits at the left edge of the window, centred on the line of the full
+   bar. --icon-x and --icon-dy: the selected icon in the full bar (measured in js/mobile.js);
+   the items keep the full bar's width (--items-w), so they do not squeeze while it changes size.
+   .minimized: small or getting small; .collapsed: also while growing back (until it is full).
+   Timing: 0.4s, as MINIMIZE.morph in js/mobile.js; no overshoot (the circle must not leave
+   the window). */
+html.touch-layout .mobile-tabbar.collapsed {
+    /* hidden: Safari before 16, which has no clip */
+    overflow: hidden;
+    overflow: clip;
+    transition: left 0.4s var(--morph-ease), bottom 0.4s var(--morph-ease), width 0.4s var(--morph-ease), height 0.4s var(--morph-ease), padding 0.4s var(--morph-ease);
+}
+
+html.touch-layout .mobile-tabbar.minimized {
+    /* translateX(-50%) stays: the circle's centre */
+    left: calc(var(--safe-left) + var(--gutter) + var(--tabbar-min) / 2);
+    bottom: calc(var(--tabbar-bottom) + (var(--tabbar-height) - var(--tabbar-min)) / 2);
+    width: var(--tabbar-min);
+    height: var(--tabbar-min);
+    padding: 0;
+}
+
+html.touch-layout .mobile-tabbar.collapsed>.tabbar-items {
+    flex: 0 0 var(--items-w);
+    transition: transform 0.4s var(--morph-ease);
+}
+
+html.touch-layout .mobile-tabbar.minimized>.tabbar-items {
+    transform: translate(calc(var(--tabbar-min) / 2 - var(--icon-x)), var(--icon-dy));
+}
+
+/* The pill goes first (it would not travel with the items) */
+html.touch-layout .mobile-tabbar.collapsed .tabbar-indicator {
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+
+html.touch-layout .mobile-tabbar.collapsed .mobile-tab {
+    transition: color 0.2s, opacity 0.2s, filter 0.2s, visibility 0s;
+}
+
+html.touch-layout .mobile-tabbar.collapsed .mobile-tab-label {
+    transition: opacity 0.2s, filter 0.2s;
+}
+
+/* Hidden once faded: out of the way of the pointer, the keyboard and VoiceOver */
+html.touch-layout .mobile-tabbar.minimized .mobile-tab:not(.active) {
+    visibility: hidden;
+    opacity: 0;
+    filter: blur(6px);
+    pointer-events: none;
+    transition: color 0.2s, opacity 0.2s, filter 0.2s, visibility 0s 0.2s;
+}
+
+html.touch-layout .mobile-tabbar.minimized .mobile-tab.active .mobile-tab-label {
+    opacity: 0;
+    filter: blur(4px);
+}
+
+/* A change of window size or input while small: no animation (js/mobile.js) */
+html.touch-layout .mobile-tabbar.no-morph,
+html.touch-layout .mobile-tabbar.no-morph * {
+    transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    html.touch-layout .mobile-tabbar.collapsed,
+    html.touch-layout .mobile-tabbar.collapsed * {
+        transition: none !important;
+    }
 }
 
 /* ===================================================================
@@ -3291,6 +3372,8 @@ html.touch-layout .sheet-confirm-cancel {
     }
 
     html.touch-layout .mobile-tabbar {
+        /* also on the bar: from 700px wide it sets its own (54px) */
+        --tabbar-height: 48px;
         height: 48px;
     }
 

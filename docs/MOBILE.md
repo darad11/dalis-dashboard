@@ -1,7 +1,8 @@
 # Ein Look für iPhone, iPad und Desktop
 
 Stand 17.10.2026 (dritte Ausbaustufe: Glas-Linse in der Leiste unten; das iPad auch quer; seit
-dem Abend desselben Tages derselbe Look auch am Desktop). Ziel: auf iPhone, iPhone Duo (zu- und
+dem Abend desselben Tages derselbe Look auch am Desktop, wo sich die Leiste unten beim
+Runterscrollen zu einem Kreis minimiert). Ziel: auf iPhone, iPhone Duo (zu- und
 aufgeklappt), iPad und am Desktop bedienbar wie eine iOS-App – durchgehend scrollbar,
 Bedienelemente im Stil von iOS 26/27 (Liquid Glass) nach den Apple Human Interface Guidelines
 (HIG). Was nur der Finger braucht (Wischen, Antippen zum Abhaken), hängt an der Eingabe, nicht
@@ -102,6 +103,17 @@ Derselbe Look wie auf iPhone und iPad, mit Maus und Tastatur:
   Shortcuts“ nur mit Maus oder Trackpad, also auch am iPad mit Magic Keyboard), **+** den
   schwebenden Schnell-Knopf; die Tasten **Q** (neuer Eintrag) und **?** (Kurzbefehle) gehen
   weiterhin.
+- **Leiste unten minimiert sich beim Runterscrollen** (seit 17.10.2026, wie eine Tab Bar in
+  iOS 26 mit „minimize on scroll“, nach deiner Bildschirmaufnahme): Sie schrumpft in gut einer
+  Viertelsekunde zu einem runden Glas-Knopf (48 px) ganz links unten im Fenster, der das Symbol
+  des Abschnitts auf dem Bildschirm zeigt; die übrigen Einträge verschwimmen und blenden aus. Der
+  Inhalt, den die Leiste vorher verdeckte, ist frei. Die volle Leiste kommt zurück beim
+  Hochscrollen, ganz oben auf der Seite, per Klick auf den Knopf (wählt nichts, die Seite bleibt
+  stehen) und wenn die Tastatur (Tab) in die Leiste kommt – solange sie dort ist, bleibt die
+  Leiste offen. Es zählt nur das eigene Scrollen (Mausrad, Trackpad, Tasten, gedrückte Maustaste
+  an der Scrollleiste), nicht Sprünge über die Leiste oder die Home-Links und nicht die Seite,
+  die sich durch Sync oder Wetter von selbst verschiebt. Mit „Bewegung reduzieren“ ohne
+  Animation. iPhone und iPad behalten die volle Leiste (siehe Grenzen).
 - **Breite:** Ab 1376 px (13″-iPad quer) bleibt die Seite so breit und steht mittig – Zeilen und
   Karten ziehen sich auf großen Monitoren nicht in die Länge.
 - **⋯ an jedem Eintrag** statt der Löschen-Kreuze, die erst beim Überfahren erschienen: Bearbeiten,
@@ -202,7 +214,8 @@ Derselbe Look wie auf iPhone und iPad, mit Maus und Tastatur:
 | Thema | Umsetzung | Quelle |
 |---|---|---|
 | Liquid Glass nur für die Navigationsebene | Leiste oben (Knöpfe), Leiste unten, Menüs, Sheet-Knöpfe, Mini-Timer; Inhalt auf festen Karten ohne Glas | [Adopting Liquid Glass](https://developer.apple.com/tutorials/data/documentation/technologyoverviews/adopting-liquid-glass.md), [Materials](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/materials.md) |
-| Tab Bar | schwebend, Glas, Beschriftung je ein Wort, gefüllte Symbole, immer sichtbar, nur Navigation (das „+“ sitzt deshalb oben) | [Tab bars](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/tab-bars.md) |
+| Tab Bar | schwebend, Glas, Beschriftung je ein Wort, gefüllte Symbole, immer sichtbar (am Desktop beim Runterscrollen minimiert, siehe nächste Zeile), nur Navigation (das „+“ sitzt deshalb oben) | [Tab bars](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/tab-bars.md) |
+| Tab Bar minimieren (Desktop) | beim Runterscrollen zum Kreis mit dem gewählten Symbol am vorderen (linken) Rand, zurück beim Hochscrollen, oben auf der Seite und per Klick – wie `tabBarMinimizeBehavior(.onScrollDown)`: „minimizes the tab bar as soon as someone scrolls down … and restores it when they scroll back up“; HIG: „A person can exit the minimized state by tapping a tab or scrolling to the top of the view.“ Größe (48 pt, mittig auf der Linie der Leiste) und Dauer aus deiner Aufnahme gemessen; Apple bietet das nur auf dem iPhone an („Minimizing is supported for tab bars on only iPhone“) und nennt keine Schwellen | [TabBarMinimizeBehavior](https://developer.apple.com/documentation/swiftui/tabbarminimizebehavior), [tabBarMinimizeBehavior(_:)](https://developer.apple.com/documentation/swiftui/view/tabbarminimizebehavior(_:)), [Tab bars](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/tab-bars.md) |
 | Glas reagiert auf Berührung | Linse unter dem Finger, Leiste wächst und hellt auf; Maße und Zeiten aus deiner Bildschirmaufnahme gemessen (Apple beschreibt nur, *dass* Liquid Glass in Echtzeit auf Berührung reagiert, nicht wie genau) | [Applying Liquid Glass to custom views](https://developer.apple.com/documentation/swiftui/applying-liquid-glass-to-custom-views), [`Glass.interactive(_:)`](https://developer.apple.com/documentation/swiftui/glass/interactive(_:)) |
 | Menüs | Titel-Schreibweise („Move to Day“), „…“ wenn danach eine Eingabe folgt, Symbole vorne und einheitlich je Gruppe, Untermenü mit Pfeil, Haken bei Auswahl, Löschen rot, Gruppen mit Trennlinie | [Menus](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/menus.md), [Apple Developer Forums: Symbol vorne ab iOS 26](https://developer.apple.com/forums/thread/793069) |
 | Auswahl im Editor | Kalender und Priorität als Pop-up-Button (natives `<select>`: iOS zeigt sein eigenes Menü) | [Pop-up buttons](https://developer.apple.com/tutorials/data/design/human-interface-guidelines/pop-up-buttons.md) |
@@ -290,6 +303,26 @@ an allen vier Seiten berücksichtigt.
     nach 16 px nicht mehr).
   - Bricht das System die Berührung ab (z. B. Wisch-Geste vom Rand), kehrt die Linse ohne
     Auswahl zurück. Tippen zwischen die Einträge oder an die runden Enden wählt den nächsten.
+- Minimieren am Desktop (`js/mobile.js`, Abschnitt „Section bar: minimize while scrolling
+  down“; `css/mobile.css`, Klassen `.minimized` und `.collapsed`):
+  - Nur wenn Maus oder Trackpad die Haupteingabe ist (`(hover: hover)`); wechselt sie zu Touch
+    (Convertible), ist die Leiste sofort wieder voll.
+  - Gemessen aus der Aufnahme (60 fps, 3×): Kreis 48 pt, mittig auf der Linie der Leiste, am
+    vorderen Rand; Symbol unverändert groß; Übergang rund 0,25 s. Hier: 0,4 s mit schnellem
+    Anfang (`--morph-ease`), ohne Überschwingen – der Kreis darf das Fenster nicht verlassen.
+  - Schwellen (eigene Werte, Apple nennt keine): 12 px nach unten bzw. oben, ganz oben (≤ 8 px)
+    immer voll. Ein Scrollen zählt, wenn es bis 0,6 s nach Mausrad, Taste, Berührung oder
+    Ziehen kommt oder während eine Maustaste gedrückt ist (Scrollleiste); ein Klick allein
+    zählt nicht. Sprünge zu einem Abschnitt und eine festgehaltene Seite zählen nie.
+  - Die Einträge behalten beim Schrumpfen und Wachsen die Breite der vollen Leiste
+    (`--items-w`) und werden so verschoben, dass das gewählte Symbol in der Kreismitte sitzt
+    (`--icon-x`, `--icon-dy`, gemessen an der vollen Leiste); der Kreis schneidet sie ab
+    (`overflow: clip`). Die übrigen Einträge sind danach `visibility: hidden` (Maus, Tastatur,
+    VoiceOver). Erst wenn die Breiten-Animation der Leiste fertig ist
+    (`getAnimations().finished`), bekommen sie ihre normale Anordnung zurück und die Markierung
+    blendet ein.
+  - Ändert sich die Fenstergröße, während die Leiste klein ist, wird die volle Leiste ohne
+    Animation neu vermessen.
 - Sheets und Tastatur (`openSheet` in `js/calendar-ui.js`, `lockPage` in `js/mobile.js`),
   gefunden in zwei Bildschirmaufnahmen vom 17.10.2026 (neuer Termin, „+“ in der Matrix):
   - Ursache 1: iOS zeigt die Tastatur nur bei einem Fokus während des Tippens und scrollt dann
@@ -331,6 +364,12 @@ Chromium (Playwright) mit Touch-Emulation und Beispieldaten nur im lokalen Test-
   Änderung gemessen (die alten Effekte sind weg, die neuen wie oben). Doppelklick, Rechtsklick,
   ⋯-Menü per Klick, Drag & Drop auf einen leeren Tag und auf den Kopf eines Tages, Return
   speichert im Editor, Mausziehen löscht nichts (Test `desktop with mouse: …`).
+- Minimierende Leiste am Desktop (17.10.2026): 1440 × 900 hell und dunkel, 2560 × 1440,
+  1180 und 600 px breit; Bildfolge verlangsamt aufgenommen und mit den Einzelbildern deiner
+  Aufnahme verglichen; Lage, Größe und Symbol je Bild gemessen (die Einträge behalten beim
+  Wachsen in jedem Bild ihre Breite); Mausrad, Bild ab, Pos1, Klick auf den Kreis, Shift+Tab in die
+  Leiste, Fenstergröße ändern, Wechsel zu Touch, Handy, „Bewegung reduzieren“ (Test
+  `desktop: the section bar minimizes…`).
 - E2E-Szenarien und Gegenproben siehe [tests/README.md](../tests/README.md).
 
 ## Grenzen / nicht geprüft
@@ -367,5 +406,14 @@ Chromium (Playwright) mit Touch-Emulation und Beispieldaten nur im lokalen Test-
   `<button>`-Elemente nicht ziehen (betrifft keine der ziehbaren Zeilen, das sind `div`s).
   Monatsraster-Einträge per Drag & Drop zu verschieben gibt es im iOS-Look nicht mehr (Datum im
   Editor oder Ziehen in der Woche).
-- Die Leiste unten minimiert sich beim Scrollen nicht (iOS-Option „minimize on scroll“), damit
-  die Abschnittsmarkierung immer sichtbar bleibt.
+- Die Leiste unten minimiert sich nur am Desktop (Maus oder Trackpad). Auf iPhone und iPad
+  bleibt sie voll, damit die Abschnittsmarkierung immer sichtbar bleibt; Apple bietet das
+  Minimieren selbst nur auf dem iPhone an, es ließe sich dort also ebenfalls einschalten. Die
+  HIG nennt es bei Tab Bars mit Zubehör (z. B. dem Mini-Player in Music); Apples
+  SwiftUI-Beispiel verwendet es ohne.
+- Minimieren nur in Chromium geprüft. Nicht geprüft: ob Safari und Firefox die Breite (`min()`
+  mit Prozent → 48 px) weich animieren (sonst springt sie, der Zustand stimmt trotzdem); ob das
+  Ziehen einer klassischen Scrollleiste zählt (nur wenn der Browser dabei `pointerdown` meldet –
+  die Testumgebung hat keine klassische Scrollleiste); der Wechsel von Touch zurück zur Maus
+  (Chromium meldet nach dem Abschalten der Touch-Emulation gar kein Zeigegerät, also
+  `(hover: none)`). Schwellen und Dauer sind eigene Werte bzw. aus der Aufnahme gemessen.
