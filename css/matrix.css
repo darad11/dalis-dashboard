@@ -1,0 +1,680 @@
+/*
+ * Matrix in the Lists section (js/matrix-ui.js): four areas as cards in two columns, the area
+ * sheet and the task sheet (sheets: css/calendar.css, css/mobile.css).
+ *
+ * Area colours: --q-text for the title, icon and accents (4.5:1 against the card in light and
+ * dark: red 5.4 / 5.0, blue 4.7 / 5.3, orange 5.4 / 7.6, grey 5.2 / 5.9); --q-fill behind white
+ * text (the darker light-theme value in both themes, 4.7:1 or more).
+ */
+
+.matrix-area,
+.matrix-sheet {
+    --q-text: rgb(215, 0, 21);
+    --q-fill: rgb(215, 0, 21);
+}
+
+[data-area="next"].matrix-area,
+[data-area="next"].matrix-sheet {
+    --q-text: rgb(0, 112, 230);
+    --q-fill: rgb(0, 112, 230);
+}
+
+[data-area="waiting"].matrix-area,
+[data-area="waiting"].matrix-sheet {
+    --q-text: rgb(179, 74, 0);
+    --q-fill: rgb(179, 74, 0);
+}
+
+[data-area="ideas"].matrix-area,
+[data-area="ideas"].matrix-sheet {
+    --q-text: rgb(108, 108, 112);
+    --q-fill: rgb(108, 108, 112);
+}
+
+body.dark .matrix-area,
+body.dark .matrix-sheet {
+    --q-text: rgb(255, 66, 69);
+}
+
+body.dark [data-area="next"].matrix-area,
+body.dark [data-area="next"].matrix-sheet {
+    --q-text: rgb(0, 145, 255);
+}
+
+body.dark [data-area="waiting"].matrix-area,
+body.dark [data-area="waiting"].matrix-sheet {
+    --q-text: rgb(255, 146, 48);
+}
+
+body.dark [data-area="ideas"].matrix-area,
+body.dark [data-area="ideas"].matrix-sheet {
+    --q-text: rgb(152, 152, 157);
+}
+
+/* ---- Icons ---- */
+.matrix-icon,
+.matrix-area-icon,
+.matrix-chevron,
+.matrix-meta-icon,
+.matrix-chip-icon,
+.matrix-row-icon,
+.matrix-add-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+}
+
+.matrix-icon svg,
+.matrix-area-icon svg,
+.matrix-chevron svg,
+.matrix-meta-icon svg,
+.matrix-chip-icon svg,
+.matrix-row-icon svg,
+.matrix-add-icon svg,
+.matrix-area-add svg,
+.matrix-rename svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.matrix-icon svg .fill,
+.matrix-area-icon svg .fill {
+    fill: currentColor;
+    stroke: none;
+}
+
+/* ---- Panel: spans the whole row of the list grid ---- */
+.matrix-panel {
+    grid-column: 1 / -1;
+    position: relative;
+}
+
+.matrix-panel.dragging {
+    opacity: 0.5;
+}
+
+.matrix-panel.drag-over {
+    outline: 2px dashed var(--accent-color);
+    outline-offset: 6px;
+    border-radius: 20px;
+}
+
+@media (hover: hover) {
+    .matrix-panel:hover .list-drag-handle {
+        opacity: 0.7;
+    }
+}
+
+.matrix-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    margin: 0 0 10px;
+}
+
+.matrix-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding-left: 24px; /* the desktop drag handle */
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.matrix-title .matrix-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--accent-color);
+}
+
+.matrix-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+/* ---- An area ---- */
+.matrix-area {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 200px;
+    padding: 8px 10px 10px 14px;
+    border: 1px solid color-mix(in srgb, var(--q-text) 40%, transparent);
+    border-radius: var(--radius-lg);
+    background: var(--surface-color);
+    color: var(--text-primary);
+}
+
+.matrix-area-head {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 44px;
+    margin-right: -4px;
+}
+
+.matrix-area-open {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--q-text);
+    font: 600 1rem/1.2 var(--font-main);
+    text-align: left;
+    cursor: pointer;
+}
+
+.matrix-area-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--q-text);
+}
+
+.matrix-area-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.matrix-chevron {
+    width: 12px;
+    height: 12px;
+    color: var(--q-text);
+}
+
+.matrix-chevron svg {
+    stroke-width: 2.6;
+}
+
+/* A 36px circle; the button around it is 44px for the finger */
+.matrix-area-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    padding: 4px;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.matrix-area-add svg {
+    width: 36px;
+    height: 36px;
+    padding: 9px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    background: var(--fill-3, rgba(118, 118, 128, 0.12));
+    stroke-width: 2.4;
+}
+
+.matrix-area-open:focus-visible,
+.matrix-area-add:focus-visible,
+.matrix-check:focus-visible,
+.matrix-task-main:focus-visible,
+.matrix-show-all:focus-visible,
+.matrix-rename:focus-visible,
+.matrix-clear:focus-visible,
+.matrix-chip:focus-visible,
+.matrix-add-big:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+/* ---- Tasks: a circle to tick off, the text opens the task ---- */
+.matrix-tasks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.matrix-task {
+    display: flex;
+    align-items: flex-start;
+    min-width: 0;
+    transition: opacity 0.3s ease;
+}
+
+.matrix-check {
+    position: relative;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    margin: 0 0 0 -11px;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.matrix-check::before {
+    content: '';
+    position: absolute;
+    top: 11px;
+    left: 11px;
+    width: 22px;
+    height: 22px;
+    box-sizing: border-box;
+    border: 1.5px solid var(--control-border, rgba(60, 60, 67, 0.55));
+    border-radius: 50%;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+body.dark .matrix-check::before {
+    border-color: var(--control-border, rgba(235, 235, 245, 0.45));
+}
+
+.matrix-task.done .matrix-check::before,
+.matrix-task.completing .matrix-check::before {
+    border-color: var(--q-fill);
+    background: var(--q-fill) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.3l2.6 2.6L10 3.4' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 11px no-repeat;
+}
+
+.matrix-task.completing {
+    opacity: 0.4;
+}
+
+.matrix-task-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    padding: 11px 0 9px;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    font: 400 1rem/1.3 var(--font-main);
+    text-align: left;
+    cursor: pointer;
+}
+
+.matrix-task-text {
+    overflow-wrap: break-word;
+    min-width: 0;
+}
+
+.matrix-task.done .matrix-task-text {
+    color: var(--text-secondary);
+}
+
+.matrix-task-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.matrix-due.is-today {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.matrix-due.is-overdue {
+    color: var(--danger-color);
+}
+
+.matrix-repeat {
+    display: inline-flex;
+    align-items: center;
+}
+
+.matrix-meta-icon {
+    width: 13px;
+    height: 13px;
+}
+
+.matrix-show-all {
+    align-self: flex-start;
+    min-height: 44px;
+    margin-top: auto;
+    padding: 0 4px;
+    border: none;
+    background: none;
+    color: var(--q-text);
+    font: 500 0.9rem/1 var(--font-main);
+    cursor: pointer;
+}
+
+/* ---- Area sheet ---- */
+.matrix-area-sheet .sheet-title {
+    /* the large title in the sheet names it; the header one only labels the dialog */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.matrix-sheet-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 48px;
+    margin: 0 4px 16px;
+}
+
+.matrix-sheet-icon {
+    display: inline-flex;
+    color: var(--q-text);
+}
+
+.matrix-sheet-head .matrix-area-icon {
+    width: 30px;
+    height: 30px;
+}
+
+.matrix-sheet-title {
+    min-width: 0;
+    margin: 0;
+    color: var(--q-text);
+    font: 700 1.6rem/1.2 var(--font-main);
+    overflow-wrap: anywhere;
+    cursor: text;
+}
+
+.matrix-sheet-title[hidden],
+.matrix-sheet-input[hidden],
+.matrix-rename[hidden],
+.matrix-done[hidden],
+.matrix-empty[hidden] {
+    display: none;
+}
+
+.matrix-sheet-input {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 10px;
+    background: var(--fill-3, rgba(118, 118, 128, 0.12));
+    color: var(--q-text);
+    font: 700 1.6rem/1.2 var(--font-main);
+    outline: none;
+}
+
+.matrix-sheet-input:focus-visible {
+    box-shadow: 0 0 0 2px var(--accent-color);
+}
+
+.matrix-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--q-fill) 16%, transparent);
+    color: var(--q-text);
+    font: 600 0.95rem/1 var(--font-main);
+    font-variant-numeric: tabular-nums;
+}
+
+.matrix-rename {
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    padding: 12px;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.matrix-sheet-list {
+    margin: 0 0 20px;
+    padding: 2px 16px;
+    border-radius: var(--radius-md);
+    background: var(--surface-color);
+}
+
+.matrix-sheet-list .matrix-task + .matrix-task {
+    border-top: 0.5px solid var(--separator, var(--glass-border));
+}
+
+.matrix-empty {
+    margin: -8px 4px 20px;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.matrix-done-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.matrix-done-head .form-group-title {
+    margin-bottom: 0;
+}
+
+.matrix-clear {
+    min-height: 44px;
+    padding: 0 8px;
+    border: none;
+    background: none;
+    color: var(--q-text);
+    font: 500 0.95rem/1 var(--font-main);
+    cursor: pointer;
+}
+
+.matrix-sheet-footer {
+    flex-shrink: 0;
+    padding: 12px 18px 18px;
+}
+
+.matrix-add-big {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 52px;
+    border: none;
+    border-radius: 16px;
+    background: var(--q-fill);
+    color: #ffffff;
+    font: 600 1.06rem/1 var(--font-main);
+    cursor: pointer;
+}
+
+.matrix-add-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.matrix-add-icon svg {
+    stroke-width: 2.6;
+}
+
+/* ---- Task sheet ---- */
+.matrix-task-sheet .sheet-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.matrix-task-sheet .sheet-title .matrix-area-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.matrix-task-sheet .sheet-title > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.matrix-note-row {
+    align-items: flex-start;
+}
+
+.matrix-note {
+    min-height: 72px;
+    resize: vertical;
+    line-height: 1.35;
+}
+
+.matrix-row-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--text-secondary);
+}
+
+.matrix-due-head {
+    min-height: 44px;
+}
+
+.matrix-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 14px 14px;
+}
+
+.matrix-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 44px;
+    padding: 0 11px;
+    border: 1px solid var(--separator, var(--glass-border));
+    border-radius: 22px;
+    background: var(--fill-3, rgba(118, 118, 128, 0.12));
+    color: var(--text-primary);
+    font: 500 0.882rem/1 var(--font-main);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.matrix-chip-icon {
+    width: 16px;
+    height: 16px;
+}
+
+.matrix-chip[aria-pressed="true"] {
+    border-color: transparent;
+    background: var(--q-fill);
+    color: #ffffff;
+}
+
+/* ---- Phones and tablets ---- */
+html.touch-layout .matrix-panel {
+    margin-bottom: 8px;
+}
+
+html.touch-layout .matrix-head {
+    margin: 0 0 6px;
+}
+
+html.touch-layout .matrix-title {
+    padding-left: 4px;
+    font: 700 1.25rem/1.2 var(--ios-font-display);
+}
+
+html.touch-layout .matrix-more-btn {
+    margin: 0 -6px 0 0;
+}
+
+html.touch-layout .matrix-grid {
+    gap: 12px;
+}
+
+html.touch-layout .matrix-area {
+    min-height: 180px;
+    padding: 6px 6px 8px 14px;
+    border-radius: var(--radius-card);
+    font-family: var(--ios-font);
+}
+
+html.touch-layout .matrix-area-open,
+html.touch-layout .matrix-task-main,
+html.touch-layout .matrix-show-all {
+    font-family: var(--ios-font);
+}
+
+/* Cards are half the width: Subheadline (15pt) for the tasks, as in a widget */
+html.touch-layout .matrix-area .matrix-task-main {
+    font-size: 0.882rem;
+}
+
+html.touch-layout .matrix-area-open:active,
+html.touch-layout .matrix-task-main:active,
+html.touch-layout .matrix-chip:active {
+    opacity: 0.6;
+}
+
+html.touch-layout .matrix-area-add:active svg,
+html.touch-layout .matrix-rename:active {
+    background: var(--press);
+}
+
+html.touch-layout .matrix-area-open {
+    font-size: 0.94rem;
+}
+
+html.touch-layout .matrix-sheet-list {
+    border-radius: var(--radius-card);
+}
+
+html.touch-layout .matrix-sheet-footer {
+    padding: 10px calc(var(--safe-right) + var(--gutter)) calc(var(--safe-bottom) + 12px) calc(var(--safe-left) + var(--gutter));
+}
+
+html.touch-layout .matrix-add-big {
+    border-radius: 999px;
+    font-family: var(--ios-font);
+}
+
+html.touch-layout .matrix-chips {
+    padding: 0 16px 14px;
+}
+
+html.touch-layout .matrix-chip {
+    font-family: var(--ios-font);
+}
+
+/* Narrow phones: smaller insets so two areas keep room for their text */
+@media (max-width: 380px) {
+    html.touch-layout .matrix-grid {
+        gap: 10px;
+    }
+
+    html.touch-layout .matrix-area {
+        padding-left: 12px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .matrix-task,
+    .matrix-check::before {
+        transition: none;
+    }
+}

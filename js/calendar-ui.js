@@ -599,4 +599,6 @@
   }
 
   window.CalendarUI = { openEditor, openCalendars };
+  // The same sheets and form rows for other editors (js/matrix-ui.js)
+  window.SheetUI = { createSheet, openSheet, closeSheet, group, row, popup, el, svg, isTouchLayout, nextId };
 })();

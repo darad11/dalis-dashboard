@@ -23,7 +23,7 @@ iPhone quer):
   | Today | Today's Goals, Focus-Timer |
   | Health | Health Hub, Step Challenge ganz oben |
   | Habits | Habits, Weekly Review |
-  | Lists | eigene Listen |
+  | Lists | Matrix (to do, up next, waiting, ideas – siehe [MATRIX.md](MATRIX.md)), eigene Listen |
 
   Am Desktop bleibt die Reihenfolge: Focus-Timer und Ziele oben nebeneinander, dann die Woche,
   dann der Kalender. Die Blöcke werden im DOM verschoben (`window.placePageOrder`, Inline-Skript

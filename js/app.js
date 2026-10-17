@@ -928,7 +928,8 @@ const db = {
     if (lists === null) {
       noteError('lists', 'download failed');
     } else if (lists.length > 0) {
-      const meta = db.get('customListsMeta', []);
+      // With the matrix: its tasks arrive even before its place in the order is stored
+      const meta = listMeta();
 
       for (const cloudList of lists) {
         // Match by ID: cloudList.name is stored as the list ID
@@ -944,8 +945,9 @@ const db = {
           const localItems = db.get(localKey, []);
           const mergedItems = [...cloudItems];
 
-          // Get text for comparison (items can be strings or objects)
-          const getItemText = (item) => typeof item === 'string' ? item : (item.text || item.name || JSON.stringify(item));
+          // Identity for comparison (items can be strings or objects). Items with an id (tasks
+          // of the matrix, js/matrix-core.js) are matched by it: two of them may share a text.
+          const getItemText = (item) => typeof item === 'string' ? item : (item.id || item.text || item.name || JSON.stringify(item));
           const cloudTexts = new Set(cloudItems.map(getItemText));
 
           localItems.forEach(localItem => {
@@ -1100,8 +1102,8 @@ const db = {
       await upload(key, `Kanban ${key}`, val => api.setKanban(key, val || {}));
     }
 
-    // 7. Lists (use ID, not title!)
-    for (const list of db.get('customListsMeta', [])) {
+    // 7. Lists (use ID, not title!), the matrix among them
+    for (const list of listMeta()) {
       const key = `list-${list.id}`;
       if (localStorage.getItem(key) === null) continue;
       await upload(key, `List ${list.id}`, val => api.setList(list.id, val || [], '📝'));
@@ -3395,6 +3397,12 @@ function setListItems(listName, items) {
   db.pushKey(config.key, () => window.supabaseDB.setList(listName, items));
 }
 
+// The lists in their order, with the matrix (js/matrix-core.js) among them: at the top
+// until it is stored somewhere else
+function listMeta() {
+  return MatrixCore.withMatrix(db.get('customListsMeta', []));
+}
+
 // Persist list metadata (titles, order) locally and upload it
 function saveListMeta(meta) {
   db.set('customListsMeta', meta);
@@ -3571,7 +3579,7 @@ function renderSimpleList(listName) {
     // Touch screens: edit / reorder / move / delete in a menu
     if (window.MobileUI) {
       div.appendChild(MobileUI.moreButton(`Actions for ${item.text}`, () => {
-        const otherLists = db.get('customListsMeta', []).filter(m => m.id !== listName);
+        const otherLists = db.get('customListsMeta', []).filter(m => m.id !== listName && !MatrixCore.isMatrix(m));
         const menuItems = [
           { id: 'edit', label: 'Edit…', icon: 'pencil', onSelect: () => editListItem(listName, idx, item.text) },
           { id: 'up', label: 'Move Up', icon: 'arrowUp', disabled: idx === 0, onSelect: () => moveListItem(listName, idx, idx - 1, item.text) },
@@ -3687,8 +3695,16 @@ window.renderUnifiedLists = () => {
   if (!container) return;
   container.innerHTML = '';
 
-  const meta = db.get('customListsMeta', []);
+  const meta = listMeta();
   meta.forEach((list, index) => {
+    if (MatrixCore.isMatrix(list)) {
+      const matrix = MatrixUI.panel(list, index, meta.length);
+      matrix.setAttribute('draggable', 'true');
+      matrix.setAttribute('data-list-index', index);
+      addListDragHandlers(matrix);
+      container.appendChild(matrix);
+      return;
+    }
     const div = document.createElement('div');
     div.className = 'glass-panel list-panel';
     div.setAttribute('draggable', 'true');
@@ -3730,18 +3746,21 @@ window.renderUnifiedLists = () => {
       div.appendChild(more);
     }
 
-    // Drag event handlers
-    div.addEventListener('dragstart', handleListDragStart);
-    div.addEventListener('dragend', handleListDragEnd);
-    div.addEventListener('dragover', handleListDragOver);
-    div.addEventListener('drop', handleListDrop);
-    div.addEventListener('dragenter', handleListDragEnter);
-    div.addEventListener('dragleave', handleListDragLeave);
-
+    addListDragHandlers(div);
     container.appendChild(div);
     renderSimpleList(list.id);
   });
 };
+
+// Drag event handlers (desktop): lists and the matrix are reordered alike
+function addListDragHandlers(panel) {
+  panel.addEventListener('dragstart', handleListDragStart);
+  panel.addEventListener('dragend', handleListDragEnd);
+  panel.addEventListener('dragover', handleListDragOver);
+  panel.addEventListener('drop', handleListDrop);
+  panel.addEventListener('dragenter', handleListDragEnter);
+  panel.addEventListener('dragleave', handleListDragLeave);
+}
 
 // === List Drag and Drop ===
 let draggedListElement = null;
@@ -3758,7 +3777,7 @@ function handleListDragStart(e) {
 function handleListDragEnd(e) {
   this.classList.remove('dragging');
   // Remove all drag-over states
-  document.querySelectorAll('.list-panel').forEach(panel => {
+  document.querySelectorAll('.list-panel, .matrix-panel').forEach(panel => {
     panel.classList.remove('drag-over');
   });
   draggedListElement = null;
@@ -3773,7 +3792,7 @@ function handleListDragOver(e) {
   // This prevents flickering when moving over child elements
   if (this !== draggedListElement && !this.classList.contains('drag-over')) {
     // Remove from all other panels first
-    document.querySelectorAll('.list-panel.drag-over').forEach(panel => {
+    document.querySelectorAll('.list-panel.drag-over, .matrix-panel.drag-over').forEach(panel => {
       if (panel !== this) panel.classList.remove('drag-over');
     });
     this.classList.add('drag-over');
@@ -3807,7 +3826,7 @@ function handleListDrop(e) {
   if (!draggedListId || draggedListId === targetId) return;
 
   // Reorder the metadata
-  const meta = db.get('customListsMeta', []);
+  const meta = listMeta();
   const draggedIndex = meta.findIndex(m => m.id === draggedListId);
   const targetIndex = meta.findIndex(m => m.id === targetId);
 
@@ -3853,7 +3872,7 @@ async function renameList(id) {
 }
 
 function moveList(id, delta) {
-  const meta = db.get('customListsMeta', []);
+  const meta = listMeta();
   const from = meta.findIndex(m => m.id === id);
   const to = from + delta;
   if (from === -1 || to < 0 || to >= meta.length) return;

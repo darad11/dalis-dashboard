@@ -851,8 +851,9 @@ scenario('phones: the calendar stands first already while the scripts load', asy
 scenario('scroll: a short last section is marked at the end of the page; a chosen one stays marked', async (env) => {
   seedDemo(env.store, { steps: false });
   const { page, errors, context } = await openPhone(env);
-  // No lists: the Lists section is too short to reach the reading line at the end of the page
-  await page.evaluate(() => { db.set('customListsMeta', [], true); renderUnifiedLists(); });
+  // A short Lists section: no lists and, only for this check, without the matrix (always shown
+  // in the app) - too short to reach the reading line at the end of the page
+  await page.evaluate(() => { db.set('customListsMeta', [], true); renderUnifiedLists(); document.querySelector('.matrix-panel').remove(); });
   await settle(page, 200);
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await waitFor(async () => (await currentSection(page)) === 'lists', 'lists marked at the end');
@@ -1528,6 +1529,195 @@ scenario('health hub: Step Challenge first on phones and tablets, below the hero
   await waitFor(() => touchLayoutOn(page), 'touch layout again');
   assert.deepEqual(await order(page), { after: 'gym-hub-header', above: true }, 'tablet portrait again: first');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'step-entry-input', 'focus kept after moving back');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+// ---------------------------------------------------------------- Matrix (js/matrix-ui.js)
+
+const matrixTasks = (env) => ((env.store.rows('lists').find(r => r.name === 'matrix') || {}).items || []);
+const storedListOrder = (env) => ((env.store.rows('settings').find(r => r.key === 'customListsMeta') || {}).value || []).map(l => l.id);
+const cardTexts = (page, area) => page.$$eval(`.matrix-panel .matrix-area[data-area="${area}"] .matrix-task-main`, els => els.map(e => e.innerText.replace(/\s+/g, ' ').trim()));
+const matrixSheetOpen = (page, cls) => page.locator(`.${cls}[open]`).count();
+
+scenario('matrix on phones: first in Lists; add, tick, repeat, rename an area, move tasks and the matrix', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await openPhone(env);
+  await goToSection(page, 'lists');
+
+  // At the top of Lists, the four areas, then the lists; nothing stored until the first change
+  assert.deepEqual(await page.$$eval('#unifiedListsGrid > *', els => els.map(e => e.dataset.listId)), ['matrix', 'custom-1', 'custom-2', 'custom-3']);
+  assert.deepEqual(await page.$$eval('.matrix-area-name', els => els.map(e => e.textContent)), ['to do', 'up next', 'waiting', 'ideas']);
+  assert.equal(await page.getAttribute('.matrix-area[data-area="todo"] .matrix-area-open', 'aria-label'), 'to do, 0 open tasks');
+  assert.deepEqual(storedListOrder(env), ['custom-1', 'custom-2', 'custom-3']);
+
+  // "+" in "up next": text, note, Today, repeat weekly
+  await page.locator('.matrix-area[data-area="next"] .matrix-area-add').tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-task-sheet'), 'task sheet');
+  assert.equal((await text(page, '.matrix-task-sheet .sheet-title')).trim(), 'up next');
+  assert.equal(await page.locator('.matrix-task-sheet .sheet-trailing').isDisabled(), true, 'text needed');
+  await page.fill('.matrix-task-sheet input[name="text"]', 'test');
+  await page.fill('.matrix-task-sheet textarea[name="note"]', 'mit Notiz');
+  await page.locator('.matrix-chip[data-chip="today"]').tap();
+  assert.equal(await page.getAttribute('.matrix-chip[data-chip="today"]', 'aria-pressed'), 'true');
+  await page.locator('.matrix-task-sheet input[name="repeat"]').tap();
+  await page.selectOption('.matrix-task-sheet select[name="every"]', 'weekly');
+  await page.locator('.matrix-task-sheet .sheet-trailing').tap();
+  await waitFor(() => matrixTasks(env).length === 1, 'task uploaded');
+  const repeating = matrixTasks(env)[0];
+  assert.match(repeating.id, /^t/);
+  assert.deepEqual(Object.assign({}, repeating, { id: 'x' }), { id: 'x', text: 'test', done: false, area: 'next', note: 'mit Notiz', due: '2026-10-16', repeat: 'weekly' });
+  await waitFor(() => storedListOrder(env)[0] === 'matrix', 'the matrix is stored at the top with its first task');
+  assert.deepEqual(await cardTexts(page, 'next'), ['test Today Weekly']);
+
+  // The same text in "to do" is a task of its own
+  await page.locator('.matrix-area[data-area="todo"] .matrix-area-add').tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-task-sheet'), 'task sheet again');
+  await page.fill('.matrix-task-sheet input[name="text"]', 'test');
+  await page.locator('.matrix-task-sheet .sheet-trailing').tap();
+  await waitFor(() => matrixTasks(env).length === 2, 'second task uploaded');
+  const todo = matrixTasks(env).find(t => t.area === 'todo');
+  assert.notEqual(todo.id, repeating.id);
+
+  // Ticking: the repeating task moves on a week and stays; the other one is done
+  await page.locator(`.matrix-panel [data-task-id="${repeating.id}"] .matrix-check`).tap();
+  await waitFor(() => matrixTasks(env).find(t => t.id === repeating.id).due === '2026-10-23', 'next week');
+  assert.equal(matrixTasks(env).find(t => t.id === repeating.id).done, false);
+  assert.deepEqual(await cardTexts(page, 'next'), ['test Fr., 23. Okt. Weekly']);
+  await page.locator(`.matrix-panel [data-task-id="${todo.id}"] .matrix-check`).tap();
+  await waitFor(() => matrixTasks(env).find(t => t.id === todo.id).done === true, 'done uploaded');
+  await waitFor(async () => (await cardTexts(page, 'todo')).length === 0, 'gone from the card');
+
+  // Area sheet: count, done ones under Completed (tick opens again), rename with the pencil
+  await page.locator('.matrix-area[data-area="todo"] .matrix-area-open').tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-area-sheet'), 'area sheet');
+  assert.equal(await text(page, '.matrix-area-sheet .matrix-count'), '0');
+  assert.equal(await page.isVisible('.matrix-area-sheet .matrix-empty'), true);
+  await page.locator('.matrix-area-sheet .matrix-done-list .matrix-check').tap();
+  await waitFor(async () => (await text(page, '.matrix-area-sheet .matrix-count')) === '1', 'opened again');
+  await waitFor(() => matrixTasks(env).find(t => t.id === todo.id).done === false, 'open again uploaded');
+  await page.locator('.matrix-area-sheet .matrix-rename').tap();
+  assert.equal(await page.inputValue('.matrix-area-sheet .matrix-sheet-input'), 'to do');
+  await page.fill('.matrix-area-sheet .matrix-sheet-input', '  heute  ');
+  await page.keyboard.press('Enter');
+  await waitFor(async () => (await text(page, '.matrix-area-sheet .matrix-sheet-title')) === 'heute', 'renamed');
+  await waitFor(() => {
+    const entry = ((env.store.rows('settings').find(r => r.key === 'customListsMeta') || {}).value || []).find(l => l.id === 'matrix');
+    return entry && entry.areas.find(a => a.id === 'todo').title === 'heute';
+  }, 'area title uploaded');
+  // The big button adds to this area; Escape in the rename field does not close the sheet
+  await page.locator('.matrix-area-sheet .matrix-rename').tap();
+  await page.keyboard.press('Escape');
+  assert.equal(await matrixSheetOpen(page, 'matrix-area-sheet'), 1, 'still open');
+  assert.equal(await text(page, '.matrix-area-sheet .matrix-sheet-title'), 'heute');
+  await page.locator('.matrix-area-sheet .matrix-add-big').tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-task-sheet'), 'task sheet over the area sheet');
+  assert.equal((await text(page, '.matrix-task-sheet .sheet-title')).trim(), 'heute');
+  await page.fill('.matrix-task-sheet input[name="text"]', 'Rechnung zahlen');
+  await page.locator('.matrix-chip[data-chip="tomorrow"]').tap();
+  await page.locator('.matrix-task-sheet .sheet-trailing').tap();
+  await waitFor(() => matrixTasks(env).some(t => t.text === 'Rechnung zahlen' && t.area === 'todo' && t.due === '2026-10-17'), 'added from the area sheet');
+  await waitFor(async () => (await text(page, '.matrix-area-sheet .matrix-count')) === '2', 'count follows');
+  await page.locator('.matrix-area-sheet .sheet-leading').tap();
+  await waitFor(async () => (await matrixSheetOpen(page, 'matrix-area-sheet')) === 0, 'area sheet closed');
+  assert.equal(await text(page, '.matrix-area[data-area="todo"] .matrix-area-name'), 'heute');
+
+  // Editing: another area moves the task; Delete asks first
+  await page.locator(`.matrix-panel [data-task-id="${repeating.id}"] .matrix-task-main`).tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-task-sheet'), 'edit sheet');
+  assert.equal(await page.inputValue('.matrix-task-sheet textarea[name="note"]'), 'mit Notiz');
+  assert.equal(await page.getAttribute('.matrix-chip[data-chip="custom"]', 'aria-pressed'), 'true');
+  assert.equal(await page.inputValue('.matrix-task-sheet input[name="due"]'), '2026-10-23');
+  await page.selectOption('.matrix-task-sheet select[name="area"]', 'waiting');
+  await page.locator('.matrix-task-sheet .sheet-trailing').tap();
+  await waitFor(() => matrixTasks(env).find(t => t.id === repeating.id).area === 'waiting', 'moved to waiting');
+  assert.deepEqual(await cardTexts(page, 'next'), []);
+  assert.equal((await cardTexts(page, 'waiting')).length, 1);
+  await page.locator(`.matrix-panel [data-task-id="${repeating.id}"] .matrix-task-main`).tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-task-sheet'), 'edit sheet again');
+  await page.locator('.matrix-task-sheet .form-row-button.destructive').tap();
+  assert.match(await text(page, '.matrix-task-sheet .sheet-confirm-message'), /“test” will be deleted\./);
+  await page.locator('.matrix-task-sheet .sheet-confirm-btn.destructive').tap();
+  await waitFor(() => !matrixTasks(env).some(t => t.id === repeating.id), 'deleted');
+
+  // The whole matrix moves like a list
+  await page.locator('.matrix-more-btn').tap();
+  await page.waitForSelector('.menu-layer.open');
+  assert.equal(await page.locator('.menu-item[data-action="up"]').isDisabled(), true, 'already first');
+  await menuAction(page, 'down');
+  await waitFor(() => storedListOrder(env).join() === 'custom-1,matrix,custom-2,custom-3', 'moved down in the cloud');
+  assert.deepEqual(await page.$$eval('#unifiedListsGrid > *', els => els.map(e => e.dataset.listId)), ['custom-1', 'matrix', 'custom-2', 'custom-3']);
+  await page.locator('.matrix-more-btn').tap();
+  await page.waitForSelector('.menu-layer.open');
+  await menuAction(page, 'up');
+  await waitFor(() => storedListOrder(env)[0] === 'matrix', 'back to the top');
+  assert.equal(await horizontalOverflow(page), 0);
+  // Every control of the matrix at least 44 x 44 pt
+  const small = await page.$$eval('.matrix-panel button', els => els
+    .filter(el => el.getClientRects().length > 0)
+    .map(el => { const r = el.getBoundingClientRect(); return [el.className, Math.round(r.width), Math.round(r.height)]; })
+    .filter(([, w, h]) => w < 44 || h < 44));
+  assert.deepEqual(small, [], 'matrix controls smaller than 44pt');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+// Lists are merged item by item when this device had unsent changes. Items were matched by
+// their text, so the same text in several areas collapsed into one; matrix tasks have an id.
+scenario('matrix: the same text in several areas survives a merge with the cloud', async (env) => {
+  seedDemo(env.store, { steps: false });
+  env.store.tables.settings.find(r => r.key === 'customListsMeta').value.unshift(Object.assign({}, require('../../js/matrix-core.js').defaultEntry()));
+  env.store.seed('lists', [{ user_id: USER, name: 'matrix', icon: 'list', items: [
+    { id: 'a', text: 'test', done: false, area: 'todo' },
+    { id: 'b', text: 'test', done: false, area: 'next' }
+  ] }]);
+  const { page, errors, context } = await openPhone(env);
+  await goToSection(page, 'lists');
+  await waitFor(async () => (await cardTexts(page, 'next')).length === 1, 'tasks from the cloud');
+
+  context.__offline = true;
+  await page.locator('.matrix-area[data-area="waiting"] .matrix-area-add').tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-task-sheet'), 'task sheet');
+  await page.fill('.matrix-task-sheet input[name="text"]', 'test');
+  await page.locator('.matrix-task-sheet .sheet-trailing').tap();
+  await settle(page, 300);
+  assert.equal(matrixTasks(env).length, 2, 'offline: not uploaded');
+  context.__offline = false;
+  await page.evaluate(() => db.loadFromCloud());
+  await waitFor(() => matrixTasks(env).length === 3, 'merged and uploaded');
+  assert.deepEqual(matrixTasks(env).map(t => `${t.text}/${t.area}`).sort(), ['test/next', 'test/todo', 'test/waiting']);
+  for (const area of ['todo', 'next', 'waiting']) assert.equal((await cardTexts(page, area)).length, 1, area);
+  assert.deepEqual(errors.filter(e => !/Failed to fetch|Sync/.test(e)), []);
+  await context.close();
+});
+
+scenario('matrix on the desktop: across the list grid, dialogs, dragged like a list', async (env) => {
+  seedDemo(env.store, { steps: false });
+  // Tasks from another device whose place in the list order has not arrived yet
+  env.store.seed('lists', [{ user_id: USER, name: 'matrix', icon: 'list', items: [{ id: 'w', text: 'Antwort vom Vermieter', done: false, area: 'waiting' }] }]);
+  const { page, errors, context } = await open(env, { viewport: { width: 1440, height: 900 } });
+  await page.locator('#section-lists').scrollIntoViewIfNeeded();
+  await waitFor(async () => (await cardTexts(page, 'waiting')).join() === 'Antwort vom Vermieter', 'tasks from the cloud');
+  const widths = await page.evaluate(() => ({
+    grid: Math.round(document.getElementById('unifiedListsGrid').getBoundingClientRect().width),
+    matrix: Math.round(document.querySelector('.matrix-panel').getBoundingClientRect().width),
+    columns: new Set([...document.querySelectorAll('.matrix-area')].map(a => Math.round(a.getBoundingClientRect().left))).size
+  }));
+  assert.equal(widths.matrix, widths.grid, 'whole row');
+  assert.equal(widths.columns, 2, 'two columns');
+  await page.click('.matrix-area[data-area="ideas"] .matrix-area-add');
+  await waitFor(() => matrixSheetOpen(page, 'matrix-task-sheet'), 'dialog');
+  assert.equal(await page.evaluate(() => document.activeElement.name), 'text', 'text focused');
+  await page.keyboard.type('Balkon bepflanzen');
+  await page.keyboard.press('Enter');
+  await waitFor(() => matrixTasks(env).some(t => t.text === 'Balkon bepflanzen' && t.area === 'ideas'), 'added with Enter');
+  assert.deepEqual(await cardTexts(page, 'ideas'), ['Balkon bepflanzen']);
+  // The card was rebuilt: the focus is back on its "+" (keyboard, VoiceOver)
+  await waitFor(() => page.evaluate(() => document.activeElement.dataset.focus === 'add-ideas'), 'focus back on +');
+  // Dragging the matrix onto the title of the last list puts it in that place
+  await page.dragAndDrop('.matrix-panel .matrix-head', '.list-panel[data-list-id="custom-3"] h3');
+  await waitFor(() => storedListOrder(env).join() === 'custom-1,custom-2,custom-3,matrix', 'dragged to the end');
+  assert.deepEqual(await page.$$eval('#unifiedListsGrid > *', els => els.map(e => e.dataset.listId)), ['custom-1', 'custom-2', 'custom-3', 'matrix']);
   assert.deepEqual(errors, []);
   await context.close();
 });

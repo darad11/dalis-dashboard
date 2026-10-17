@@ -5,7 +5,7 @@ Keiner der Tests spricht mit dem echten Supabase-Projekt.
 
 | Suite | Prüft | Befehl |
 |---|---|---|
-| Unit | Berechnungslogik Step Challenge (`js/steps-core.js`); Kalender-Regeln: Uhrzeiten, Kalender, Reihenfolge, Farben, Editor-Eingaben (`js/calendar-core.js`); Sync-Fingerabdruck mit Uhrzeiten (`js/data-utils.js`); Edge Function `health-steps` (Anfragen prüfen, Zahlen/Daten aus dem Kurzbefehl, Fehlerantworten nennen leere/fehlende Felder und was ankam, Aufruf der Datenbankfunktion, Antworten ohne interne Details) | `node --test "tests/unit/*.test.js"` |
+| Unit | Berechnungslogik Step Challenge (`js/steps-core.js`); Matrix (`js/matrix-core.js`: Platz unter den Listen, Bereiche umbenennen, Aufgaben prüfen, Abhaken und Wiederholung, Fälligkeitstext); Kalender-Regeln: Uhrzeiten, Kalender, Reihenfolge, Farben, Editor-Eingaben (`js/calendar-core.js`); Sync-Fingerabdruck mit Uhrzeiten (`js/data-utils.js`); Edge Function `health-steps` (Anfragen prüfen, Zahlen/Daten aus dem Kurzbefehl, Fehlerantworten nennen leere/fehlende Felder und was ankam, Aufruf der Datenbankfunktion, Antworten ohne interne Details) | `node --test "tests/unit/*.test.js"` |
 | Vertrag | `js/supabase.js` erzeugt die erwarteten PostgREST-Requests (echte supabase-js, abgefangenes `fetch`), u. a. Uhrzeit-Spalten nur wenn gesetzt, `"HH:MM:SS"` → `"HH:MM"`, Upload-Schlüssel: nur der Hash wird gesendet und nie zurückgelesen | `npm install --no-save @supabase/supabase-js@2.117.2 && node --test "tests/contract/*.test.js"` |
 | SQL | Migrationen (Step Challenge, Kalender-Uhrzeiten, Apple-Health-Upload), RLS, Trigger, Constraints, Rechte der Funktion `submit_health_steps` (nur `service_role`) gegen ein **lokales Wegwerf-PostgreSQL** | `tests/sql/run.sh "host=/tmp port=5432 user=postgres"` |
 | E2E | Dashboard in Chromium mit In-Memory-Supabase-Mock (Step Challenge, Sync, bestehende Funktionen, durchgehende Seite mit Abschnittsleiste und Glas-Linse, Menüs, iPhone/iPhone-Duo/iPad-Layout, Kalender mit Uhrzeiten und eigenen Kalendern, Desktop unverändert) | `node tests/e2e/run.js` (optional Filter: `node tests/e2e/run.js foldable`) |
@@ -29,6 +29,8 @@ E2E-Hinweise:
   unverändert). Eine Karte liegt schon ganz im Bild, während das Einrasten noch die letzten Pixel
   gleitet – beim Sprung über sechs Tage (Montag → Sonntag) maß der Test sonst gelegentlich mitten
   in der Bewegung (2 von 6 Läufen „Sunday aligned too“ mit 2 bzw. 10 px Versatz; danach 10 von 10 grün).
+- `scroll: a short last section…` braucht einen kurzen Lists-Abschnitt: Die Matrix steht in der App immer
+  dort, für diese Prüfung wird ihr Panel nach dem Leeren der Listen entfernt.
 - Touch-Geräte werden mit `isMobile` + `hasTouch` emuliert (`pointer: coarse`, `hover: none`).
   Keine `fullPage`-Screenshots in diesen Tests: Chromium verliert dabei die Touch-Emulation
   (`pointer: coarse` wird falsch); für lange Seiten den Viewport vergrößern.
@@ -61,6 +63,9 @@ Szenarien für Apple Health, Handy/Tablet und Kalender (`tests/e2e/run.js`):
 | `week on phones: day strip…` | Tagesleiste (7 Tage, heute markiert, Punkte in Kalenderfarben + grau für offene Aufgaben, VoiceOver-Texte), genau ein Tag auf dem Bildschirm, bündig mit dem Panel darüber und ohne hereinschauende Nachbarn (Freitag, Samstag, Sonntag), Zeile so hoch wie dieser Tag (weniger als halb so hoch wie alle Tage untereinander); Wischen → nächster Tag; Tipp in der Leiste → Montag; neue Aufgabe dort lässt die Zeile wachsen; nächste Woche behält den Wochentag, „Today“ springt zurück; aufgeklappt: Spalten ohne Leiste und ohne feste Höhe |
 | `health hub: Step Challenge first…` | Handy/Tablet: Step Challenge direkt unter „Health Hub“, über der Hero-Zeile; KPI-Zahlen („1.794.994“) einzeilig und innerhalb ihrer Kachel; Desktop unverändert darunter; iPad hochkant ↔ quer verschiebt die Karte hin und zurück, der Fokus im Eingabefeld bleibt |
 | `habits: "+ New Habit" keeps a gap…` | ≥ 16 px Abstand zu den Wochentagen (Desktop und Handy) |
+| `matrix on phones: …` | Matrix ganz oben in Lists, vier Bereiche, erst mit der ersten Änderung gespeichert; „+“: Text, Notiz, Today, Repeat weekly (Upload mit allen Feldern); gleicher Text in „to do“ eigene Aufgabe; Abhaken: wiederholte springt eine Woche weiter, andere erledigt und aus der Karte; Bereich: Zahl, Completed (wieder öffnen), Umbenennen mit Stift (Upload), Escape bricht nur das Umbenennen ab, großer Knopf fügt hinzu; Bearbeiten: Bereich wechseln, Löschen mit Rückfrage; ⋯ Move Down / Move Up (Reihenfolge in der Cloud); alle Bedienelemente ≥ 44 pt |
+| `matrix: the same text in several areas survives a merge…` | zweimal „test“ aus der Cloud, offline ein drittes „test“ in waiting, danach Sync mit Zusammenführen → drei Aufgaben in drei Bereichen |
+| `matrix on the desktop: …` | Aufgaben aus der Cloud ohne gespeicherten Platz kommen an; Matrix über die ganze Breite, zwei Spalten; Dialog, Enter fügt hinzu, danach Fokus wieder auf dem „+“ der neu gezeichneten Karte; per Drag & Drop ans Ende der Listen |
 
 Gegenproben (Fehler absichtlich eingebaut, Test muss rot werden): Schließen des Editors am
 Desktop, Seitenende-Regel, gewählter Abschnitt am Seitenende, alter Habit-Abstand,
@@ -72,6 +77,7 @@ Schritte-Karte: Cursor nach dem Neuaufbau wieder ans Ende (alte Logik) → `setu
 Health Hub: ohne Verschieben der Karte bzw. ohne Fokus-Erhalt → `health hub: Step Challenge first…` rot; alte
 KPI-CSS (`overflow-wrap: anywhere`) → dieselbe Szene rot („1.794.99“ / „4“).
 Weiß als Kalenderfarbe: ohne die Rand-Regel in `css/calendar.css` → `calendar: white…` rot (Punkte ohne Rand).
+Matrix: Zusammenführen wieder über den Text → `matrix: the same text…` rot; Download nur für gespeicherte Listen → `matrix on the desktop` rot; Escape ohne Abfangen im Umbenennen-Feld (schließt das Sheet) → `matrix on phones` rot. Ohne Zurückgeben des Fokus an das neu gezeichnete „+“ → `matrix on the desktop` rot.
 Reihenfolge auf Handy/Tablet: ohne Aufruf vor dem ersten Zeichnen → `phones: the calendar stands first…` rot; ohne Fokus-Erhalt beim Verschieben → `foldable…` rot; Kalender mit altem Abstand oben bzw. Leiste noch mit Today zuerst → `scroll: phones…` rot.
 Woche auf dem Handy: ohne Höhenanpassung → `week on phones…` rot; Leseposition ohne die Regel für seitlich
 weggewischte Karten → `foldable…` rot (Samstag landet nach dem Aufklappen bei 336 px statt 120 px).
