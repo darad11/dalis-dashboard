@@ -1,12 +1,20 @@
 /*
  * Phone, tablet and foldable support (iPhone, iPhone Duo folded and unfolded, iPad).
  *
- * - Touch layout on touch screens narrower than 1100 CSS px (html.touch-layout). The page is
+ * - Touch layout when touch is the primary input (html.touch-layout): phones, foldables and the
+ *   iPad in portrait and landscape. The page is
  *   one continuous scroll (Home, Week, Today, Health, Habits, Lists - the calendar first in
  *   Week, the focus timer after today's goals); the floating section bar at the bottom marks the section on
  *   screen and jumps to a section when tapped. A finger on the bar lifts the selection into a
  *   glass lens that can be dragged to a section (as in iOS 26).
- *   The desktop layout (mouse/trackpad, or 1100px and wider) is not affected.
+ *   The desktop layout (mouse or trackpad as the primary input) is not affected.
+ *   No width limit: iPadOS Safari reports touch as the primary pointer even with a trackpad or
+ *   mouse attached (WebKit, WebPageIOS.mm: pointerCharacteristicsOfPrimaryPointingDevice is
+ *   Coarse on iOS; only any-pointer/any-hover follow an accessory mouse), so rotating the iPad
+ *   or attaching a keyboard keeps the layout. Until 17.10.2026 the layout ended at 1099px, and
+ *   the iPad in landscape (1133-1376px) fell back to the desktop layout. Apple HIG, Layout:
+ *   "Determine layout based on size classes, not device type or orientation" - the width only
+ *   picks the arrangement inside the touch layout (compact < 700px, medium, wide).
  * - App bar with "+" (new calendar event) and "⋯" (more), and menus anchored to the button
  *   that opened them (pull-down menus as in iOS). On touch screens of any width "⋯" menus
  *   replace hover-only buttons, double-click, right-click and drag & drop.
@@ -22,7 +30,7 @@
   'use strict';
 
   // Keep in sync with the inline script in index.html
-  const TOUCH_LAYOUT_QUERY = '(pointer: coarse) and (max-width: 1099px)';
+  const TOUCH_LAYOUT_QUERY = '(pointer: coarse)';
   // In the order of the page in the touch layout (placeTouchOrder), the only layout with the
   // section bar. Home (js/home-ui.js) is first on every layout.
   const SECTIONS = ['home', 'week', 'today', 'health', 'habits', 'lists'];

@@ -1,13 +1,13 @@
 # Mobil, Tablet und iPhone Duo
 
-Stand 16.10.2026 (dritte Ausbaustufe: Glas-Linse in der Leiste unten). Ziel: auf iPhone, iPhone Duo (zu- und aufgeklappt) und
+Stand 17.10.2026 (dritte Ausbaustufe: Glas-Linse in der Leiste unten; das iPad auch quer im Touch-Layout). Ziel: auf iPhone, iPhone Duo (zu- und aufgeklappt) und
 iPad bedienbar wie eine iOS-App – durchgehend scrollbar, Bedienelemente im Stil von iOS 26/27
 (Liquid Glass) nach den Apple Human Interface Guidelines (HIG). Der Desktop bleibt bis auf die
 neue Abschnittsreihenfolge und die Kalender-Funktionen (siehe [CALENDAR.md](CALENDAR.md)) gleich.
 
 ## Was sich für dich ändert
 
-**Touch-Geräte schmaler als 1100 px** (iPhone, iPhone Duo in beiden Zuständen, iPad hochkant,
+**Touch-Geräte** (iPhone, iPhone Duo in beiden Zuständen, iPad hochkant und quer,
 iPhone quer):
 
 - **Eine durchgehende Seite** in der Reihenfolge Week → Today → Health → Habits → Lists: ganz
@@ -29,8 +29,9 @@ iPhone quer):
   dann der Kalender. Die Blöcke werden im DOM verschoben (`window.placePageOrder`, Inline-Skript
   in `index.html`), nicht per CSS `order` – VoiceOver und Tastatur folgen dem Bildschirm. Das
   Skript läuft direkt unter dem Week-Abschnitt, also vor dem ersten Zeichnen: Auch bei langsam
-  ladenden Skripten springt die Seite nicht um. Beim Drehen des iPad (quer = Desktop) wechselt
-  die Reihenfolge mit, der Fokus bleibt.
+  ladenden Skripten springt die Seite nicht um. Beim Drehen bleibt das iPad im Touch-Layout;
+  nur wenn die Haupteingabe wechselt (etwa ein Convertible, das den Tablet-Modus verlässt),
+  wechselt die Reihenfolge mit, der Fokus bleibt.
 
 - **Woche (Handy, unter 700 px):** Oben im Kopf der Woche eine **Tagesleiste** wie in Apple
   Kalender – Wochentag, Datum, heute in der Akzentfarbe, der gezeigte Tag gefüllt, darunter bis
@@ -84,7 +85,18 @@ iPhone quer):
   kam die Klasse erst aus `initTheme` in `js/app.js` – nach der Anmeldung und dem ersten
   Sync –, sodass die Seite auf einem dunklen Gerät bei jedem Start etwa eine Sekunde hell war
   (Aufnahme vom 17.10., 07:36).
-- Mit **Maus/Trackpad oder ab 1100 px** (Desktop, iPad quer) bleibt das Desktop-Layout.
+- Mit **Maus/Trackpad als Haupteingabe** (Desktop, Laptop) bleibt das Desktop-Layout, auch in
+  einem schmalen Fenster.
+- **iPad quer (seit 17.10.2026):** Bis dahin endete das Touch-Layout bei 1099 px Breite. Das iPad
+  ist quer 1133–1376 px breit und bekam deshalb das alte Desktop-Layout, hochkant aber das neue.
+  Jetzt entscheidet nur die Haupteingabe: Safari auf dem iPad meldet immer Touch
+  (`pointer: coarse`), auch mit Magic Keyboard, Trackpad oder Maus – im WebKit-Quelltext
+  (`WebPageIOS.mm`, `pointerCharacteristicsOfPrimaryPointingDevice`) ist der primäre Zeiger
+  auf iOS immer „coarse“; Maus und Trackpad ändern nur `any-pointer` und `any-hover`. Die
+  Breite wählt nur noch die Anordnung innerhalb des Touch-Layouts (unter 700 px eine Spalte,
+  darüber mehrspaltig, ab 1100 px das breite Home-Raster). Das folgt den HIG (Layout):
+  „Determine layout based on size classes, not device type or orientation“ und „People expect
+  your experience to remain familiar when they rotate their device“.
 
 ### Bedienung per Touch
 
@@ -220,8 +232,9 @@ an allen vier Seiten berücksichtigt.
 | `js/calendar-ui.js`, `css/calendar.css` | Kalender-Editor und Kalenderliste (Sheet bzw. Dialog), siehe CALENDAR.md |
 | `js/swipe.js`, `css/swipe.css` | Wischen zum Löschen (`SwipeActions.enable(row, { label, remove })`, Feder als CSS-`linear()`-Kurve, `whenIdle` für den Neuaufbau nach einem Sync); die Karte einer Zeile ist ihr erster Vorfahr mit Hintergrund (eine Zeile mit eigener abgerundeter Kachel ist ihre eigene Karte); die Zeilen melden sich in `js/app.js` (`swipeToDelete`, `swipeRemove…`), `js/matrix-ui.js` und `js/home-ui.js` an |
 
-- Touch-Layout = `(pointer: coarse) and (max-width: 1099px)`; steht im Inline-Skript in
-  `index.html` und in `js/mobile.js` (`TOUCH_LAYOUT_QUERY`) und muss gleich bleiben.
+- Touch-Layout = `(pointer: coarse)`, also Touch als Haupteingabe ohne Breitengrenze (bis
+  17.10.2026 mit `and (max-width: 1099px)`); steht im Inline-Skript in `index.html` und in
+  `js/mobile.js` (`TOUCH_LAYOUT_QUERY`) und muss gleich bleiben.
 - Die Seite öffnet auf **Home** ([HOME.md](HOME.md)); die Leiste hat sechs Einträge (Home, Week,
   Today, Health, Habits, Lists), jeder mindestens 44 × 44 pt, die Beschriftungen ungekürzt (Test
   `scroll: phones…`).
@@ -275,7 +288,11 @@ Chromium (Playwright) mit Touch-Emulation und Beispieldaten nur im lokalen Test-
 - Glas-Linse: Bild-für-Bild-Sequenzen (60 fps, angehaltene Uhr) von Antippen und Ziehen in hell
   und dunkel, neben die Einzelbilder deiner Aufnahme gelegt; 402 × 874, 890 × 626, 852 × 393;
   „Bewegung reduzieren“, „Transparenz reduzieren“, „Kontrast erhöhen“ (emuliert).
-- Desktop 1440/1280/1180, hell/dunkel, je Abschnitt verglichen: unverändert bis auf
+- iPad hochkant und quer (17.10.2026): iPad mini 744 × 1133, iPad Air 11″ 820 × 1180,
+  iPad Pro 11″ 834 × 1210, iPad Pro 13″ 1032 × 1376 (Punkte = Auflösung bei @2x) und jeweils
+  quer: Touch-Layout, Screenshots aller Abschnitte, kein horizontales Scrollen; Drehen behält
+  Layout und Abschnitt (Test `ipad: …`).
+- Desktop 1440/1280/1180 mit Maus, hell/dunkel, je Abschnitt verglichen: unverändert bis auf
   Reihenfolge, Kalender-Punkte/Uhrzeiten und den Habit-Abstand.
 - E2E-Szenarien und Gegenproben siehe [tests/README.md](../tests/README.md).
 
@@ -304,7 +321,10 @@ Chromium (Playwright) mit Touch-Emulation und Beispieldaten nur im lokalen Test-
 - „Transparenz reduzieren“ kennt Safari als Media-Query nicht (`prefers-reduced-transparency`,
   MDN); dort bleibt die Linse durchsichtig.
 - Duo-Viewport-Größen sind Schätzungen Dritter; Scharnier/halb aufgeklappt wird nicht erkannt.
-- iPad hochkant nutzt wie das iPhone die Leiste unten (iPadOS platziert Tab Bars oben); das
-  Web erkennt iPad und iPhone Duo nicht zuverlässig auseinander.
+- Das iPad nutzt hochkant und quer wie das iPhone die Leiste unten (iPadOS platziert Tab Bars
+  oben); das Web erkennt iPad und iPhone Duo nicht zuverlässig auseinander.
+- iPad quer nur in Chromium mit Touch-Emulation geprüft, nicht auf dem Gerät. Den Wechsel der
+  Haupteingabe (Convertible) prüfen die Tests über die Touch-Emulation von Chromium; ein iPad
+  wechselt sie nie.
 - Die Leiste unten minimiert sich beim Scrollen nicht (iOS-Option „minimize on scroll“), damit
   die Abschnittsmarkierung immer sichtbar bleibt.

@@ -776,7 +776,7 @@ button.home-row:focus-visible,
     }
 }
 
-/* ---- Two columns from tablets up, the full grid on wide desktops ---- */
+/* ---- Two columns from tablets up, the full grid from 1100px (iPad landscape, desktop) ---- */
 @media (min-width: 700px) {
     .home-header {
         grid-column: span 7;

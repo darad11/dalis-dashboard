@@ -17,10 +17,12 @@
   <title>Dali's Dashboard</title>
   <script>
     // Phone/tablet layout flag, set before first paint so the page does not flash the
-    // desktop layout. Same query as TOUCH_LAYOUT_QUERY in js/mobile.js.
+    // desktop layout. Same query as TOUCH_LAYOUT_QUERY in js/mobile.js: touch is the primary
+    // input (phones, foldables, the iPad in both orientations); the width only changes the
+    // arrangement inside the touch layout.
     (function () {
       try {
-        var touch = window.matchMedia('(pointer: coarse) and (max-width: 1099px)').matches;
+        var touch = window.matchMedia('(pointer: coarse)').matches;
         document.documentElement.classList.toggle('touch-layout', touch);
       } catch (e) { }
     })();
@@ -59,9 +61,9 @@
   <!-- Styles -->
   <link rel="stylesheet" href="css/style.css?v=20261017">
   <link rel="stylesheet" href="css/calendar.css?v=20261017">
-  <link rel="stylesheet" href="css/mobile.css?v=20261017b">
+  <link rel="stylesheet" href="css/mobile.css?v=20261017c">
   <link rel="stylesheet" href="css/matrix.css?v=20261017b">
-  <link rel="stylesheet" href="css/home.css?v=20261017h">
+  <link rel="stylesheet" href="css/home.css?v=20261017i">
   <link rel="stylesheet" href="css/swipe.css?v=20261017b">
   <style>
     /* Nutrition Settings Styles */
@@ -1142,7 +1144,7 @@
   <script src="js/supabase.js?v=20261016d"></script>
   <script src="js/steps-core.js?v=20261016"></script>
   <script src="js/steps.js?v=20261017"></script>
-  <script src="js/mobile.js?v=20261017c"></script>
+  <script src="js/mobile.js?v=20261017d"></script>
   <script src="js/swipe.js?v=20261017b"></script>
   <script src="js/app.js?v=20261017f"></script>
   <script src="js/calendar-ui.js?v=20261017c"></script>

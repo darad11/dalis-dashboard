@@ -652,12 +652,31 @@ scenario('week keys stay stable across New Year (ISO week-year)', async (env) =>
 
 // ---------------------------------------------------------------- Phones, tablets, iPhone Duo
 // Viewports: iPhone 15 (393x852), iPhone Duo folded (~466x678) and unfolded (~890x626,
-// landscape), iPad landscape (1180x820). The Duo sizes are third-party estimates; the layout
-// only depends on width ranges, so nearby sizes behave the same.
+// landscape), iPads in portrait and landscape (IPADS). The Duo sizes are third-party estimates.
+// The touch layout depends on the primary input (touch), the arrangement inside it on width
+// ranges only, so nearby sizes behave the same.
 
 const PHONE = { viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
 const DUO_FOLDED = { width: 466, height: 678 };
 const DUO_UNFOLDED = { width: 890, height: 626 };
+// Points = Apple's pixel resolution at @2x (portrait width x height)
+const IPADS = {
+  'iPad mini': { width: 744, height: 1133 },
+  'iPad Air 11"': { width: 820, height: 1180 },
+  'iPad Pro 11"': { width: 834, height: 1210 },
+  'iPad Pro 13"': { width: 1032, height: 1376 }
+};
+
+// The primary input changes from touch to a mouse and back (a convertible leaving and entering
+// tablet mode): Chromium answers (pointer: coarse) from its touch emulation, so turning it off
+// flips the media query and fires its change event. The iPad never does this (WebKit keeps the
+// primary pointer coarse on iOS, also with a trackpad attached).
+// One DevTools session per page: detaching a session drops the emulation it set.
+const touchSessions = new WeakMap();
+async function setPrimaryTouch(page, on) {
+  if (!touchSessions.has(page)) touchSessions.set(page, await page.context().newCDPSession(page));
+  await touchSessions.get(page).send('Emulation.setTouchEmulationEnabled', on ? { enabled: true, maxTouchPoints: 1 } : { enabled: false });
+}
 
 async function openPhone(env, extra = {}) {
   return open(env, Object.assign({}, PHONE, extra));
@@ -1179,13 +1198,22 @@ scenario('foldable: unfolding and folding keeps the reading position and open me
   assert.equal(await page.getAttribute('#weekStrip .week-strip-day:nth-child(6)', 'aria-current'), 'true');
   assert.equal(await page.evaluate(sel => { const r = document.querySelector(sel).getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }, saturday), true, 'Saturday on screen after folding');
 
-  // iPad rotated to landscape (1180px): the desktop layout and its order, then back; the
-  // goals move with the order and keep the focus
+  // iPad rotated to landscape (1180px): still the touch layout and its order (until 17.10.2026
+  // this was the desktop layout); the goals keep the focus
   assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
   await page.focus('.goals-container > .btn');
   await page.setViewportSize({ width: 1180, height: 820 });
   await settle(page, 300);
-  assert.equal(await touchLayoutOn(page), false);
+  assert.equal(await touchLayoutOn(page), true, 'iPad landscape keeps the touch layout');
+  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
+  assert.equal(await displayed(page, '#mobileTabbar'), true, 'section bar in landscape');
+  assert.equal(await horizontalOverflow(page), 0);
+  assert.equal(await page.evaluate(() => document.activeElement.matches('.goals-container > .btn')), true, 'focus kept after rotating');
+
+  // Mouse as the primary input (convertible out of tablet mode): the desktop layout and its
+  // order, then back; the goals move with the order and keep the focus
+  await setPrimaryTouch(page, false);
+  await waitFor(async () => !(await touchLayoutOn(page)), 'desktop layout');
   assert.deepEqual(await pageOrder(page), { screen: DESKTOP_ORDER, dom: DESKTOP_ORDER });
   assert.equal(await page.evaluate(() => document.activeElement.matches('.goals-container > .btn')), true, 'focus kept on the desktop');
   assert.equal(await displayed(page, '#mobileTabbar'), false);
@@ -1193,6 +1221,9 @@ scenario('foldable: unfolding and folding keeps the reading position and open me
   for (const sel of ['.dashboard-main-layout', '.week-overview-section', '.gym-hub-section', '.lists-section', '.calendar-section', '.habits-section']) {
     assert.equal(await displayed(page, sel), true, `${sel} visible on the wide layout`);
   }
+  await setPrimaryTouch(page, true);
+  await waitFor(() => touchLayoutOn(page), 'touch layout again');
+  assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER });
   await page.setViewportSize(DUO_FOLDED);
   await settle(page, 300);
   assert.equal(await touchLayoutOn(page), true);
@@ -1200,6 +1231,52 @@ scenario('foldable: unfolding and folding keeps the reading position and open me
   assert.equal(await page.evaluate(() => document.activeElement.matches('.goals-container > .btn')), true, 'focus kept on the phone');
   assert.deepEqual(errors, []);
   await context.close();
+});
+
+scenario('ipad: the touch layout in portrait and landscape at every iPad size, rotating keeps it', async (env) => {
+  seedDemo(env.store);
+  const sameTop = (page, sels) => page.evaluate(list => new Set(list.map(sel => Math.round(document.querySelector(sel).getBoundingClientRect().top))).size === 1, sels);
+  for (const [name, portrait] of Object.entries(IPADS)) {
+    for (const viewport of [portrait, { width: portrait.height, height: portrait.width }]) {
+      const label = `${name} ${viewport.width}x${viewport.height}`;
+      const { page, errors, context } = await open(env, { viewport, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+      assert.equal(await touchLayoutOn(page), true, `${label}: touch layout`);
+      assert.equal(await displayed(page, '#mobileTabbar'), true, `${label}: section bar`);
+      assert.equal(await displayed(page, '.app-bar-actions'), true, `${label}: "+" and "⋯" in the app bar`);
+      assert.equal(await displayed(page, '#quickCapture'), false, `${label}: no desktop quick add button`);
+      assert.deepEqual(await pageOrder(page), { screen: PHONE_ORDER, dom: PHONE_ORDER }, `${label}: order`);
+      assert.equal(await horizontalOverflow(page), 0, `${label}: no sideways scrolling`);
+      if (viewport.width >= 820) {
+        assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.calendar-section-content .glass-panel')).display), 'grid', `${label}: calendar and agenda side by side`);
+      }
+      const columns = await page.evaluate(() => new Set([...document.querySelectorAll('.kanban-column')].map(c => Math.round(c.getBoundingClientRect().left))).size);
+      assert.ok(columns >= (viewport.width >= 1100 ? 4 : 2), `${label}: week in ${columns} columns`);
+      if (viewport.width >= 1100) {
+        assert.equal(await sameTop(page, ['.home-goals', '.home-matrix', '.home-steps']), true, `${label}: goals, matrix and steps side by side on Home`);
+      }
+      assert.deepEqual(errors, []);
+      await context.close();
+    }
+  }
+
+  // Rotating with Habits on screen: the touch layout stays and so does the section
+  const { page, errors, context } = await open(env, { viewport: IPADS['iPad Air 11"'], isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  await goToSection(page, 'habits');
+  for (const viewport of [{ width: 1180, height: 820 }, IPADS['iPad Air 11"'], { width: 1180, height: 820 }]) {
+    await page.setViewportSize(viewport);
+    await settle(page, 400);
+    assert.equal(await touchLayoutOn(page), true, `${viewport.width}px: touch layout`);
+    assert.equal(await currentSection(page), 'habits', `${viewport.width}px: still on Habits`);
+  }
+  assert.deepEqual(errors, []);
+  await context.close();
+
+  // Counter-check: a mouse-driven window of the same size keeps the desktop layout
+  const mouse = await open(env, { viewport: { width: 1180, height: 820 } });
+  assert.equal(await touchLayoutOn(mouse.page), false, 'mouse window: desktop layout');
+  assert.deepEqual(await pageOrder(mouse.page), { screen: DESKTOP_ORDER, dom: DESKTOP_ORDER });
+  assert.deepEqual(mouse.errors, []);
+  await mouse.context.close();
 });
 
 scenario('calendar on phones: month grid with coloured dots, agenda with times, new entries', async (env) => {
@@ -1570,18 +1647,24 @@ scenario('health hub: Step Challenge first on phones and tablets, below the hero
   assert.ok(kpis.some(k => k.text === '1.794.994'), JSON.stringify(kpis));
   assert.deepEqual(kpis.filter(k => k.lines !== 1 || !k.fits), [], 'KPI values on one line, inside the tile');
 
-  // Tablet turned to landscape (desktop layout) and back; the focus stays in the card
+  // Tablet turned to landscape: the touch layout stays, the card stays first
   await page.setViewportSize({ width: 820, height: 1180 });
   await settle(page, 300);
   assert.deepEqual(await order(page), { after: 'gym-hub-header', above: true }, 'tablet portrait: first');
   await page.focus('#step-entry-input');
   await page.setViewportSize({ width: 1180, height: 820 });
+  await settle(page, 300);
+  assert.equal(await touchLayoutOn(page), true, 'tablet landscape: touch layout');
+  assert.deepEqual(await order(page), { after: 'gym-hub-header', above: true }, 'tablet landscape: still first');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'step-entry-input', 'focus kept after rotating');
+  // Mouse as the primary input (desktop layout) and back; the focus stays in the card
+  await setPrimaryTouch(page, false);
   await waitFor(async () => !(await touchLayoutOn(page)), 'desktop layout');
-  assert.deepEqual(await order(page), { after: 'streakHistory', above: false }, 'tablet landscape: below the hero row');
+  assert.deepEqual(await order(page), { after: 'streakHistory', above: false }, 'mouse: below the hero row');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'step-entry-input', 'focus kept after the move');
-  await page.setViewportSize({ width: 820, height: 1180 });
+  await setPrimaryTouch(page, true);
   await waitFor(() => touchLayoutOn(page), 'touch layout again');
-  assert.deepEqual(await order(page), { after: 'gym-hub-header', above: true }, 'tablet portrait again: first');
+  assert.deepEqual(await order(page), { after: 'gym-hub-header', above: true }, 'touch again: first');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'step-entry-input', 'focus kept after moving back');
   assert.deepEqual(errors, []);
   await context.close();

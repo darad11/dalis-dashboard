@@ -1,7 +1,8 @@
 /*
  * Phones, tablets and foldables (iPhone, iPhone Duo folded/unfolded, iPad).
- * Loaded after style.css and calendar.css. Desktop (mouse/trackpad, 1100px and wider) is untouched:
- *   - html.touch-layout  touch screen narrower than 1100px (set in index.html / js/mobile.js)
+ * Loaded after style.css and calendar.css. Desktop (mouse/trackpad as the primary input) is untouched:
+ *   - html.touch-layout  touch is the primary input, any width (set in index.html / js/mobile.js);
+ *                        the iPad stays here in portrait and landscape
  *   - (hover: none)      touch screen of any width (no hover, no double-click, no right-click)
  *   - max-width          layout fixes that narrow desktop windows need as well
  *
@@ -15,9 +16,11 @@
  *     darker/lighter than Apple's defaults so that text keeps a 4.5:1 contrast (WCAG AA):
  *     secondary text and the indigo tint (the dashboard's brand colour).
  *   - Controls at least 44 x 44 pt.
- * Layouts depend on the available width only. Safari does not tell whether an iPhone Duo is
- * folded, so folded (~466px), split view (~445px) and unfolded (~890px landscape) simply use the
- * compact (< 700px) or medium (700-1099px) layout.
+ * Inside the touch layout the arrangement depends on the available width only. Safari does not
+ * tell whether an iPhone Duo is folded, so folded (~466px), split view (~445px) and unfolded
+ * (~890px landscape) simply use the compact (< 700px) or medium (700px and wider) layout; the
+ * iPad in landscape (1133-1376px) uses the medium layout with more columns (auto-fill grids) and
+ * the wide Home grid (css/home.css, 1100px and wider).
  */
 
 :root {
@@ -3194,7 +3197,7 @@ html.touch-layout .sheet-confirm-cancel {
     }
 }
 
-/* Wide medium (iPhone Duo unfolded in landscape, iPad landscape below 1100px):
+/* Wide medium (iPhone Duo unfolded in landscape, iPad portrait and landscape):
    two panes where content allows it */
 @media (min-width: 820px) {
     html.touch-layout .calendar-section-content .glass-panel {

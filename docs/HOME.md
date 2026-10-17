@@ -19,7 +19,7 @@ Bereichen, jede Karte führt dorthin.
 
 Reihenfolge: zuerst, was an die Uhr gebunden ist (Wetter, Termine), dann das Tun (Aufgaben,
 Ziele, Matrix), dann der Fortschritt (Schritte, Gewohnheiten). Auf dem Handy untereinander, ab
-700 px zwei Spalten (Wetter neben der Begrüßung), ab 1100 px (Desktop): Begrüßung + Wetter, Today
+700 px zwei Spalten (Wetter neben der Begrüßung), ab 1100 px (iPad quer, Desktop): Begrüßung + Wetter, Today
 + Tasks, Goals + Matrix + Steps, Habits.
 
 Home aktualisiert sich bei jeder Änderung der Daten (`db.set`/`db.del` melden
