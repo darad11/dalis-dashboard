@@ -25,6 +25,10 @@ E2E-Hinweise:
   simulierten Latenz und landete sonst in den Daten des nächsten Szenarios (so fehlte in
   `6 year change` gelegentlich das Setup-Formular: die Step-Challenge-Einstellung aus
   `5 day change…` kam dort an).
+- Woche auf dem Handy: Gemessen wird erst, wenn die Zeile mit den Tageskarten steht (6 Bilder lang
+  unverändert). Eine Karte liegt schon ganz im Bild, während das Einrasten noch die letzten Pixel
+  gleitet – beim Sprung über sechs Tage (Montag → Sonntag) maß der Test sonst gelegentlich mitten
+  in der Bewegung (2 von 6 Läufen „Sunday aligned too“ mit 2 bzw. 10 px Versatz; danach 10 von 10 grün).
 - Touch-Geräte werden mit `isMobile` + `hasTouch` emuliert (`pointer: coarse`, `hover: none`).
   Keine `fullPage`-Screenshots in diesen Tests: Chromium verliert dabei die Touch-Emulation
   (`pointer: coarse` wird falsch); für lange Seiten den Viewport vergrößern.

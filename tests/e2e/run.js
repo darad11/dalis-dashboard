@@ -1393,11 +1393,26 @@ scenario('week on phones: day strip and one day card per swipe; wide screens kee
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth
     };
   });
+  // The row stopped scrolling: unchanged for 6 frames in a row. A card counts as on screen while
+  // the snap still glides through its last pixels (a jump over six days takes a while)
+  const scrollStopped = () => page.evaluate(() => new Promise(resolve => {
+    const pager = document.getElementById('weekKanban');
+    let last = pager.scrollLeft;
+    let still = 0;
+    const tick = () => {
+      if (pager.scrollLeft === last) still++;
+      else { still = 0; last = pager.scrollLeft; }
+      if (still >= 6) resolve(true);
+      else requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }));
   const settled = async (day) => {
     await waitFor(async () => {
       const s = await state();
       return s.current === day && s.shown.length === 1 && s.shown[0] === `week-day-${day}` && s.pagerHeight === s.cardHeight;
     }, `day ${day} on screen, row as high as its card`);
+    await scrollStopped();
     return state();
   };
 
