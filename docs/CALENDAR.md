@@ -1,6 +1,6 @@
 # Kalender: Uhrzeiten und eigene Kalender
 
-Stand 16.10.2026.
+Stand 17.10.2026.
 
 ## Funktionen
 

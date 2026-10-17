@@ -80,7 +80,7 @@ Aufwand: S ≤ 1 h, M ≈ ½ Tag, L ≥ 1 Tag. Risiko = Risiko der Änderung.
 | P2-3 | Bleibt die App über Mitternacht offen, bleiben „Today's Goals“, Rollover und Heute-Markierungen auf dem Vortag. | Tageswechsel-Handler wie in der Step Challenge. | offen |
 | P2-4 | Uneinheitliche Datumsformate (0-basierter Monat ohne Nullen, ISO, UTC-`rolledFrom`). | Bei nächster Migration vereinheitlichen. | offen |
 | P2-5 | ~1.000 Zeilen toter Code + CSS (Sleep, PR, Maße, Weekly Goals, Rest-Timer, Quick Notes, Backlog, Monkey-Patching von `saveGymData`/`loadGymData`). | Entfernen in eigenem Schritt. | offen |
-| P2-6 | Mobil: Titel liegen unter den Navigationsbuttons (Weekly Overview, Kalender), FAB verdeckt Inhalte, Kalender als ~3.000 px lange Liste, Kanban-Schrift 0,55 rem, Touch-Ziele < 44 px; Habits zwischen 769 und 900 px als bildschirmbreite Kreise (Seite > 20.000 px hoch, betrifft auch das aufgeklappte iPhone Duo). | Tab-Layout für Touch-Geräte < 1100 px (seit 17.10.2026 ohne Breitengrenze, auch iPad quer), Monatsraster + Tagesliste, Touch-Ziele ≥ 44 px (siehe `MOBILE.md`). | **behoben** |
+| P2-6 | Mobil: Titel liegen unter den Navigationsbuttons (Weekly Overview, Kalender), FAB verdeckt Inhalte, Kalender als ~3.000 px lange Liste, Kanban-Schrift 0,55 rem, Touch-Ziele < 44 px; Habits zwischen 769 und 900 px als bildschirmbreite Kreise (Seite > 20.000 px hoch, betrifft auch das aufgeklappte iPhone Duo). | Tab-Layout zuerst für Touch-Geräte < 1100 px, seit 17.10.2026 auf jedem Gerät (iPad quer, Desktop); Monatsraster + Tagesliste, Touch-Ziele ≥ 44 px (siehe `MOBILE.md`). | **behoben** |
 | P2-7 | Barrierefreiheit: klickbare `div`s ohne Tastatur, Dialoge ohne `role="dialog"`/Fokusführung, Bearbeiten nur per Doppel-/Rechtsklick (auf Touch nicht erreichbar). | Touch: sichtbare „⋯“-Aktionen; Habit-Häkchen als Checkbox mit Tastatur; Dialog-Rollen; Aktionsmenü mit Fokusführung. Eingabedialoge noch ohne Fokusfalle. | teilweise |
 | P2-8 | Sync über `confirm`/`prompt` („download“ eintippen). | Sync-&-Backup-Panel. | **behoben** |
 | P2-9 | Pomodoro-Statistik nur lokal (`pomodoro_stats` ungenutzt). | Anbinden oder Tabelle entfernen. | offen |
@@ -110,7 +110,7 @@ Aufwand: S ≤ 1 h, M ≈ ½ Tag, L ≥ 1 Tag. Risiko = Risiko der Änderung.
 ## Sicherheit – Zusammenfassung
 
 - Anon-Key im Frontend ist zulässig; Schutz hängt an RLS → mit dem Health-Check prüfen, dass `rls_enabled = true` für **alle** Tabellen gilt und keine „Allow all“-Policy übrig ist.
-- Die Übergabedatei nennt einen gekürzten PAT (`ghp_pnNf…`). Sie ist nicht im Repository – so lassen; Token mit minimalen Rechten und Ablaufdatum verwenden.
+- Die Übergabedatei nennt ein gekürztes persönliches GitHub-Token (PAT; der Anfang stand bis 17.10.2026 hier und ist entfernt). Sie ist nicht im Repository – so lassen; Token mit minimalen Rechten und Ablaufdatum verwenden.
 - XSS-Senken beseitigt; Backups enthalten keine Login-Tokens mehr.
 
 ## Nachträge
