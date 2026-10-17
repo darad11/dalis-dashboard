@@ -2859,6 +2859,27 @@ html.touch-layout .sheet-dialog.open {
     transform: none;
 }
 
+/* A sheet for a new entry opens with the keyboard: it stands in place and fades in, as its
+   text field gets the focus during the tap (openSheet in js/calendar-ui.js) */
+html.touch-layout .sheet-dialog.appear {
+    animation: sheet-appear 0.2s ease-out;
+}
+
+@keyframes sheet-appear {
+    from {
+        opacity: 0;
+    }
+}
+
+/* While a sheet is open the page behind it keeps its place, also when the browser wants to
+   scroll it to a focused field (lockPage in js/mobile.js) */
+html.page-locked body {
+    position: fixed;
+    top: var(--page-lock-top, 0px);
+    left: 0;
+    right: 0;
+}
+
 html.touch-layout .sheet-dialog.dragging {
     transition: none;
 }

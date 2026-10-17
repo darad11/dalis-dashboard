@@ -496,9 +496,8 @@
     sheet.setButton(sheet.trailing, 'checkmark', task ? 'Done' : 'Add');
     updateEditor();
     editor.state.initial = snapshot(readEditor());
-    S.openSheet(sheet, opts.returnFocus);
     // New task: straight into the text; editing on a touch screen does not open the keyboard
-    if (!task || !S.isTouchLayout()) f.text.focus();
+    S.openSheet(sheet, opts.returnFocus, !task || !S.isTouchLayout() ? f.text : null);
   }
 
   async function dismissEditor() {

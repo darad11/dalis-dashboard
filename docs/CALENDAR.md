@@ -21,7 +21,9 @@ Stand 16.10.2026.
   Desktop per Drag & Drop), dann nach Uhrzeit.
 - **Editor** (Titel, Ganztägig, Datum, Beginn, Ende, Kalender, Priorität, Löschen):
   - Handy/Tablet: Sheet von unten; öffnen über „+“ oben, „New Event“ unter der Tagesliste oder
-    Antippen eines Eintrags; Kalenderliste über „Calendars“ unter der Tagesliste.
+    Antippen eines Eintrags; Kalenderliste über „Calendars“ unter der Tagesliste. Ein neuer
+    Eintrag öffnet mit der Tastatur im Titel; das Sheet steht dabei sofort an seinem Platz und
+    blendet ein (warum: [MOBILE.md](MOBILE.md), „Sheets und Tastatur“).
   - Desktop: Dialog; öffnen per Doppelklick auf einen Eintrag, „+“ im Tagesfeld, „Calendars“ im
     Kalenderkopf, Taste Q (für heute). Rechtsklick wechselt weiter die Priorität.
   - Neues Datum = Eintrag wird auf diesen Tag verschoben.

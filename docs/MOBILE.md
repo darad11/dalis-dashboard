@@ -73,6 +73,10 @@ iPhone quer):
   nach unten wischen schließt, bei Änderungen „Discard Changes“). Rückfragen („Delete Habit“) als
   iOS-Alert mit benanntem Knopf („Delete“ statt „Confirm“), Texteingaben als Alert mit Feld,
   beide über der Tastatur zentriert.
+- **Sheets mit Tastatur** (neuer Termin, neue Aufgabe in der Matrix): Das Sheet steht sofort an
+  seinem Platz und blendet ein (0,2 s), statt hochzugleiten; die Tastatur kommt dazu. Solange ein
+  Sheet offen ist, bleibt die Seite dahinter stehen, und nach dem Schließen steht sie an
+  derselben Stelle wie vorher (siehe unten „Sheets und Tastatur“).
 - **Textgröße**: folgt in Safari der Einstellung „Textgröße“ von iOS (Dynamic Type).
 - **Dark Mode**: echtes iOS-Schwarz (#000) mit Karten in #1C1C1E, die Browserleiste folgt.
 - Mit **Maus/Trackpad oder ab 1100 px** (Desktop, iPad quer) bleibt das Desktop-Layout.
@@ -153,7 +157,7 @@ an allen vier Seiten berücksichtigt.
 
 | Datei | Inhalt |
 |---|---|
-| `js/mobile.js` | Touch-Layout (`html.touch-layout`), Abschnittsleiste mit Scroll-Spy und Glas-Linse, Leiste oben, Menüs (`MobileUI.showMenu`, `moreButton`, `priorityMenu`), Lesepositions-Erhalt, sichtbare Höhe über der Tastatur (`--vv-height`), Theme-Farbe |
+| `js/mobile.js` | Touch-Layout (`html.touch-layout`), Abschnittsleiste mit Scroll-Spy und Glas-Linse, Leiste oben, Menüs (`MobileUI.showMenu`, `moreButton`, `priorityMenu`), Seite hinter einem Sheet festhalten (`MobileUI.lockPage` / `unlockPage`), Lesepositions-Erhalt (auch hinter einem Sheet), sichtbare Höhe über der Tastatur (`--vv-height`), Theme-Farbe |
 | `css/mobile.css` | iOS-Design im Touch-Layout (Farb- und Schrift-Tokens, Glas, Karten, Controls, Menüs, Alerts, Sheets) |
 | `index.html` | fünf `section.page-section` (`#section-today` … `#section-lists`) in der Desktop-Reihenfolge; `window.placePageOrder` (Inline-Skript) stellt auf Handy/Tablet Kalender, Woche, Ziele, Focus vor dem ersten Zeichnen um; Abschnittsleiste als Links (Week zuerst), Leiste oben |
 | `js/calendar-ui.js`, `css/calendar.css` | Kalender-Editor und Kalenderliste (Sheet bzw. Dialog), siehe CALENDAR.md |
@@ -179,6 +183,23 @@ an allen vier Seiten berücksichtigt.
     nach 16 px nicht mehr).
   - Bricht das System die Berührung ab (z. B. Wisch-Geste vom Rand), kehrt die Linse ohne
     Auswahl zurück. Tippen zwischen die Einträge oder an die runden Enden wählt den nächsten.
+- Sheets und Tastatur (`openSheet` in `js/calendar-ui.js`, `lockPage` in `js/mobile.js`),
+  gefunden in zwei Bildschirmaufnahmen vom 17.10.2026 (neuer Termin, „+“ in der Matrix):
+  - Ursache 1: iOS zeigt die Tastatur nur bei einem Fokus während des Tippens und scrollt dann
+    zum Feld. Das Feld bekam den Fokus, während das Sheet noch unterhalb des Bildschirms lag (es
+    glitt erst hoch; im Test: Feld bei y = 939 px auf einem 852 px hohen Bildschirm). iOS
+    scrollte dorthin: etwa eine Sekunde dunkler Bildschirm, „Repeat“ oben. Jetzt steht ein
+    Sheet mit Textfeld (`focusField`) ab dem ersten Bild an seinem Platz und blendet ein; das
+    Feld bekommt den Fokus dort, wo es bleibt. Sheets ohne Tastatur (Bearbeiten, Bereich,
+    Kalenderliste) gleiten weiter hoch.
+  - Ursache 2: `overflow: hidden` hält nur die Person vom Scrollen ab, nicht den Browser. Das
+    Scrollen zum Feld verschob die Seite hinter dem Sheet, und das blieb nach dem Schließen
+    (Lists → Habits; im Test ließ sich die Seite hinter dem Sheet um 600 px verschieben und
+    blieb dort). Jetzt hält `lockPage` die Seite fest: `body` wird `position: fixed` mit
+    `top` = minus Scrollposition (sieht gleich aus, hat aber nichts zu scrollen); beim Schließen
+    des letzten Sheets kommt die Scrollposition zurück. Die Abschnittsleiste bleibt so lange
+    stehen; die Leseposition beim Auf-/Zuklappen wird auch hinter einem Sheet gehalten
+    (vorher nicht, solange im Sheet ein Feld den Fokus hatte).
 - Neue Inhalte gehören in eine der fünf `page-section`s.
 
 ## Geprüft
@@ -205,6 +226,9 @@ Chromium (Playwright) mit Touch-Emulation und Beispieldaten nur im lokalen Test-
   Alerts, Safe Areas im Home-Bildschirm-Modus. Die verwendeten CSS-Funktionen unterstützt
   Safari laut MDN-Kompatibilitätsdaten (`mask-composite` ab 15.4, `mix-blend-mode` ab 8,
   `touch-action: none` ab 13).
+- **Tastatur in Sheets**: Chromium hat keine Bildschirmtastatur. Die Tests prüfen die
+  Bedingungen (Feld beim Fokus an seinem Platz, Seite dahinter nicht verschiebbar und danach an
+  derselben Stelle); dass iOS dabei nicht mehr springt, zeigt erst das iPhone.
 - Keine Haptik beim Wechsel zwischen Abschnitten (Safari unterstützt `navigator.vibrate` nicht).
 - „Transparenz reduzieren“ kennt Safari als Media-Query nicht (`prefers-reduced-transparency`,
   MDN); dort bleibt die Linse durchsichtig.

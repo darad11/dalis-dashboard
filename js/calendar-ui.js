@@ -146,18 +146,38 @@
     return sheet;
   }
 
-  function openSheet(sheet, opener) {
+  // While a sheet is open the page behind it keeps its place, also when iOS wants to scroll
+  // it to a focused field (lockPage in js/mobile.js); it is released when the last sheet closes
+  function lockPage() {
+    if (window.MobileUI) window.MobileUI.lockPage();
+  }
+
+  function unlockPage() {
+    if (window.MobileUI) window.MobileUI.unlockPage();
+  }
+
+  /**
+   * Opens a sheet. focusField: the text field of a new entry. iOS shows the keyboard only for a
+   * focus during the tap, so it gets the focus right away - with the sheet already in its
+   * place: a field focused while the sheet still slid up from below the screen made iOS
+   * scroll the page towards it. Such a sheet fades in; a sheet without keyboard slides up.
+   */
+  function openSheet(sheet, opener, focusField) {
     if (sheet.dialog.open) return;
     sheet.opener = opener || document.activeElement;
     sheet.confirm.hidden = true;
-    sheet.dialog.classList.remove('confirming', 'open');
+    sheet.dialog.classList.remove('confirming', 'open', 'appear');
     sheet.dialog.style.transform = '';
     if (window.MobileUI) window.MobileUI.closeMenu();
+    lockPage();
+    // In place from the start: a dialog that was not displayed before has no transition
+    if (focusField) sheet.dialog.classList.add('open', 'appear');
     sheet.dialog.showModal();
     sheet.body.scrollTop = 0;
     root.classList.add('dialog-open');
+    if (focusField) focusWithoutScroll(focusField);
     // Next frame: the slide-in transition starts from the closed position
-    window.requestAnimationFrame(() => sheet.dialog.classList.add('open'));
+    else window.requestAnimationFrame(() => sheet.dialog.classList.add('open'));
   }
 
   function closeSheet(sheet) {
@@ -172,7 +192,10 @@
     const finish = () => {
       sheet.dialog.close();
       sheet.closing = null;
-      if (!document.querySelector('dialog[open]')) root.classList.remove('dialog-open');
+      if (!document.querySelector('dialog[open]')) {
+        root.classList.remove('dialog-open');
+        unlockPage();
+      }
       // Taps do not focus buttons on iOS: give focus back to the opener explicitly. The
       // browser returns it only to an opener that is still there; until its focus fixup the
       // focus may still sit in the closed dialog (the opener was rebuilt meanwhile)
@@ -401,10 +424,9 @@
     updateEditor();
     editor.state.initial = snapshot(readEditor());
 
-    openSheet(sheet, opts && opts.returnFocus);
     // New entry: straight into the title, as in Apple Calendar. Editing on a touch screen
     // does not open the keyboard by itself; with a keyboard the title is ready to type.
-    if (isNew || !isTouchLayout()) f.title.focus();
+    openSheet(sheet, opts && opts.returnFocus, isNew || !isTouchLayout() ? f.title : null);
   }
 
   async function dismissEditor() {

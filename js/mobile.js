@@ -212,7 +212,9 @@
 
   function updateSpy() {
     spyFrame = 0;
-    if (!isTouchLayout() || spyLocked) return;
+    // An open sheet holds the page (lockPage): its scroll position is not where the person
+    // reads, and the bar keeps the section from before
+    if (!isTouchLayout() || spyLocked || pageLocked()) return;
     setActiveSection(computeSection(), true);
   }
 
@@ -985,10 +987,56 @@
     };
   }
 
+  // ================================================== Page held behind a sheet
+  // While a sheet is open the page behind it keeps its place (js/calendar-ui.js holds it).
+  // overflow: hidden only stops the person from scrolling it, not the browser: iOS scrolls the
+  // page to reveal a focused field, and that scroll stayed after the sheet closed (another
+  // section on screen). A fixed body (css/mobile.css) has nothing to scroll; --page-lock-top
+  // keeps it where it was on screen, and its scroll position comes back on release. Touch
+  // layout only: the desktop dialog has no keyboard to make room for.
+
+  let lockedScroll = null;
+
+  function lockPage() {
+    if (lockedScroll !== null || !isTouchLayout()) return;
+    lockedScroll = window.scrollY;
+    root.style.setProperty('--page-lock-top', `${-lockedScroll}px`);
+    root.classList.add('page-locked');
+  }
+
+  function unlockPage() {
+    if (lockedScroll === null) return;
+    const y = lockedScroll;
+    lockedScroll = null;
+    root.classList.remove('page-locked');
+    root.style.removeProperty('--page-lock-top');
+    window.scrollTo(0, y);
+  }
+
+  function pageLocked() {
+    return lockedScroll !== null;
+  }
+
+  // The page's scroll position, also while it is held
+  function pageScrollY() {
+    return pageLocked() ? lockedScroll : window.scrollY;
+  }
+
+  function scrollPageBy(dy) {
+    if (!pageLocked()) {
+      window.scrollBy(0, dy);
+      return;
+    }
+    const max = Math.max(0, document.body.scrollHeight - window.innerHeight);
+    lockedScroll = Math.min(max, Math.max(0, lockedScroll + dy));
+    root.style.setProperty('--page-lock-top', `${-lockedScroll}px`);
+  }
+
   // ============================================== Reading position on resize
   // When the width changes (unfolding an iPhone Duo, rotating, resizing a split view)
   // the layout reflows and the same scrollY points at different content. Remember the
-  // first visible block while scrolling and put it back at the same screen position.
+  // first visible block while scrolling and put it back at the same screen position
+  // (also behind a sheet: the page is held, so only this code moves it).
 
   const ANCHOR_SELECTOR = [
     '.page-section h2', '.glass-panel', '.gym-card', '.list-panel',
@@ -1031,14 +1079,15 @@
     const width = window.innerWidth;
     if (width === lastWidth) return; // iOS toolbars change only the height
     lastWidth = width;
-    if (window.scrollY < 4) return; // at the top: nothing to keep
+    if (pageScrollY() < 4) return; // at the top: nothing to keep
     const active = document.activeElement;
-    if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return; // keyboard handles this
+    // A field on the page: the keyboard handles this (a held page has its fields in the sheet)
+    if (!pageLocked() && active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return;
     const saved = anchor;
     if (!saved || !saved.el.isConnected) return;
     const r = saved.el.getBoundingClientRect();
     if (r.height === 0) return;
-    window.scrollBy(0, Math.round(r.top - saved.top));
+    scrollPageBy(Math.round(r.top - saved.top));
     captureAnchor();
   }
 
@@ -1103,6 +1152,8 @@
     isTouch: isTouch,
     currentSection: () => activeSection,
     scrollToSection: scrollToSection,
+    lockPage: lockPage,
+    unlockPage: unlockPage,
     showMenu: showMenu,
     closeMenu: closeMenu,
     moreButton: moreButton,

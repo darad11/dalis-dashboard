@@ -31,7 +31,9 @@ Stand 17.10.2026. Im Bereich **Lists** steht ganz oben die **Matrix** mit vier B
   **Move Up / Move Down**, am Desktop per Drag & Drop (Griff links oben, auf den Titel einer Liste
   ziehen).
 
-Handy und Tablet: iOS-Sheets von unten (✕ links, ✓ rechts, nach unten wischen schließt). Desktop:
+Handy und Tablet: iOS-Sheets von unten (✕ links, ✓ rechts, nach unten wischen schließt). „+“
+öffnet mit der Tastatur; das Sheet steht dann sofort an seinem Platz und blendet ein, die Seite
+dahinter bleibt stehen (warum: [MOBILE.md](MOBILE.md), „Sheets und Tastatur“). Desktop:
 derselbe Inhalt als Dialog. Beide nutzen das Sheet des Kalender-Editors (`window.SheetUI`).
 
 ## Daten und Sync

@@ -1691,6 +1691,196 @@ scenario('matrix: the same text in several areas survives a merge with the cloud
   await context.close();
 });
 
+// ---------------------------------------------------------------- Sheets and the keyboard
+// iOS shows the keyboard only for a focus during the tap, and it scrolls the page to reveal the
+// focused field. A field focused while its sheet was still below the screen (sliding up) made
+// the page jump (a dark screen, "Repeat" at the top) and that scroll stayed after the sheet
+// closed (Lists → Habits). Chromium has no on-screen keyboard, so these checks hold the
+// conditions: the field is in its final place when it gets the focus, and the page behind an
+// open sheet cannot be scrolled and is back at its place when the sheet closes.
+
+async function recordFocus(page) {
+  await page.evaluate(() => {
+    window.__focusLog = [];
+    document.addEventListener('focusin', (e) => {
+      if (!e.target.matches('input[type="text"], textarea')) return;
+      const r = e.target.getBoundingClientRect();
+      window.__focusLog.push({ name: e.target.name, top: Math.round(r.top), bottom: Math.round(r.bottom), screen: window.innerHeight });
+    }, true);
+    window.__sections = [];
+    window.addEventListener('dashboard:sectionchange', (e) => window.__sections.push(e.detail.section));
+  });
+}
+const takeLog = (page, name) => page.evaluate(n => window[n].splice(0), name);
+// Where the page stands: its scroll position, a block's place on screen and the app bar's
+const pageSpot = (page, selector) => page.evaluate(sel => ({
+  y: Math.round(window.scrollY),
+  block: Math.round(document.querySelector(sel).getBoundingClientRect().top),
+  bar: Math.round(document.querySelector('.app-bar').getBoundingClientRect().top)
+}), selector);
+// What iOS does to reveal a focused field: it scrolls the page
+const tryToScroll = (page) => page.evaluate(() => window.scrollTo(0, window.scrollY + 600));
+const sheetAnimation = (page, cls) => page.evaluate(c => getComputedStyle(document.querySelector(`.${c}`)).animationName, cls);
+
+function assertFocusedInPlace(entry, name) {
+  assert.ok(entry, `${name} focused`);
+  assert.equal(entry.name, name);
+  assert.ok(entry.top >= 0 && entry.bottom <= entry.screen, `${name} on screen when it got the focus: ${JSON.stringify(entry)}`);
+}
+
+scenario('sheets on phones: a new entry gets the keyboard where its field stays; the page behind keeps its place', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await openPhone(env);
+  await recordFocus(page);
+  await goToSection(page, 'lists');
+  const before = await pageSpot(page, '.matrix-panel');
+  assert.ok(before.y > 1000, 'Lists is far down the page');
+  await takeLog(page, '__sections');
+
+  // "+" in "to do": the task field gets the focus in its final place
+  await page.locator('.matrix-area[data-area="todo"] .matrix-area-add').tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-task-sheet'), 'task sheet');
+  const [focused] = await takeLog(page, '__focusLog');
+  assertFocusedInPlace(focused, 'text');
+  assert.equal(await sheetAnimation(page, 'matrix-task-sheet'), 'sheet-appear', 'appears in place');
+  await settle(page, 400);
+  const field = await page.evaluate(() => {
+    const input = document.querySelector('.matrix-task-sheet input[name="text"]');
+    return { top: Math.round(input.getBoundingClientRect().top), active: document.activeElement === input };
+  });
+  assert.equal(field.active, true, 'typing goes into the task field');
+  assert.equal(field.top, focused.top, 'the field stays where it got the focus');
+
+  // The page behind keeps its place, also when the browser scrolls it
+  const held = await pageSpot(page, '.matrix-panel');
+  assert.equal(held.block, before.block, 'no jump when the sheet opens');
+  assert.equal(held.bar, 0, 'the app bar stays at the top');
+  await tryToScroll(page);
+  await settle(page, 100);
+  assert.equal((await pageSpot(page, '.matrix-panel')).block, before.block, 'the page behind cannot be scrolled');
+
+  // Saved: back at the same place in Lists
+  await page.keyboard.type('Brief schreiben');
+  await page.locator('.matrix-task-sheet .sheet-trailing').tap();
+  await waitFor(async () => (await matrixSheetOpen(page, 'matrix-task-sheet')) === 0, 'saved and closed');
+  await waitFor(() => matrixTasks(env).some(t => t.text === 'Brief schreiben'), 'uploaded');
+  assert.deepEqual(await pageSpot(page, '.matrix-panel'), before, 'same place as before');
+  assert.equal(await currentSection(page), 'lists');
+
+  // Editing opens no keyboard: the sheet slides up as before
+  await page.locator('.matrix-panel .matrix-task-main', { hasText: 'Brief schreiben' }).tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-task-sheet'), 'edit sheet');
+  assert.equal(await sheetAnimation(page, 'matrix-task-sheet'), 'none', 'slides up');
+  await settle(page, 400);
+  assert.deepEqual(await takeLog(page, '__focusLog'), [], 'no text field focused');
+  await page.locator('.matrix-task-sheet .sheet-leading').tap();
+  await waitFor(async () => (await matrixSheetOpen(page, 'matrix-task-sheet')) === 0, 'edit sheet closed');
+  assert.deepEqual(await pageSpot(page, '.matrix-panel'), before);
+
+  // A task sheet over the area sheet: the page stays held until the last sheet closes
+  await page.locator('.matrix-area[data-area="todo"] .matrix-area-open').tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-area-sheet'), 'area sheet');
+  await page.locator('.matrix-area-sheet .matrix-add-big').tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-task-sheet'), 'task sheet over the area sheet');
+  assertFocusedInPlace((await takeLog(page, '__focusLog'))[0], 'text');
+  await page.locator('.matrix-task-sheet .sheet-leading').tap(); // nothing typed: closes
+  await waitFor(async () => (await matrixSheetOpen(page, 'matrix-task-sheet')) === 0, 'task sheet closed');
+  await tryToScroll(page);
+  await settle(page, 100);
+  assert.equal((await pageSpot(page, '.matrix-panel')).block, before.block, 'still held under the area sheet');
+  await page.locator('.matrix-area-sheet .sheet-leading').tap();
+  await waitFor(async () => (await matrixSheetOpen(page, 'matrix-area-sheet')) === 0, 'area sheet closed');
+  assert.deepEqual(await pageSpot(page, '.matrix-panel'), before);
+  assert.deepEqual(await takeLog(page, '__sections'), [], 'the section bar stayed on Lists');
+
+  // Lists starts in the lower half of the screen, so the bar shows the section above it: a
+  // sheet opened from there leaves the bar as it is
+  await page.evaluate(() => window.scrollBy(0, -Math.round(window.innerHeight * 0.45)));
+  await waitFor(async () => (await currentSection(page)) !== 'lists', 'the section above Lists');
+  await settle(page, 300);
+  const above = await currentSection(page);
+  const middle = await pageSpot(page, '.matrix-panel');
+  await takeLog(page, '__sections');
+  await page.locator('.matrix-area[data-area="next"] .matrix-area-add').tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-task-sheet'), 'task sheet from the middle');
+  assertFocusedInPlace((await takeLog(page, '__focusLog'))[0], 'text');
+  await page.keyboard.type('x');
+  await settle(page, 300);
+  assert.equal(await currentSection(page), above, 'the bar keeps its section while the sheet is open');
+  await page.keyboard.press('Backspace');
+  await page.locator('.matrix-task-sheet .sheet-leading').tap();
+  await waitFor(async () => (await matrixSheetOpen(page, 'matrix-task-sheet')) === 0, 'closed again');
+  assert.deepEqual(await pageSpot(page, '.matrix-panel'), middle);
+  assert.equal(await currentSection(page), above);
+  assert.deepEqual(await takeLog(page, '__sections'), [], 'no section change');
+
+  // Calendar: "+ New Event" with the page scrolled a little
+  await goToSection(page, 'week');
+  const y = await page.evaluate(() => {
+    const r = document.querySelector('#calendarAgenda .calendar-agenda-add').getBoundingClientRect();
+    return Math.max(80, Math.round(r.top + window.scrollY - window.innerHeight / 2));
+  });
+  await page.evaluate(v => window.scrollTo(0, v), y);
+  await settle(page, 300);
+  const cal = await pageSpot(page, '.calendar-section');
+  assert.equal(cal.y, y);
+  await takeLog(page, '__sections');
+  await page.locator('#calendarAgenda .calendar-agenda-add').tap();
+  await waitFor(() => editorOpen(page), 'event editor');
+  assertFocusedInPlace((await takeLog(page, '__focusLog'))[0], 'title');
+  assert.equal(await sheetAnimation(page, 'event-editor'), 'sheet-appear');
+  await tryToScroll(page);
+  await settle(page, 400);
+  assert.equal((await pageSpot(page, '.calendar-section')).block, cal.block, 'the page behind the editor cannot be scrolled');
+  await page.locator('.event-editor .sheet-leading').tap(); // nothing typed: closes
+  await waitFor(async () => (await editorOpen(page)) === 0, 'editor closed');
+  assert.deepEqual(await pageSpot(page, '.calendar-section'), cal, 'same place as before');
+  assert.deepEqual(await takeLog(page, '__sections'), []);
+  assert.equal(await horizontalOverflow(page), 0);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+scenario('foldable: unfolding while a sheet is open keeps the reading position behind it', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await open(env, { viewport: DUO_FOLDED, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
+  await goToSection(page, 'week');
+  const saturday = '#week-day-5';
+  await page.locator('#weekStrip .week-strip-day').nth(5).tap();
+  await waitFor(() => page.evaluate(sel => { const r = document.querySelector(sel).getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; }, saturday), 'Saturday on screen');
+  const topOf = () => page.evaluate(sel => Math.round(document.querySelector(sel).getBoundingClientRect().top), saturday);
+  await page.evaluate(sel => { const el = document.querySelector(sel); window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 120); }, saturday);
+  await settle(page, 300);
+  assert.equal(await topOf(), 120);
+
+  // The calendar list (no keyboard; the button is above, off screen, and a click does not
+  // scroll): unfold under it
+  const managerOpen = () => page.locator('.calendar-manager[open]').count();
+  await page.evaluate(() => document.querySelector('#calendarAgenda .calendars-btn').click());
+  await waitFor(managerOpen, 'calendar list');
+  assert.equal(await topOf(), 120, 'held in place');
+  await page.setViewportSize(DUO_UNFOLDED);
+  await settle(page, 400);
+  assert.ok(Math.abs((await topOf()) - 120) <= 4, `Saturday moved to ${await topOf()}px behind the calendar list after unfolding`);
+  await page.locator('.calendar-manager .sheet-trailing').tap(); // Done
+  await waitFor(async () => (await managerOpen()) === 0, 'calendar list closed');
+  assert.ok(Math.abs((await topOf()) - 120) <= 4, `Saturday moved to ${await topOf()}px after the calendar list closed`);
+
+  // "+ New Event" (with the keyboard): fold under it
+  await page.evaluate(() => document.querySelector('#calendarAgenda .calendar-agenda-add').click());
+  await waitFor(() => editorOpen(page), 'event editor');
+  await page.setViewportSize(DUO_FOLDED);
+  await settle(page, 400);
+  assert.ok(Math.abs((await topOf()) - 120) <= 4, `Saturday moved to ${await topOf()}px behind the editor after folding`);
+  await page.locator('.event-editor .sheet-leading').tap(); // nothing typed: closes
+  await waitFor(async () => (await editorOpen(page)) === 0, 'editor closed');
+  assert.ok(Math.abs((await topOf()) - 120) <= 4, `Saturday moved to ${await topOf()}px after the editor closed`);
+  assert.equal(await currentSection(page), 'week');
+  assert.equal(await horizontalOverflow(page), 0);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 scenario('matrix on the desktop: across the list grid, dialogs, dragged like a list', async (env) => {
   seedDemo(env.store, { steps: false });
   // Tasks from another device whose place in the list order has not arrived yet
@@ -1708,6 +1898,7 @@ scenario('matrix on the desktop: across the list grid, dialogs, dragged like a l
   await page.click('.matrix-area[data-area="ideas"] .matrix-area-add');
   await waitFor(() => matrixSheetOpen(page, 'matrix-task-sheet'), 'dialog');
   assert.equal(await page.evaluate(() => document.activeElement.name), 'text', 'text focused');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).position), 'static', 'the desktop page is not held');
   await page.keyboard.type('Balkon bepflanzen');
   await page.keyboard.press('Enter');
   await waitFor(() => matrixTasks(env).some(t => t.text === 'Balkon bepflanzen' && t.area === 'ideas'), 'added with Enter');
