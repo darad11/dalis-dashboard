@@ -1,0 +1,148 @@
+/*
+ * Swipe left to delete (js/swipe.js): the row's content moves left over a red "Delete";
+ * "Deleted “…” · Undo" above the section bar afterwards. Touch layout only.
+ */
+
+/* Registered, so it animates and the content and "Delete" move as one */
+@property --swipe-x {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 0px;
+}
+
+html.touch-layout .swipe-row {
+    position: relative;
+    /* Vertical drags scroll the page, sideways ones reach the row; pinch zoom stays */
+    touch-action: pan-y;
+    touch-action: pan-y pinch-zoom;
+}
+
+/* The week's day pager on phones keeps its horizontal swipe (a day per swipe) */
+html.touch-layout .week-kanban.is-pager .swipe-row {
+    touch-action: auto;
+}
+
+.swipe-row.swipe-shifted {
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.swipe-row.swipe-shifted > :not(.swipe-action) {
+    transform: translateX(var(--swipe-x));
+}
+
+.swipe-row.swipe-animate {
+    transition: --swipe-x 0.28s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+/* The darker system red in both themes: white text on it at 5:1 (as the matrix buttons) */
+.swipe-action {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: calc(-1 * var(--swipe-x));
+    overflow: hidden;
+    background: rgb(215, 0, 21);
+    color: #ffffff;
+    font: 600 0.941rem/1.2 var(--ios-font, system-ui);
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.swipe-row.swipe-shifted > .swipe-action {
+    display: flex;
+}
+
+/* Past the point of a full swipe the label stays with the content's edge (as in iOS) */
+.swipe-row.swipe-full > .swipe-action {
+    justify-content: flex-start;
+    padding-left: 22px;
+}
+
+/* Folding up after the delete; the section re-renders right after */
+.swipe-row.swipe-collapse {
+    height: 0 !important;
+    min-height: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    opacity: 0;
+    transition: height 0.2s ease, padding 0.2s ease, margin 0.2s ease, opacity 0.2s ease;
+}
+
+/* ---- Undo, above the section bar ---- */
+.swipe-undo {
+    position: fixed;
+    inset: auto auto calc(var(--tabbar-bottom, 16px) + var(--tabbar-height, 0px) + 12px) 50%;
+    z-index: 1150;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: max-content;
+    max-width: min(440px, calc(100vw - 32px));
+    margin: 0;
+    padding: 4px 4px 4px 18px;
+    overflow: visible;
+    border: none;
+    border-radius: 999px;
+    background: rgba(28, 28, 30, 0.94);
+    color: #ffffff;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    font: 500 0.941rem/1.3 var(--ios-font, system-ui);
+    transform: translateX(-50%);
+}
+
+/* Dark mode: lighter than the cards beneath (an elevated surface), else it melts into them */
+body.dark .swipe-undo {
+    background: rgba(72, 72, 74, 0.92);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+}
+
+.swipe-undo[hidden] {
+    display: none;
+}
+
+.swipe-undo-text {
+    display: flex;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.swipe-undo-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.swipe-undo-btn {
+    flex-shrink: 0;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 18px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+    font: 600 0.941rem/1.2 var(--ios-font, system-ui);
+    cursor: pointer;
+}
+
+.swipe-undo-btn:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .swipe-row.swipe-collapse {
+        transition: none;
+    }
+}

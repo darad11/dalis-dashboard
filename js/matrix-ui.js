@@ -163,7 +163,24 @@
       meta.childNodes.length ? meta : null
     ]);
     main.addEventListener('click', () => openTask({ task, returnFocus: main }));
-    return el('li', { class: `matrix-task${task.done ? ' done' : ''}`, 'data-task-id': task.id }, [check, main]);
+    const row = el('li', { class: `matrix-task${task.done ? ' done' : ''}`, 'data-task-id': task.id }, [check, main]);
+    if (window.SwipeActions) window.SwipeActions.enable(row, { label: task.text, remove: () => removeWithUndo(task.id) });
+    return row;
+  }
+
+  // Swipe to delete (js/swipe.js): removes the task and returns how to put it back in its place
+  function removeWithUndo(id) {
+    const list = tasks();
+    const at = list.findIndex(t => t.id === id);
+    if (at === -1) return null;
+    const removed = list[at];
+    saveTasks(Core.removeTask(list, id));
+    return () => {
+      const now = tasks();
+      if (now.some(t => t.id === removed.id)) return;
+      now.splice(Math.min(at, now.length), 0, removed);
+      saveTasks(now);
+    };
   }
 
   // Rebuilds the panel and an open area sheet after a change; the focus stays on the same

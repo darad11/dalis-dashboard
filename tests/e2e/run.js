@@ -2358,6 +2358,291 @@ scenario('home on the desktop: first on the page, a grid of cards, links scroll 
   await context.close();
 });
 
+// ---------------------------------------------------------------- Swipe to delete (js/swipe.js)
+// A finger through the DevTools protocol (Playwright's touchscreen only taps). A short swipe to
+// the left opens "Delete", a long one deletes; Undo puts the entry back where it was. Every
+// check reads the stored rows: the entry is deleted where its section keeps it.
+
+async function swipeFinger(page) {
+  const client = await page.context().newCDPSession(page);
+  const send = (type, x, y) => client.send('Input.dispatchTouchEvent',
+    { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1 }] });
+  // From a point on the element (a share of its width from the left, half its height) by dx, dy
+  return async (locator, dx, dy = 0, at = 0.85) => {
+    const box = await locator.boundingBox();
+    const x0 = box.x + box.width * at;
+    const y0 = box.y + box.height / 2;
+    await send('touchStart', x0, y0);
+    for (let i = 1; i <= 12; i++) {
+      await send('touchMove', x0 + dx * i / 12, y0 + dy * i / 12);
+      await page.waitForTimeout(16);
+    }
+    await send('touchEnd');
+    await settle(page, 500); // the row settles (0.28s) or slides out and folds up (0.4s)
+  };
+}
+
+const CLOSED = { open: false, x: '0px', delete: 0 };
+const swipeState = (locator) => locator.evaluate(el => {
+  const action = el.querySelector(':scope > .swipe-action');
+  return {
+    open: el.classList.contains('swipe-open'),
+    x: el.style.getPropertyValue('--swipe-x') || '0px',
+    delete: action && getComputedStyle(action).display !== 'none' ? Math.round(action.getBoundingClientRect().width) : 0
+  };
+});
+const isClosed = async (locator) => JSON.stringify(await swipeState(locator)) === JSON.stringify(CLOSED);
+const undoToast = (page) => page.evaluate(() => {
+  const t = document.querySelector('.swipe-undo');
+  return t && !t.hidden ? { text: t.querySelector('.swipe-undo-text').textContent, inSheet: !!t.closest('dialog') } : null;
+});
+const goalTexts = (env, date) => env.store.rows('goals').filter(r => r.user_id === USER && r.date === date)
+  .sort((a, b) => a.position - b.position).map(r => r.text);
+// In the middle of the screen: clear of the app bar and the section bar
+const centre = async (locator) => {
+  await locator.evaluate(el => el.scrollIntoView({ block: 'center' }));
+  await settle(locator.page(), 300);
+};
+
+scenario('swipe on phones: a short swipe shows "Delete", a long one deletes, Undo puts the goal back', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await openPhone(env);
+  await goToSection(page, 'today');
+  const swipe = await swipeFinger(page);
+  const goal = (t) => page.locator('#goalsList .focus-item', { hasText: t });
+  const stored = () => goalTexts(env, 'goals-2026-9-16');
+  const before = stored();
+  assert.deepEqual(before, ['Steuererklärung abschicken', '30 Minuten lesen', 'Mail an die Hausverwaltung wegen der Heizungsablesung im Stiegenhaus schreiben', 'Wocheneinkauf planen', 'Gym: Push-Day']);
+
+  // A short swipe opens the row: its content moves aside for the red "Delete"
+  const shopping = goal('Wocheneinkauf planen');
+  const textLeft = () => shopping.locator('.focus-text').evaluate(e => Math.round(e.getBoundingClientRect().left));
+  const left = await textLeft();
+  await swipe(shopping, -70);
+  assert.deepEqual(await swipeState(shopping), { open: true, x: '-88px', delete: 88 });
+  assert.equal(left - await textLeft(), 88, 'the text moved by the width of "Delete"');
+  assert.equal(await shopping.locator('.swipe-action').getAttribute('aria-hidden'), 'true', 'VoiceOver keeps "Delete" in the ⋯ menu');
+  assert.deepEqual(stored(), before, 'nothing deleted yet');
+
+  // A tap on another goal only closes the open row: it ticks nothing
+  await goal('Steuererklärung abschicken').locator('.focus-text').tap();
+  await waitFor(() => isClosed(shopping), 'row closed by the tap');
+  await settle(page, 300);
+  assert.equal(await goal('Steuererklärung abschicken').evaluate(el => el.classList.contains('done')), false, 'the tapped goal is not ticked');
+  assert.equal(env.store.rows('goals').find(r => r.date === 'goals-2026-9-16' && r.text === 'Steuererklärung abschicken').done, false);
+
+  // Open again: a tap on "Delete" deletes, and "Deleted “…” · Undo" shows above the section bar
+  await swipe(shopping, -70);
+  await shopping.locator('.swipe-action').tap();
+  await waitFor(() => !stored().includes('Wocheneinkauf planen'), 'deleted in the cloud');
+  assert.equal(await goal('Wocheneinkauf planen').count(), 0);
+  assert.deepEqual(await undoToast(page), { text: 'Deleted “Wocheneinkauf planen”', inSheet: false });
+  const placement = await page.evaluate(() => {
+    const t = document.querySelector('.swipe-undo').getBoundingClientRect();
+    const bar = document.getElementById('mobileTabbar').getBoundingClientRect();
+    return { gap: Math.round(bar.top - t.bottom), centred: Math.abs((t.left + t.right) / 2 - innerWidth / 2) < 2 };
+  });
+  assert.ok(placement.gap >= 8 && placement.gap <= 20 && placement.centred, `Undo just above the section bar: ${JSON.stringify(placement)}`);
+  // Undo puts it back in its place, in the cloud too
+  await page.locator('.swipe-undo-btn').tap();
+  await waitFor(() => JSON.stringify(stored()) === JSON.stringify(before), 'back in its place in the cloud');
+  assert.equal(await goal('Wocheneinkauf planen').count(), 1);
+  assert.equal(await undoToast(page), null, 'Undo gone after use');
+
+  // A long swipe deletes at once; Undo goes away after a few seconds
+  await swipe(goal('Mail an die Hausverwaltung'), -300);
+  await waitFor(() => stored().length === 4 && !stored().some(t => t.startsWith('Mail an')), 'deleted by a long swipe');
+  assert.match((await undoToast(page)).text, /^Deleted “Mail an die Hausverwaltung/);
+  await page.clock.fastForward(6500);
+  await waitFor(async () => (await undoToast(page)) === null, 'Undo gone after a few seconds');
+
+  // On an open row a drag that starts on "Delete" goes on into a long swipe (as in iOS)
+  const tax = goal('Steuererklärung abschicken');
+  await swipe(tax, -70);
+  assert.equal((await swipeState(tax)).open, true);
+  await swipe(tax.locator('.swipe-action'), -240, 0, 0.5);
+  await waitFor(() => !stored().includes('Steuererklärung abschicken'), 'deleted from the open row');
+
+  // A swipe to the right does nothing; an open row closes when the page scrolls
+  const gym = goal('Gym: Push-Day');
+  await swipe(gym, 120, 0, 0.3);
+  assert.deepEqual(await swipeState(gym), CLOSED);
+  await swipe(gym, -70);
+  assert.equal((await swipeState(gym)).open, true);
+  await page.evaluate(() => window.scrollBy(0, 40));
+  await waitFor(() => isClosed(gym), 'closed by scrolling');
+
+  // An up-and-down drag scrolls the page and opens nothing
+  const y = await page.evaluate(() => scrollY);
+  await swipe(gym, -12, 220, 0.5);
+  assert.ok(Math.abs(await page.evaluate(() => scrollY) - y) > 100, 'the page scrolled');
+  assert.deepEqual(await swipeState(gym), CLOSED);
+  assert.deepEqual(stored(), ['30 Minuten lesen', 'Wocheneinkauf planen', 'Gym: Push-Day']);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+scenario('swipe: calendar entries, lists and gym goals; week tasks on wide screens, the day pager keeps its swipe', async (env) => {
+  seedDemo(env.store, { steps: false });
+  const { page, errors, context } = await openPhone(env);
+  const swipe = await swipeFinger(page);
+
+  // Calendar: an entry of the agenda; it leaves the week's day card too, Undo brings both back
+  await goToSection(page, 'week');
+  const agenda = (t) => page.locator('#calendarAgenda .agenda-row', { hasText: t });
+  const onFriday = (t) => page.locator('#week-day-4 .kanban-card', { hasText: t });
+  const calendarDay = () => goalTexts(env, 'cal-2026-9-16').join(' | ');
+  assert.equal(calendarDay(), 'Team-Meeting 10:00 | Paket abholen');
+  await centre(agenda('Paket abholen'));
+  await swipe(agenda('Paket abholen'), -260);
+  await waitFor(() => calendarDay() === 'Team-Meeting 10:00', 'entry deleted in the cloud');
+  assert.equal(await editorOpen(page), 0, 'the swipe opened no editor');
+  assert.equal(await onFriday('Paket abholen').count(), 0, 'gone from the day card');
+  await page.locator('.swipe-undo-btn').tap();
+  await waitFor(() => calendarDay() === 'Team-Meeting 10:00 | Paket abholen', 'back in the cloud, in its place');
+  await waitFor(() => onFriday('Paket abholen').count(), 'back on the day card');
+
+  // The week's day pager on phones: a sideways swipe on a task turns the day and deletes nothing;
+  // the card does not move at all (not even until the browser takes over the swipe)
+  const running = onFriday('Laufen 5 km');
+  await centre(running);
+  await running.evaluate(el => {
+    window.__cardMoved = false;
+    new MutationObserver(() => { if (el.classList.contains('swipe-shifted')) window.__cardMoved = true; }).observe(el, { attributes: true });
+  });
+  const pagerLeft = () => page.evaluate(() => document.getElementById('weekKanban').scrollLeft);
+  const start = await pagerLeft();
+  await swipe(running, -220);
+  await waitFor(async () => (await pagerLeft()) > start + 100, 'the next day slid in');
+  assert.equal(await page.evaluate(() => window.__cardMoved), false, 'the card stayed in place');
+  assert.deepEqual(await swipeState(running), CLOSED);
+  assert.ok(boardTask(env, 'FR', 'Laufen 5 km'), 'the task stays');
+
+  // A list item: deleted and put back in its place, still ticked. "Delete" is only a label (the
+  // list's styles for the spans in its rows drew a checkbox circle on it while it was a span)
+  await goToSection(page, 'lists');
+  const item = (t) => page.locator('#custom-1List .simple-list-item', { hasText: t });
+  const shoppingList = () => env.store.rows('lists').find(r => r.name === 'custom-1').items.map(i => `${i.text}${i.done ? ' ✓' : ''}`).join(' | ');
+  await centre(item('Bananen'));
+  await swipe(item('Bananen'), -70);
+  assert.deepEqual(await item('Bananen').locator('.swipe-action').evaluate(a => ({ text: a.textContent, before: getComputedStyle(a, '::before').content })),
+    { text: 'Delete', before: 'none' });
+  await item('Bananen').locator('.swipe-action').tap();
+  await waitFor(() => shoppingList() === 'Hafermilch | Vollkornbrot | Kaffeebohnen (Espresso)', 'list item deleted in the cloud');
+  await page.locator('.swipe-undo-btn').tap();
+  await waitFor(() => shoppingList() === 'Hafermilch | Bananen ✓ | Vollkornbrot | Kaffeebohnen (Espresso)', 'back in its place');
+  await waitFor(() => item('Bananen').count(), 'back in the list');
+
+  // Gym goals in the Health Hub (added here: a sync uploads them, it does not download them):
+  // "Delete" deletes without ticking the row it lies on
+  await goToSection(page, 'health');
+  await page.locator('#section-health .gym-hub-header').tap();
+  await waitFor(() => page.evaluate(() => !document.getElementById('gymHubContent').classList.contains('collapsed')), 'hub opened');
+  const gymGoals = () => ((env.store.rows('settings').filter(r => r.key === 'gymHubData').pop() || {}).value || {}).trainingGoals || [];
+  for (const goalText of ['Kniebeuge 100 kg', '10 Klimmzüge']) {
+    await page.fill('#newTrainingGoal', goalText);
+    await page.press('#newTrainingGoal', 'Enter');
+  }
+  await waitFor(() => gymGoals().length === 2, 'gym goals uploaded');
+  const squat = page.locator('#trainingGoalsList .weekly-goal-item', { hasText: 'Kniebeuge 100 kg' });
+  await centre(squat);
+  await swipe(squat, -70);
+  assert.equal((await swipeState(squat)).open, true);
+  await squat.locator('.swipe-action').tap();
+  await waitFor(() => JSON.stringify(gymGoals()) === JSON.stringify([{ text: '10 Klimmzüge', done: false }]), 'gym goal deleted in the cloud');
+  await page.locator('.swipe-undo-btn').tap();
+  await waitFor(() => JSON.stringify(gymGoals()) === JSON.stringify([{ text: 'Kniebeuge 100 kg', done: false }, { text: '10 Klimmzüge', done: false }]), 'gym goal back');
+
+  // iPhone Duo unfolded and tablets: the week in columns (no pager), so its tasks swipe
+  await page.setViewportSize(DUO_UNFOLDED);
+  await waitFor(async () => (await page.locator('#weekStrip').count()) === 0, 'the week in columns');
+  const market = page.locator('#weekKanban .kanban-card', { hasText: 'Bauernmarkt' });
+  await centre(market);
+  await swipe(market, -200);
+  await waitFor(() => !boardTask(env, 'SA', 'Bauernmarkt'), 'task deleted on the board in the cloud');
+  await page.locator('.swipe-undo-btn').tap();
+  await waitFor(() => boardTask(env, 'SA', 'Bauernmarkt'), 'task back on the board');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+scenario('swipe: Home rows delete where they live; matrix tasks on the card and in the area sheet (Undo inside it)', async (env) => {
+  seedDemo(env.store, { steps: false });
+  env.store.seed('lists', [{ user_id: USER, name: 'matrix', icon: '📝', items: MATRIX_TASKS }]);
+  const { page, errors, context } = await openPhone(env);
+  const swipe = await swipeFinger(page);
+  assert.equal(await currentSection(page), 'home');
+
+  // Home: a task of the week, a goal and an event, each deleted in its own section
+  const homeRow = (card, t) => page.locator(`${card} .home-row`, { hasText: t });
+  await centre(homeRow('.home-tasks', 'Bauernmarkt'));
+  // A change of the data meanwhile (announced by db.set) redraws Home only once the open row
+  // is closed: "Delete" does not vanish right before the tap
+  const running = homeRow('.home-tasks', 'Laufen 5 km');
+  await swipe(running, -70);
+  assert.equal((await swipeState(running)).open, true);
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('dashboard:datachange', { detail: { key: 'habitChecks' } })));
+  await settle(page, 400);
+  assert.equal((await swipeState(running)).open, true, 'still open: Home holds its redraw');
+  await page.locator('.home-tasks .home-card-meta').tap();
+  await waitFor(() => isClosed(running), 'closed by a tap elsewhere');
+  await centre(homeRow('.home-tasks', 'Bauernmarkt'));
+  await swipe(homeRow('.home-tasks', 'Bauernmarkt'), -260);
+  await waitFor(() => !boardTask(env, 'SA', 'Bauernmarkt'), 'task deleted on the board');
+  assert.equal(await page.locator('#weekKanban .kanban-card', { hasText: 'Bauernmarkt' }).count(), 0, 'gone from the Week section');
+  await waitFor(async () => !(await homeRows(page, '.home-tasks')).includes('Bauernmarkt'), 'gone from Home');
+  await page.locator('.swipe-undo-btn').tap();
+  await waitFor(() => boardTask(env, 'SA', 'Bauernmarkt'), 'task back on the board');
+  await waitFor(async () => (await homeRows(page, '.home-tasks')).includes('Bauernmarkt'), 'back on Home');
+
+  await centre(homeRow('.home-goals', 'Wocheneinkauf planen'));
+  await swipe(homeRow('.home-goals', 'Wocheneinkauf planen'), -260);
+  await waitFor(() => !goalTexts(env, 'goals-2026-9-16').includes('Wocheneinkauf planen'), 'goal deleted');
+  assert.equal(await page.locator('#goalsList .focus-item', { hasText: 'Wocheneinkauf planen' }).count(), 0, 'gone from Today');
+
+  // An event row is a button: the swipe opens no editor
+  const event = page.locator('.home-today .home-event', { hasText: 'Paket abholen' });
+  await centre(event);
+  await swipe(event, -260);
+  await waitFor(() => goalTexts(env, 'cal-2026-9-16').join(' | ') === 'Team-Meeting 10:00', 'event deleted in the calendar');
+  assert.equal(await editorOpen(page), 0);
+
+  // Matrix card in Lists: "Delete", Undo brings back the same task in its place
+  await goToSection(page, 'lists');
+  const ids = () => matrixTasks(env).map(t => t.id).join();
+  const onCard = (t) => page.locator('.matrix-panel li.matrix-task', { hasText: t });
+  await centre(onCard('Urlaub planen'));
+  await swipe(onCard('Urlaub planen'), -70);
+  await onCard('Urlaub planen').locator('.swipe-action').tap();
+  await waitFor(() => ids() === 'a,c,d', 'matrix task deleted in the cloud');
+  assert.equal(await matrixSheetOpen(page, 'matrix-task-sheet'), 0, 'no task sheet opened');
+  await page.locator('.swipe-undo-btn').tap();
+  await waitFor(() => ids() === 'a,b,c,d', 'the same task back in its place');
+
+  // In the area sheet: Undo shows inside the sheet (everything behind a sheet is inert)
+  await page.locator('.matrix-area[data-area="todo"] .matrix-area-open').tap();
+  await waitFor(() => matrixSheetOpen(page, 'matrix-area-sheet'), 'area sheet');
+  const inSheet = (t) => page.locator('.matrix-area-sheet li.matrix-task', { hasText: t });
+  await waitFor(() => page.evaluate(() => document.querySelector('.matrix-area-sheet').getAnimations({ subtree: true }).length === 0), 'the sheet slid up');
+  await swipe(inSheet('Reifen wechseln'), -260);
+  await waitFor(() => ids() === 'b,c,d', 'deleted in the sheet');
+  assert.deepEqual(await undoToast(page), { text: 'Deleted “Reifen wechseln”', inSheet: true });
+  assert.equal(await matrixSheetOpen(page, 'matrix-area-sheet'), 1, 'the sheet stays open');
+  await page.locator('.swipe-undo-btn').tap();
+  await waitFor(() => ids() === 'a,b,c,d', 'Undo inside the sheet');
+  await waitFor(() => inSheet('Reifen wechseln').count(), 'back in the sheet');
+  // Deleted again, then the sheet closes: Undo stays, on the page
+  await swipe(inSheet('Reifen wechseln'), -260);
+  await waitFor(() => ids() === 'b,c,d', 'deleted again');
+  await page.locator('.matrix-area-sheet .sheet-leading').tap();
+  await waitFor(async () => (await matrixSheetOpen(page, 'matrix-area-sheet')) === 0, 'sheet closed');
+  assert.deepEqual(await undoToast(page), { text: 'Deleted “Reifen wechseln”', inSheet: false });
+  await page.locator('.swipe-undo-btn').tap();
+  await waitFor(() => ids() === 'a,b,c,d', 'Undo from the page');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
 scenario('desktop with mouse: no section bar, no touch buttons, hover effects unchanged', async (env) => {
   seedDemo(env.store, { steps: false });
   const { page, errors, context } = await open(env, { viewport: { width: 1440, height: 900 } });
@@ -2385,6 +2670,17 @@ scenario('desktop with mouse: no section bar, no touch buttons, hover effects un
   await item.hover();
   await settle(page, 300);
   assert.equal(await item.locator('.focus-delete').evaluate(el => getComputedStyle(el).opacity), '1');
+  // Swipe to delete is for fingers: a mouse dragged across a row moves and deletes nothing
+  const focusRow = page.locator('.home-goals .home-row-focus');
+  const box = await focusRow.boundingBox();
+  await page.mouse.move(box.x + box.width - 20, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 20, box.y + box.height / 2, { steps: 10 });
+  await page.mouse.up();
+  await settle(page, 400);
+  assert.equal(await focusRow.evaluate(el => el.classList.contains('swipe-shifted') || el.style.getPropertyValue('--swipe-x') !== ''), false, 'the row stayed');
+  assert.equal(await page.locator('.swipe-undo:not([hidden])').count(), 0);
+  assert.ok(goalTexts(env, 'goals-2026-9-16').includes('Steuererklärung abschicken'), 'nothing deleted');
   assert.deepEqual(errors, []);
   await context.close();
 });

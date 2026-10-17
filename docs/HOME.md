@@ -28,6 +28,11 @@ Home aktualisiert sich bei jeder Änderung der Daten (`db.set`/`db.del` melden
 der Fokus bleibt nach dem Neuzeichnen auf demselben Element; die Leertaste startet dabei nicht den
 Focus-Timer.
 
+Termine, Aufgaben und Ziele lassen sich auf Handy und Tablet nach links wischen: „Delete“ löscht
+den Eintrag dort, wo er gespeichert ist (Kalendertag, Wochenboard, Zielliste), mit Undo – wie in
+den Bereichen selbst ([MOBILE.md](MOBILE.md), „Wischen zum Löschen“). Solange eine Zeile gewischt
+wird oder „Delete“ offen steht, wartet das Neuzeichnen von Home.
+
 Sprache: Englisch wie die übrige Oberfläche („Today's Goals“, „New Event“); das Datum der
 Begrüßung auf Englisch (Tag vor Monat), die Daten in den Bereichen bleiben deutsch wie bisher.
 Die Begrüßung steht in `js/home-core.js` (`greeting`, `dateLabel`).
@@ -70,7 +75,7 @@ Keine Datenbank-Migration nötig (die Tabelle `settings` nimmt den Schlüssel `h
 |---|---|
 | `js/home-core.js` | Regeln ohne DOM: Begrüßung, Termine mit Zustand, Aufgaben-Triage, Focus, Matrix-Zähler, Schritte, Habits, Wettercodes und -antwort, Einstellungen (Unit-Tests: `tests/unit/home-core.test.js`) |
 | `js/weather.js` | Open-Meteo: Abruf, Cache, Ortssuche (`window.Weather`) |
-| `js/home-ui.js` | Darstellung, Aktionen (Abhaken, +, Name, Ort), Navigation (`window.HomeUI`) |
+| `js/home-ui.js` | Darstellung, Aktionen (Abhaken, +, Name, Ort, Wischen zum Löschen), Navigation (`window.HomeUI`) |
 | `css/home.css` | Aussehen (Karten sind `.glass-panel`, also Glas am Desktop und iOS-Karten auf Handy/Tablet) |
 | `index.html` | `#section-home` vor `#section-today`, Tab „Home“ zuerst |
 | `js/app.js` | `db.getHome/setHome`, `notifyDataChange` in `db.set/del`, Sync des Schlüssels `home`, `renderHome` in `refreshAllViews` |

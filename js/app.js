@@ -1044,13 +1044,7 @@ const db = {
     updateSyncStatus();
 
     // Refresh UI to show newly synced data
-    try {
-      if (typeof renderUnifiedLists === 'function') renderUnifiedLists();
-      if (typeof renderHabits === 'function') renderHabits();
-      if (typeof renderGoals === 'function') renderGoals();
-    } catch (e) {
-      console.error('[Sync] UI refresh error:', e);
-    }
+    whenSwipeIdle(renderSyncedViews);
   },
 
   // === Manual Push to Cloud (Recovery) ===
@@ -1263,9 +1257,31 @@ window.forceUpload = async (button) => {
 // Older entry point (kept for console use)
 window.forceSync = () => window.showSyncDetails();
 
+// A sync rebuilds the lists. A finger on a row or an open "Delete" (js/swipe.js) keeps its row
+// meanwhile: the rebuild waits until the row is let go and closed.
+function whenSwipeIdle(update) {
+  if (window.SwipeActions) window.SwipeActions.whenIdle(update);
+  else update();
+}
+
+// The lists that every sync refreshes (db._syncOnce)
+function renderSyncedViews() {
+  try {
+    if (typeof renderUnifiedLists === 'function') renderUnifiedLists();
+    if (typeof renderHabits === 'function') renderHabits();
+    if (typeof renderGoals === 'function') renderGoals();
+  } catch (e) {
+    console.error('[Sync] UI refresh error:', e);
+  }
+}
+
 // Re-render everything that shows synced data (the weekly review textarea is
 // left alone so text being typed is never replaced)
 function refreshAllViews() {
+  whenSwipeIdle(renderAllViews);
+}
+
+function renderAllViews() {
   const views = [renderCalendar, renderGoals, renderKanban, renderHabits, renderAllLists, updateStats, renderHome];
   views.forEach(view => {
     try { view(); } catch (e) { console.error('[UI] Refresh failed:', view.name, e); }
@@ -2389,6 +2405,7 @@ function createAgendaRow(task, dateObj, index, calendars, showCalendarName) {
 
   row.append(time, calendarDot(calendar, 'agenda-dot'), main);
   row.addEventListener('click', () => openCalendarEditor({ date: dateObj, index, entry: task }));
+  swipeToDelete(row, task.text, () => swipeRemoveCalendarEntry(dateObj, index, task));
   return row;
 }
 
@@ -3249,6 +3266,7 @@ function renderGoals() {
     }
   };
 
+  const goalDate = new Date(currentGoalDate); // the day shown, for swipe to delete
   displayGoals.forEach(({ task: goal, idx }) => {
     const item = document.createElement("div");
     item.className = `focus-item ${goal.done ? 'done' : ''}`;
@@ -3358,6 +3376,7 @@ function renderGoals() {
         ]
       })));
     }
+    swipeToDelete(item, typeof goal === 'string' ? goal : goal.text, () => swipeRemoveGoal(goalDate, idx, goal));
     els.goalsList.appendChild(item);
   });
 
@@ -3621,6 +3640,7 @@ function renderSimpleList(listName) {
         return { title: item.text, items: menuItems };
       }));
     }
+    swipeToDelete(div, item.text, () => swipeRemoveListItem(listName, idx, item));
     container.appendChild(div);
   });
 }
@@ -4517,6 +4537,14 @@ function createKanbanCard(task, colName, index, isWeekBased, isFromCalendar = fa
 
   div.ondblclick = editTask;
 
+  // Swipe to delete (phones and tablets; not in the phone's day pager, js/swipe.js)
+  if (isWeekBased) {
+    const boardWeek = new Date(currentWeekDate);
+    swipeToDelete(div, task.text, () => (isFromCalendar && sourceDate
+      ? swipeRemoveCalendarEntry(sourceDate, index, task)
+      : swipeRemoveTask(boardWeek, colName, index, task)));
+  }
+
   return div;
 }
 
@@ -4712,6 +4740,109 @@ function deleteKanbanItem(col, index, isWeekBased) {
     setKanbanBoard(board, isWeekBased);
     renderKanban();
   }
+}
+
+// ===== SWIPE TO DELETE (js/swipe.js) =====
+// Each removes one entry where its section keeps it and returns how to put it back: Undo puts
+// it at the same place (as far as the list still reaches there) and uploads it again. They
+// find the entry again by its text (calendar entries by their identity), so a re-render or a
+// sync in between cannot hit a different one; null when it is gone already.
+
+function swipeToDelete(row, label, remove) {
+  if (window.SwipeActions) window.SwipeActions.enable(row, { label, remove });
+}
+
+function entryText(entry) {
+  if (typeof entry === 'string') return entry;
+  return entry && typeof entry === 'object' ? entry.text : undefined;
+}
+
+function entryIndex(items, index, entry) {
+  if (!Array.isArray(items)) return -1;
+  const text = entryText(entry);
+  if (items[index] !== undefined && entryText(items[index]) === text) return index;
+  return items.findIndex(item => entryText(item) === text);
+}
+
+function putBack(items, index, entry) {
+  items.splice(Math.min(index, items.length), 0, entry);
+  return items;
+}
+
+function swipeRemoveGoal(date, index, goal) {
+  const goals = db.getGoals(date);
+  const at = entryIndex(goals, index, goal);
+  if (at === -1) return null;
+  const [removed] = goals.splice(at, 1);
+  db.setGoals(goals, date);
+  renderGoals();
+  return () => {
+    db.setGoals(putBack(db.getGoals(date), at, removed), date);
+    renderGoals();
+  };
+}
+
+function swipeRemoveTask(weekDate, column, index, task) {
+  const board = db.getKanban(weekDate);
+  const at = entryIndex(board[column], index, task);
+  if (at === -1) return null;
+  const [removed] = board[column].splice(at, 1);
+  db.setKanban(board, weekDate);
+  renderKanban();
+  return () => {
+    const now = db.getKanban(weekDate);
+    if (!Array.isArray(now[column])) now[column] = [];
+    putBack(now[column], at, removed);
+    db.setKanban(now, weekDate);
+    renderKanban();
+  };
+}
+
+function swipeRemoveCalendarEntry(date, index, entry) {
+  const tasks = db.getCalendarTasks(date);
+  const at = findCalendarEntry(tasks, index, entry);
+  if (at === -1) return null;
+  const [removed] = tasks.splice(at, 1);
+  db.setCalendarTasks(date, tasks);
+  renderCalendar();
+  renderKanban();
+  return () => {
+    db.setCalendarTasks(date, putBack(db.getCalendarTasks(date), at, removed));
+    renderCalendar();
+    renderKanban();
+  };
+}
+
+function swipeRemoveListItem(listName, index, item) {
+  const items = getListItems(listName);
+  const at = entryIndex(items, index, item);
+  if (at === -1) return null;
+  const [removed] = items.splice(at, 1);
+  setListItems(listName, items);
+  renderSimpleList(listName);
+  return () => {
+    setListItems(listName, putBack(getListItems(listName), at, removed));
+    renderSimpleList(listName);
+  };
+}
+
+// The training goals of the Health Hub
+function swipeRemoveTrainingGoal(index, goal) {
+  const data = db.get('gymHubData', {});
+  const goals = data.trainingGoals || [];
+  const at = entryIndex(goals, index, goal);
+  if (at === -1) return null;
+  const [removed] = goals.splice(at, 1);
+  db.set('gymHubData', data);
+  renderTrainingGoals();
+  syncGymData();
+  return () => {
+    const now = db.get('gymHubData', {});
+    now.trainingGoals = putBack(now.trainingGoals || [], at, removed);
+    db.set('gymHubData', now);
+    renderTrainingGoals();
+    syncGymData();
+  };
 }
 
 // ===== EXPORT / IMPORT =====
@@ -5708,6 +5839,7 @@ function renderTrainingGoals() {
       <button class="delete-goal-btn" onclick="event.stopPropagation(); deleteTrainingGoal(${i})">×</button>
     </div>
   `).join('');
+  container.querySelectorAll('.weekly-goal-item').forEach((row, i) => swipeToDelete(row, goals[i].text, () => swipeRemoveTrainingGoal(i, goals[i])));
 }
 
 function addTrainingGoal() {

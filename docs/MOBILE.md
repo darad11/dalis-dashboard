@@ -88,15 +88,42 @@ iPhone quer):
 
 ### Bedienung per Touch
 
-| Element | Tippen | ⋯-Menü |
-|---|---|---|
-| Tagesziel | abhaken | Edit…, Urgency ›, Delete |
-| Wochenaufgabe | abhaken | Edit…, Priority ›, Move to Day ›, Delete |
-| Kalendereintrag (Woche) | – | Edit… (öffnet den Editor), Priority ›, Move to Day ›, Delete |
-| Kalendereintrag (Tagesliste) | öffnet den Editor | – (Löschen im Editor) |
-| Listeneintrag | abhaken | Edit…, Move Up/Down, Move to List ›, Delete |
-| Liste | – | Rename…, Move Up/Down, Delete List (mit Rückfrage) |
-| Habit | – | Rename…, Delete Habit (mit Rückfrage) |
+| Element | Tippen | Nach links wischen | ⋯-Menü |
+|---|---|---|---|
+| Tagesziel | abhaken | Delete | Edit…, Urgency ›, Delete |
+| Wochenaufgabe | abhaken | Delete (nicht in der Tagesleiste des Handys, s. u.) | Edit…, Priority ›, Move to Day ›, Delete |
+| Kalendereintrag (Woche) | – | Delete (ebenso) | Edit… (öffnet den Editor), Priority ›, Move to Day ›, Delete |
+| Kalendereintrag (Tagesliste) | öffnet den Editor | Delete | – (Löschen im Editor) |
+| Listeneintrag | abhaken | Delete | Edit…, Move Up/Down, Move to List ›, Delete |
+| Matrix-Aufgabe (Karte und Bereich) | öffnet die Aufgabe | Delete | – (Löschen im Sheet der Aufgabe) |
+| Home: Termin, Aufgabe, Ziel | Termin: Editor; Kreis: abhaken | Delete (dort, wo der Eintrag gespeichert ist) | – |
+| Gym-Ziel (Health) | abhaken | Delete | – |
+| Liste | – | – | Rename…, Move Up/Down, Delete List (mit Rückfrage) |
+| Habit | – | – | Rename…, Delete Habit (mit Rückfrage) |
+
+**Wischen zum Löschen** (`js/swipe.js`, wie in iOS-Listen):
+
+- Kurz nach links wischen zeigt ein rotes „Delete“ hinter der Zeile, Antippen löscht. Lang
+  wischen (über 60 % der Zeile) löscht sofort. Danach steht „Deleted “…” · Undo“ 6 Sekunden
+  über der Leiste; Undo legt den Eintrag an dieselbe Stelle zurück, auch in der Cloud. In einem
+  Sheet (Matrix-Bereich) steht Undo im Sheet – alles hinter einem Sheet ist nicht bedienbar;
+  schließt das Sheet vorher, wandert Undo auf die Seite.
+- Antippen woanders, Scrollen oder Zurückwischen schließt. Es ist immer nur eine Zeile offen;
+  ein Tippen auf eine andere Zeile schließt nur und hakt nichts ab. Von einem offenen „Delete“
+  aus weiterwischen löscht wie ein langer Wisch.
+- Auf- und Abwärtsziehen scrollt wie bisher (die Richtung entscheidet sich nach 10 px).
+- **Nicht in der Tagesleiste der Woche auf dem Handy**: Dort blättert ein Wisch zum nächsten
+  Tag – beides auf derselben Geste wäre nicht eindeutig. Löschen dort über ⋯ → Delete, oder per
+  Wisch in Home bzw. in der Tagesliste des Kalenders. Aufgeklappt und auf dem Tablet (Woche in
+  Spalten) lassen sich die Aufgaben wischen.
+- Nicht bei Habits, Listen und Kalendern: Ihr Löschen nimmt den Verlauf bzw. alle Einträge mit
+  und fragt deshalb nach.
+- Nur mit dem Finger (oder Stift). Mit Maus/Trackpad, VoiceOver und Tastatur bleibt „Delete“
+  im ⋯-Menü; das rote „Delete“ ist für VoiceOver ausgeblendet.
+- Ein Sync baut die Listen neu auf. Liegt dabei ein Finger auf einer Zeile oder steht „Delete“
+  offen, wartet der Neuaufbau, bis die Zeile losgelassen und geschlossen ist – sonst würde die
+  Zeile unter dem Finger ersetzt (im Test baute der Sync die Zielliste zweimal neu auf, direkt
+  nachdem der Finger aufsetzte; die Geste lief dann auf einer Zeile, die nicht mehr da war).
 
 - Hover-Effekte gelten nur mit Maus/Trackpad. Bedienelemente mindestens 44 × 44 pt,
   Eingabefelder mindestens 16 px (kein automatisches Zoomen in iOS). Pinch-Zoom bleibt erlaubt.
@@ -167,6 +194,7 @@ an allen vier Seiten berücksichtigt.
 | `index.html` | sechs `section.page-section` (`#section-home`, `#section-today` … `#section-lists`) in der Desktop-Reihenfolge; `window.placePageOrder` (Inline-Skript) stellt auf Handy/Tablet Kalender, Woche, Ziele, Focus vor dem ersten Zeichnen um; Abschnittsleiste als Links (Home, dann Week), Leiste oben |
 | `js/home-ui.js`, `css/home.css` | Home: der Tag auf einen Blick als erster Abschnitt, siehe HOME.md |
 | `js/calendar-ui.js`, `css/calendar.css` | Kalender-Editor und Kalenderliste (Sheet bzw. Dialog), siehe CALENDAR.md |
+| `js/swipe.js`, `css/swipe.css` | Wischen zum Löschen (`SwipeActions.enable(row, { label, remove })`, Undo, `whenIdle` für den Neuaufbau nach einem Sync); die Zeilen melden sich in `js/app.js` (`swipeToDelete`, `swipeRemove…`), `js/matrix-ui.js` und `js/home-ui.js` an |
 
 - Touch-Layout = `(pointer: coarse) and (max-width: 1099px)`; steht im Inline-Skript in
   `index.html` und in `js/mobile.js` (`TOUCH_LAYOUT_QUERY`) und muss gleich bleiben.
@@ -235,6 +263,10 @@ Chromium (Playwright) mit Touch-Emulation und Beispieldaten nur im lokalen Test-
   Alerts, Safe Areas im Home-Bildschirm-Modus. Die verwendeten CSS-Funktionen unterstützt
   Safari laut MDN-Kompatibilitätsdaten (`mask-composite` ab 15.4, `mix-blend-mode` ab 8,
   `touch-action: none` ab 13).
+- **Wischen zum Löschen**: geprüft mit Touch-Ereignissen über das DevTools-Protokoll in
+  Chromium. Auf dem iPhone noch zu prüfen: wie sich die Schwellen anfühlen (10 px bis zur
+  Richtung, 44 px zum Offenbleiben, 60 % zum Löschen), dass senkrechtes Scrollen auf den Zeilen
+  wie bisher geht und dass die Zeile flüssig mitläuft (`@property`-Animation, Safari ab 16.4).
 - **Tastatur in Sheets**: Chromium hat keine Bildschirmtastatur. Die Tests prüfen die
   Bedingungen (Feld beim Fokus an seinem Platz, Seite dahinter nicht verschiebbar und danach an
   derselben Stelle); dass iOS dabei nicht mehr springt, zeigt erst das iPhone.

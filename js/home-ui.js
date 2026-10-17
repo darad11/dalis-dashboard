@@ -260,9 +260,17 @@
   }
 
   // ===== Today's events =====
+  // Swipe to delete (js/swipe.js): the same entries as in their sections, through js/app.js
+  function swipe(row, label, remove) {
+    if (window.SwipeActions) window.SwipeActions.enable(row, { label, remove });
+    return row;
+  }
+
   function eventRow(e, d) {
     const calendar = CalendarCore.calendarOf(d.calendars, { calendarId: e.calendarId });
     const next = d.events.nextUp === e;
+    const stored = db.getCalendarTasks(d.now)[e.index];
+    const day = new Date(d.now);
     const btn = h('button', {
       type: 'button', class: 'home-row home-event', 'data-focus': `event-${e.index}`, 'aria-haspopup': 'dialog',
       onclick: () => openCalendarEditor({ date: new Date(d.now), index: e.index, entry: db.getCalendarTasks(d.now)[e.index], returnFocus: btn })
@@ -273,6 +281,7 @@
       next
         ? h('span', { class: 'home-event-next' }, Core.nextUpLabel(e, d.now))
         : (!e.allDay && e.end !== e.start ? h('span', { class: 'home-event-end' }, e.end) : null));
+    swipe(btn, e.text, () => swipeRemoveCalendarEntry(day, e.index, stored));
     return h('li', { class: `home-item is-${e.state}${next ? ' is-next' : ''}` }, btn);
   }
 
@@ -287,15 +296,17 @@
   }
 
   // ===== Tasks of the week =====
-  function taskRow(r) {
+  function taskRow(r, now) {
     const key = `task-${r.column}-${r.index}`;
     const meta = r.kind === 'overdue' ? `Overdue · ${r.dayLabel}` : r.kind === 'upcoming' ? r.dayLabel : '';
+    const week = new Date(now);
     return h('li', { class: `home-item home-task is-${r.kind}${r.done ? ' is-done' : ''}` },
-      h('div', { class: 'home-row' },
+      swipe(h('div', { class: 'home-row' },
         checkButton(r.done, r.text, key, () => toggleTask(r.column, r.index)),
         h('span', { class: 'home-row-text' }, r.text),
         r.priority ? h('span', { class: `home-priority is-${r.priority}`, 'aria-label': `Priority ${r.priority}` }, MARKS[r.priority]) : null,
-        meta ? h('span', { class: 'home-row-meta' }, meta) : null));
+        meta ? h('span', { class: 'home-row-meta' }, meta) : null),
+      r.text, () => swipeRemoveTask(week, r.column, r.index, { text: r.text })));
   }
 
   function renderTasks(d) {
@@ -308,25 +319,27 @@
     const meta = parts.length ? parts.join(' · ') : total ? 'Nothing planned for today' : '';
     const add = addButton('New task for today', 'tasks-add', addTask);
     return card('home-tasks', 'Tasks', cardHead('Tasks', meta, [add, linkButton('Week', 'week', 'tasks-link')]),
-      t.rows.length ? h('ul', { class: 'home-list' }, t.rows.map(taskRow)) : h('p', { class: 'home-empty' }, 'No tasks this week yet.'),
+      t.rows.length ? h('ul', { class: 'home-list' }, t.rows.map(r => taskRow(r, d.now))) : h('p', { class: 'home-empty' }, 'No tasks this week yet.'),
       t.hidden ? moreButton(`${t.hidden} more this week`, 'week') : null,
       total ? h('p', { class: 'home-card-foot' }, `${t.weekDone} of ${total} done this week`) : null);
   }
 
   // ===== Today's goals =====
-  function goalRow(g, isFocus) {
-    return h('div', { class: `home-row${isFocus ? ' home-row-focus' : ''}` },
+  function goalRow(g, isFocus, now) {
+    const day = new Date(now);
+    return swipe(h('div', { class: `home-row${isFocus ? ' home-row-focus' : ''}` },
       checkButton(g.done, g.text, `goal-${g.index}`, () => toggleGoal(g.index)),
       h('span', { class: 'home-row-text' }, g.text),
-      g.urgency ? h('span', { class: `home-priority is-${g.urgency}`, 'aria-label': `Urgency ${g.urgency}` }, MARKS[g.urgency]) : null);
+      g.urgency ? h('span', { class: `home-priority is-${g.urgency}`, 'aria-label': `Urgency ${g.urgency}` }, MARKS[g.urgency]) : null),
+    g.text, () => swipeRemoveGoal(day, g.index, { text: g.text }));
   }
 
   function renderGoals(d) {
     const g = d.goals;
     const body = [];
-    if (g.focus) body.push(h('div', { class: 'home-focus' }, h('p', { class: 'home-focus-label' }, 'Focus'), goalRow(g.focus, true)));
+    if (g.focus) body.push(h('div', { class: 'home-focus' }, h('p', { class: 'home-focus-label' }, 'Focus'), goalRow(g.focus, true, d.now)));
     const rest = g.rest.slice(0, GOAL_LIMIT - (g.focus ? 1 : 0));
-    if (rest.length) body.push(h('ul', { class: 'home-list' }, rest.map(r => h('li', { class: 'home-item' }, goalRow(r, false)))));
+    if (rest.length) body.push(h('ul', { class: 'home-list' }, rest.map(r => h('li', { class: 'home-item' }, goalRow(r, false, d.now)))));
     const hidden = g.rest.length - rest.length;
     if (hidden > 0) body.push(moreButton(`${hidden} more`, 'today'));
     if (!g.focus && !rest.length) {
@@ -425,6 +438,13 @@
   }
 
   function render() {
+    if (!view) return;
+    // A row being swiped or open on "Delete" stays until it is let go and closed (js/swipe.js)
+    if (window.SwipeActions) window.SwipeActions.whenIdle(draw, view);
+    else draw();
+  }
+
+  function draw() {
     if (!view) return;
     const key = focusKey();
     const d = collect();
