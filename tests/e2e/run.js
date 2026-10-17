@@ -2039,6 +2039,18 @@ scenario('home on phones: the day at a glance from the other sections; ticks cha
   // Goals: the first open goal is the focus; ticking it moves the focus on and reaches the goals list
   assert.equal(await text(page, '.home-goals .home-card-meta'), '2 of 5 done');
   assert.equal(await text(page, '.home-goals .home-row-focus .home-row-text'), 'Steuererklärung abschicken');
+  // The focus row's circle and text stand in one column with the rows below; "FOCUS" starts
+  // where the circles start (the visible circle is 11px inside its 44px button)
+  const column = await page.evaluate(() => {
+    const left = el => Math.round(el.getBoundingClientRect().left);
+    const checks = [...document.querySelectorAll('.home-goals .home-check')].map(left);
+    const texts = [...document.querySelectorAll('.home-goals .home-row-text')].map(left);
+    const circle = document.querySelector('.home-goals .home-row-focus .home-check').getBoundingClientRect().left + 11;
+    return { checks, texts, label: Math.round(document.querySelector('.home-focus-label').getBoundingClientRect().left - circle) };
+  });
+  assert.equal(new Set(column.checks).size, 1, `circles in one column: ${column.checks}`);
+  assert.equal(new Set(column.texts).size, 1, `texts in one column: ${column.texts}`);
+  assert.ok(Math.abs(column.label) <= 1, `FOCUS flush with the circles: ${column.label}px`);
   await page.locator('.home-goals .home-row-focus .home-check').tap();
   await waitFor(async () => (await text(page, '.home-goals .home-card-meta')) === '3 of 5 done', 'goal done');
   assert.equal(await text(page, '.home-goals .home-row-focus .home-row-text'), 'Mail an die Hausverwaltung wegen der Heizungsablesung im Stiegenhaus schreiben');

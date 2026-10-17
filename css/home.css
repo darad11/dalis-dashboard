@@ -379,15 +379,17 @@ body.dark .home-check::before {
 }
 
 /* ---- Goals: the focus of the day stands out ---- */
+/* The tinted box reaches as far past the content edge as its padding, so its circle and text
+   stay in one column with the rows below, and "FOCUS" starts where the circles start */
 .home-focus {
-    margin: 2px 0 6px;
+    margin: 2px -12px 6px;
     padding: 8px 12px 6px;
     border-radius: 14px;
     background: var(--tint-soft, rgba(99, 102, 241, 0.1));
 }
 
 .home-focus-label {
-    margin: 0 0 -4px 33px;
+    margin: 0 0 -4px;
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.06em;
