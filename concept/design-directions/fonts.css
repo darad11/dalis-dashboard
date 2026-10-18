@@ -1,0 +1,6 @@
+/* Schriften der Designstudie (SIL Open Font License, Dateien in fonts/). Nur Latin-Teilmengen.
+   Variante A nutzt die Systemschrift des ersten Prototyps (SF Pro auf Apple-Geräten); Inter ist dort
+   der dokumentierte Ersatz für Geräte ohne SF Pro und für die Renderings im Sandkasten. */
+@font-face { font-family: "Inter"; src: url("fonts/Inter-latin.woff2") format("woff2"); font-weight: 300 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Instrument Sans"; src: url("fonts/InstrumentSans-latin.woff2") format("woff2"); font-weight: 400 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Manrope"; src: url("fonts/Manrope-latin.woff2") format("woff2"); font-weight: 300 800; font-style: normal; font-display: swap; }

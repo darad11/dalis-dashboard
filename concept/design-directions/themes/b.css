@@ -1,0 +1,137 @@
+/*
+ * Variante B – Obsidian Power OS
+ * Graphit und Anthrazit statt reinem Schwarz, drei abgestufte Flächen, Hairlines statt Karten, eine
+ * präzise Mintfarbe als einziger Akzent (Primäraktion, heute/jetzt, aktive Zustände), Rot nur für Probleme.
+ * Schrift: Instrument Sans (OFL, lokal) – eine zeitgemäße Grotesk mit tabellarischen Ziffern, etwas enger
+ * als Inter, dadurch höhere Dichte bei gleicher Lesbarkeit. Quadratische Häkchen und 6-px-Radien geben
+ * den „Instrument“-Charakter; Trennlinien und Flächenstufen ordnen, nicht Rahmen.
+ * Nur Gestaltung – keine Änderung an Logik, Daten oder Abläufen.
+ */
+:root[data-variant="b"] {
+  --paper: #141518;
+  --paper-2: #1c1f24;
+  --paper-3: #272b32;
+  --raise: #1b1e23;
+  --ink: #e9ebee;
+  --ink-2: #a8adb6;
+  --ink-3: #9096a0;
+  --rule: rgba(255, 255, 255, 0.08);
+  --rule-2: rgba(255, 255, 255, 0.18);
+  --accent: #4fd1a5;
+  --accent-ink: #7de3bf;
+  --accent-soft: rgba(79, 209, 165, 0.12);
+  --on-accent: #0b1512;
+  --danger: #ff6b66;
+  --danger-soft: rgba(255, 107, 102, 0.14);
+  --cal-work: #8fa0b8;
+  --cal-personal: #7fb89a;
+  --p-au: #5b9cf6; --p-ra: #e0883f; --p-db: #37b8a3; --p-pr: #b183e0;
+  --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.6), 0 0 0 0.5px var(--rule-2);
+  --shadow-pop: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 0 0.5px var(--rule-2);
+  --backdrop: rgba(0, 0, 0, 0.55);
+  --proto-bg: #1c1f24;
+  --sans: "Instrument Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Helvetica Neue", Arial, sans-serif;
+  --serif: "Instrument Sans", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, "Helvetica Neue", Arial, sans-serif;
+  --gutter: 18px;
+  color-scheme: dark;
+}
+
+/* ===== Typografie: klare Hierarchie, enge Titel, ruhige Metadaten ===== */
+[data-variant="b"] .display { font: 600 30px/34px var(--sans); letter-spacing: -0.02em; }
+[data-variant="b"] .title { font: 600 24px/28px var(--sans); letter-spacing: -0.015em; }
+[data-variant="b"] .day-title .title { font-size: 20px; line-height: 24px; }
+[data-variant="b"] .lead { font: 600 19px/24px var(--sans); letter-spacing: -0.01em; }
+[data-variant="b"] .now-task { font: 600 20px/26px var(--sans); letter-spacing: -0.01em; }
+[data-variant="b"] .caps, [data-variant="b"] .label { font: 600 11px/14px var(--sans); letter-spacing: 0.1em; }
+[data-variant="b"] .sheet-title { font: 600 20px/24px var(--sans); letter-spacing: -0.01em; }
+[data-variant="b"] .rail-brand { font: 600 16px/20px var(--sans); }
+[data-variant="b"] .brand-mark { border-radius: 7px; font: 700 14px/1 var(--sans); background: var(--accent); color: var(--on-accent); }
+[data-variant="b"] .day-key { letter-spacing: 0.1em; }
+[data-variant="b"] .day-key b { font: 600 22px/24px var(--sans); }
+[data-variant="b"] .strip-day .dom { font: 600 19px/22px var(--sans); }
+[data-variant="b"] .daycol-head .dom { font: 600 18px/22px var(--sans); }
+[data-variant="b"] .row .text { font-size: 16px; line-height: 22px; }
+[data-variant="b"] .inbox-item .text { font-size: 16px; }
+[data-variant="b"] .list-item .text { font-size: 15px; }
+[data-variant="b"] .menu-item { font-size: 16px; line-height: 22px; }
+[data-variant="b"] .home-head { padding-top: 18px; }
+[data-variant="b"] .section { margin-top: 28px; }
+
+/* ===== Flächen: Hairlines, drei Stufen, keine Karten ===== */
+[data-variant="b"] .row { --row-pad: 8px; min-height: 44px; }
+[data-variant="b"] .week-mini .row, [data-variant="b"] .ledger-body .row, [data-variant="b"] .daycol .row { --row-pad: 8px; }
+[data-variant="b"] .section-head, [data-variant="b"] .area-head, [data-variant="b"] .list-head, [data-variant="b"] .daycol-head { border-bottom: 0.5px solid var(--rule-2); }
+[data-variant="b"] .ledger-row { border-bottom: 0.5px solid var(--rule); }
+[data-variant="b"] .main.scrolled .topbar { border-bottom: 0.5px solid var(--rule); }
+
+/* Der eine hervorgehobene Block: eine Stufe heller, Mint-Leiste links statt Rahmen */
+[data-variant="b"] .now { margin-top: 20px; padding: 14px 16px 12px 18px; border-radius: 10px; background: var(--paper-2); border: 0.5px solid var(--rule-2); border-left: 3px solid var(--accent); }
+[data-variant="b"] .now .label { color: var(--accent); }
+[data-variant="b"] .now-actions { margin-top: 10px; }
+
+/* ===== Bedienelemente: Umrisse für Sekundäres, Mint gefüllt für die eine Primäraktion ===== */
+[data-variant="b"] .btn { border-radius: 8px; background: transparent; box-shadow: inset 0 0 0 0.5px var(--rule-2); font-weight: 600; }
+[data-variant="b"] .btn:active { background: var(--paper-3); }
+[data-variant="b"] .btn-primary { background: var(--accent); color: var(--on-accent); box-shadow: none; }
+[data-variant="b"] .btn-primary:active { filter: brightness(0.92); }
+[data-variant="b"] .btn-quiet { box-shadow: none; color: var(--accent-ink); }
+[data-variant="b"] .btn-danger { box-shadow: none; color: var(--danger); }
+[data-variant="b"] .btn-sm { border-radius: 6px; font-size: 13px; }
+[data-variant="b"] .chip { border-radius: 6px; min-height: 32px; font: 500 13px/18px var(--sans); border-color: var(--rule-2); }
+[data-variant="b"] .chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent); }
+[data-variant="b"] .chip[aria-pressed="true"] .pdot { outline-color: var(--accent); }
+[data-variant="b"] .filter-btn { border-radius: 6px; box-shadow: inset 0 0 0 0.5px var(--rule-2); padding: 0 10px; color: var(--ink-2); }
+[data-variant="b"] .filter-btn.active { color: var(--accent-ink); box-shadow: inset 0 0 0 0.5px var(--accent); }
+[data-variant="b"] .seg { background: var(--paper-2); border-radius: 8px; padding: 2px; }
+[data-variant="b"] .seg button { border-radius: 6px; }
+[data-variant="b"] .seg button[aria-selected="true"] { background: var(--paper-3); color: var(--ink); box-shadow: 0 0 0 0.5px var(--rule-2); }
+[data-variant="b"] .input, [data-variant="b"] .field input[type="text"], [data-variant="b"] .field textarea, [data-variant="b"] .field select { background: var(--paper-2); border: 0.5px solid var(--rule-2); border-radius: 8px; font-size: 16px; }
+[data-variant="b"] .check { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--rule-2); }
+[data-variant="b"] .check::before { inset: -12px; border-radius: 0; }
+[data-variant="b"] .check::after { width: 9px; height: 5px; }
+[data-variant="b"] .check[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+[data-variant="b"] .check.sm { width: 18px; height: 18px; border-radius: 5px; }
+[data-variant="b"] .icon-btn { border-radius: 8px; }
+[data-variant="b"] .icon-btn:active { background: var(--paper-3); }
+
+/* ===== Navigation: flach, aktiver Tab mit Mint-Marke oben ===== */
+[data-variant="b"] .topbar { background: color-mix(in srgb, var(--paper) 94%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+[data-variant="b"] .tabbar { background: var(--paper); -webkit-backdrop-filter: none; backdrop-filter: none; border-top: 0.5px solid var(--rule-2); }
+[data-variant="b"] .tab { font: 600 11px/14px var(--sans); letter-spacing: 0.02em; }
+[data-variant="b"] .tab[aria-current="page"] { color: var(--ink); }
+[data-variant="b"] .tab[aria-current="page"] svg { color: var(--accent); }
+[data-variant="b"] .tab[aria-current="page"]::before { content: ""; position: absolute; top: -4px; left: 50%; width: 24px; height: 2px; margin-left: -12px; background: var(--accent); border-radius: 1px; }
+[data-variant="b"] .tab .badge, [data-variant="b"] .rail-item .badge { background: var(--accent); color: var(--on-accent); }
+[data-variant="b"] .rail { border-right: 0.5px solid var(--rule-2); }
+[data-variant="b"] .rail-item { border-radius: 8px; }
+[data-variant="b"] .rail-item[aria-current="page"] { background: var(--paper-3); color: var(--ink); }
+[data-variant="b"] .rail-item[aria-current="page"] svg { color: var(--accent); }
+[data-variant="b"] .rail-capture { border-radius: 8px; }
+
+/* ===== Balken, Leisten, Tage: gerade Kanten, dünne Linien ===== */
+[data-variant="b"] .cap-bar { height: 4px; border-radius: 0; background: var(--paper-3); }
+[data-variant="b"] .cap-bar .est { background: var(--accent); }
+[data-variant="b"] .cap-bar .ev { background: var(--ink-3); }
+[data-variant="b"] .meter { height: 4px; border-radius: 0; background: var(--paper-3); }
+[data-variant="b"] .meter i { background: var(--accent); }
+[data-variant="b"] .strip-day { border-radius: 8px; }
+[data-variant="b"] .strip-day[aria-current="date"] { background: var(--paper-2); box-shadow: inset 0 0 0 0.5px var(--rule-2); }
+[data-variant="b"] .now-line i::before { width: 6px; height: 6px; top: -2.5px; }
+[data-variant="b"] .linkrow { font-weight: 500; }
+
+/* ===== Sheets und Hinweise ===== */
+[data-variant="b"] .sheet { background: var(--raise); border-radius: 12px 12px 0 0; }
+[data-variant="b"] .sheet-head { padding: 12px 18px 8px; }
+[data-variant="b"] .sheet-body { padding: 0 18px 8px; }
+[data-variant="b"] .sheet-foot { padding: 10px 18px 14px; }
+[data-variant="b"] .sheet-close { border-radius: 6px; }
+[data-variant="b"] .closed-note { border-radius: 8px; }
+[data-variant="b"] .toast { border-radius: 8px; }
+@container app (min-width: 600px) {
+  [data-variant="b"] .sheet { border-radius: 12px; }
+}
+@media (hover: hover) {
+  [data-variant="b"] .btn:not(:disabled):hover { background: var(--paper-2); }
+  [data-variant="b"] .btn-primary:not(:disabled):hover { background: var(--accent); filter: brightness(1.05); }
+  [data-variant="b"] .btn-quiet:not(:disabled):hover { background: var(--accent-soft); }
+}

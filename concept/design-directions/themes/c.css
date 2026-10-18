@@ -1,0 +1,122 @@
+/*
+ * Variante C – Midnight Momentum
+ * Sehr tiefer, leicht blauschwarzer Grund, abgestufte Flächen mit etwas mehr Abstand zueinander, eine
+ * warme Bernstein-Akzentfarbe für das, was jetzt zählt (Jetzt-Block, Primäraktion, heute, Häkchen,
+ * aktive Zustände) und ein kühles Blau als zweiter Akzent nur für Termine und Zeitachse. Subtile Tiefe
+ * durch einen weichen Schatten unter dem Jetzt-Block und den Sheets – keine Glaseffekte, kein Glühen,
+ * keine dekorativen Verläufe. Schrift: Manrope (OFL, lokal) mit kräftigen, eng laufenden Titeln.
+ * Nur Gestaltung – keine Änderung an Logik, Daten oder Abläufen.
+ */
+:root[data-variant="c"] {
+  --paper: #0b0d14;
+  --paper-2: #141827;
+  --paper-3: #1f2438;
+  --raise: #151a2a;
+  --ink: #f2f3f8;
+  --ink-2: #b4b9cc;
+  --ink-3: #8b92ab;
+  --rule: rgba(255, 255, 255, 0.09);
+  --rule-2: rgba(255, 255, 255, 0.2);
+  --accent: #ffb347;
+  --accent-ink: #ffc46b;
+  --accent-soft: rgba(255, 179, 71, 0.14);
+  --on-accent: #1a1206;
+  --accent-2: #6fa8e6;
+  --danger: #ff5d6c;
+  --danger-soft: rgba(255, 93, 108, 0.16);
+  --cal-work: #6fa8e6;
+  --cal-personal: #8fd19a;
+  --p-au: #5fa3ff; --p-ra: #ff8a4c; --p-db: #3ccfc0; --p-pr: #c58bff;
+  --shadow-sheet: 0 -12px 48px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --shadow-pop: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --backdrop: rgba(4, 5, 10, 0.6);
+  --proto-bg: #141827;
+  --sans: "Manrope", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Helvetica Neue", Arial, sans-serif;
+  --serif: "Manrope", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, "Helvetica Neue", Arial, sans-serif;
+  color-scheme: dark;
+}
+
+/* ===== Typografie: kräftige, eng laufende Titel, mittlere Stärke im Fließtext ===== */
+[data-variant="c"] .display { font: 700 32px/36px var(--sans); letter-spacing: -0.03em; }
+[data-variant="c"] .title { font: 700 26px/30px var(--sans); letter-spacing: -0.025em; }
+[data-variant="c"] .day-title .title { font-size: 21px; line-height: 26px; }
+[data-variant="c"] .lead { font: 700 20px/26px var(--sans); letter-spacing: -0.02em; }
+[data-variant="c"] .now-task { font: 700 22px/27px var(--sans); letter-spacing: -0.02em; }
+[data-variant="c"] .caps, [data-variant="c"] .label { font: 700 11px/14px var(--sans); letter-spacing: 0.1em; }
+[data-variant="c"] .home-head .caps { letter-spacing: 0.08em; }
+[data-variant="c"] .sheet-title { font: 700 22px/26px var(--sans); letter-spacing: -0.02em; }
+[data-variant="c"] .rail-brand { font: 700 17px/20px var(--sans); letter-spacing: -0.01em; }
+[data-variant="c"] .brand-mark { border-radius: 9px; font: 800 15px/1 var(--sans); background: var(--accent); color: var(--on-accent); }
+[data-variant="c"] .day-key b { font: 700 24px/26px var(--sans); letter-spacing: -0.02em; }
+[data-variant="c"] .strip-day .dom { font: 700 20px/24px var(--sans); letter-spacing: -0.02em; }
+[data-variant="c"] .daycol-head .dom { font: 700 20px/24px var(--sans); letter-spacing: -0.02em; }
+[data-variant="c"] .row .text { font-weight: 500; letter-spacing: -0.005em; }
+[data-variant="c"] .row.next-up .text { font-weight: 700; }
+[data-variant="c"] .menu-item { font-weight: 500; }
+[data-variant="c"] .section { margin-top: 30px; }
+
+/* Der eine hervorgehobene Block: getönte Fläche mit Rahmen und weichem Schatten – hier liegt die Energie */
+[data-variant="c"] .now { margin-top: 22px; padding: 18px 20px 16px; border-radius: 16px; background: var(--accent-soft); border: 1px solid rgba(255, 179, 71, 0.3); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); }
+[data-variant="c"] .now .label { color: var(--accent); }
+[data-variant="c"] .now-why { color: var(--ink-2); }
+[data-variant="c"] .now-actions { margin-top: 12px; }
+
+/* ===== Bedienelemente: runder, Bernstein für Primäres und aktive Zustände ===== */
+[data-variant="c"] .btn { border-radius: 12px; background: var(--paper-3); font-weight: 700; }
+[data-variant="c"] .btn:active { background: #2a3048; }
+[data-variant="c"] .btn-primary { background: var(--accent); color: var(--on-accent); }
+[data-variant="c"] .btn-primary:active { filter: brightness(0.92); }
+[data-variant="c"] .btn-quiet { background: transparent; color: var(--accent-ink); }
+[data-variant="c"] .btn-danger { background: transparent; color: var(--danger); }
+[data-variant="c"] .btn-sm { border-radius: 10px; }
+[data-variant="c"] .chip { border-radius: 10px; background: var(--paper-2); border-color: var(--rule-2); font-weight: 600; }
+[data-variant="c"] .chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+[data-variant="c"] .chip[aria-pressed="true"] .pdot { outline-color: var(--on-accent); }
+[data-variant="c"] .filter-btn { border-radius: 10px; background: var(--paper-2); padding: 0 10px; color: var(--ink-2); }
+[data-variant="c"] .filter-btn.active { color: var(--accent-ink); }
+[data-variant="c"] .seg { background: var(--paper-2); border-radius: 12px; padding: 3px; }
+[data-variant="c"] .seg button { border-radius: 10px; }
+[data-variant="c"] .seg button[aria-selected="true"] { background: var(--paper-3); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); }
+[data-variant="c"] .input, [data-variant="c"] .field input[type="text"], [data-variant="c"] .field textarea, [data-variant="c"] .field select { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 12px; }
+[data-variant="c"] .check { border-color: var(--rule-2); }
+[data-variant="c"] .check[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+[data-variant="c"] .icon-btn { border-radius: 12px; }
+[data-variant="c"] .icon-btn:active { background: var(--paper-3); }
+
+/* ===== Navigation: Unschärfe, aktiver Tab mit Bernstein-Pille hinter dem Symbol ===== */
+[data-variant="c"] .topbar { background: color-mix(in srgb, var(--paper) 84%, transparent); -webkit-backdrop-filter: blur(20px) saturate(140%); backdrop-filter: blur(20px) saturate(140%); }
+[data-variant="c"] .tabbar { background: color-mix(in srgb, var(--paper) 84%, transparent); -webkit-backdrop-filter: blur(20px) saturate(140%); backdrop-filter: blur(20px) saturate(140%); border-top: 0.5px solid var(--rule); }
+[data-variant="c"] .tab { z-index: 0; font-weight: 700; }
+[data-variant="c"] .tab[aria-current="page"] { color: var(--ink); }
+[data-variant="c"] .tab[aria-current="page"] svg { color: var(--accent); }
+[data-variant="c"] .tab[aria-current="page"]::before { content: ""; position: absolute; top: 3px; left: 50%; width: 46px; height: 30px; margin-left: -23px; border-radius: 15px; background: var(--accent-soft); z-index: -1; }
+[data-variant="c"] .tab .badge, [data-variant="c"] .rail-item .badge { background: var(--accent); color: var(--on-accent); }
+[data-variant="c"] .rail-item { border-radius: 12px; }
+[data-variant="c"] .rail-item[aria-current="page"] { background: var(--accent-soft); color: var(--ink); }
+[data-variant="c"] .rail-item[aria-current="page"] svg { color: var(--accent); }
+[data-variant="c"] .rail-capture { border-radius: 12px; font-weight: 700; }
+
+/* ===== Balken, Leisten, Tage ===== */
+[data-variant="c"] .cap-bar { height: 6px; border-radius: 3px; background: var(--paper-3); }
+[data-variant="c"] .cap-bar .est { background: var(--accent); }
+[data-variant="c"] .cap-bar .ev { background: var(--cal-work); }
+[data-variant="c"] .meter { height: 6px; border-radius: 3px; background: var(--paper-3); }
+[data-variant="c"] .meter i { background: var(--accent); border-radius: 3px; }
+[data-variant="c"] .strip-day { border-radius: 12px; }
+[data-variant="c"] .strip-day[aria-current="date"] { background: var(--paper-2); }
+[data-variant="c"] .strip-day.today[aria-current="date"] { background: var(--accent-soft); }
+[data-variant="c"] .now-line i::before { width: 8px; height: 8px; top: -3.5px; }
+[data-variant="c"] .row.event .main { border-left-width: 3px; }
+
+/* ===== Sheets und Hinweise ===== */
+[data-variant="c"] .sheet { background: var(--raise); border-radius: 22px 22px 0 0; }
+[data-variant="c"] .closed-note { border-radius: 14px; }
+[data-variant="c"] .toast { border-radius: 12px; }
+@container app (min-width: 600px) {
+  [data-variant="c"] .sheet { border-radius: 20px; }
+}
+@media (hover: hover) {
+  [data-variant="c"] .btn:not(:disabled):hover { background: #2a3048; }
+  [data-variant="c"] .btn-primary:not(:disabled):hover { background: var(--accent); filter: brightness(1.05); }
+  [data-variant="c"] .btn-quiet:not(:disabled):hover { background: var(--accent-soft); }
+}

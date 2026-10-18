@@ -1,0 +1,150 @@
+/*
+ * Variante A – Original DNA Refined
+ * Rekonstruiert die tatsächliche dunkle Farbgebung des ersten Prototyps (concept/prototype/styles.css,
+ * Block „:root[data-theme=dark]“): reines Schwarz als Grund, Flächen #1c1c1e / #2c2c2e, Indigo #6155f5 als
+ * Akzent mit #9aa3ff als Akzenttext, Rot #ff4245, Projektfarben, Kalenderfarben, Karten mit 20 px Radius,
+ * Kapsel-Chips, Systemschrift (SF Pro auf Apple-Geräten; Inter ist der dokumentierte Ersatz und das, was
+ * Chromium im Sandkasten für den ersten Prototyp tatsächlich gerendert hat).
+ * Weiterentwickelt: Zeilen, Sheets und Informationsarchitektur des Premium-Prototyps bleiben; Karten nur
+ * dort, wo sie Gruppen bilden (Abschnitte, Bereiche, Tage); kein Warnbanner, keine Chip-Ketten.
+ * Nur Gestaltung – keine Änderung an Logik, Daten oder Abläufen.
+ */
+:root[data-variant="a"] {
+  --paper: #000000;
+  --paper-2: #1c1c1e;
+  --paper-3: #2c2c2e;
+  --raise: #1c1c1e;
+  --ink: #ffffff;
+  --ink-2: rgba(235, 235, 245, 0.72);
+  --ink-3: rgba(235, 235, 245, 0.6);
+  --rule: rgba(84, 84, 88, 0.55);
+  --rule-2: rgba(235, 235, 245, 0.3);
+  --accent: #6155f5;
+  --accent-ink: #9aa3ff;
+  --accent-soft: rgba(140, 150, 255, 0.16);
+  --on-accent: #ffffff;
+  --danger: #ff4245;
+  --danger-soft: rgba(255, 66, 69, 0.16);
+  --cal-work: #a1a7b3;
+  --cal-personal: #5fc27f;
+  --p-au: #4c8cf5; --p-ra: #d27a35; --p-db: #12a596; --p-pr: #a867d8;
+  --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.6);
+  --shadow-pop: 0 12px 40px rgba(0, 0, 0, 0.55);
+  --backdrop: rgba(0, 0, 0, 0.55);
+  --proto-bg: #1c1c1e;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Inter", system-ui, "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+  --serif: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", "Inter", system-ui, "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+  --gutter: 16px;
+  color-scheme: dark;
+}
+
+/* ===== Typografie: kräftige, eng laufende Titel wie im ersten Prototyp ===== */
+[data-variant="a"] .display { font: 700 30px/34px var(--serif); letter-spacing: -0.025em; }
+[data-variant="a"] .title { font: 700 28px/32px var(--serif); letter-spacing: -0.02em; }
+[data-variant="a"] .day-title .title { font-size: 20px; line-height: 24px; font-weight: 600; letter-spacing: -0.01em; }
+[data-variant="a"] .lead { font: 600 20px/26px var(--sans); letter-spacing: -0.015em; }
+[data-variant="a"] .now-task { font: 600 21px/26px var(--serif); letter-spacing: -0.015em; }
+[data-variant="a"] .caps, [data-variant="a"] .label { font: 700 12px/16px var(--sans); letter-spacing: 0.06em; }
+[data-variant="a"] .sub { font-size: 15px; line-height: 20px; }
+[data-variant="a"] .sheet-title { font: 700 22px/26px var(--serif); letter-spacing: -0.015em; }
+[data-variant="a"] .rail-brand { font: 700 17px/20px var(--sans); letter-spacing: -0.01em; }
+[data-variant="a"] .brand-mark { border-radius: 9px; font: 800 15px/1 var(--sans); }
+[data-variant="a"] .day-key b, [data-variant="a"] .strip-day .dom, [data-variant="a"] .daycol-head .dom { font-family: var(--sans); font-weight: 600; }
+[data-variant="a"] .home-head { padding-top: 20px; }
+[data-variant="a"] .home-head .caps { font: 400 15px/20px var(--sans); letter-spacing: 0; text-transform: none; color: var(--ink-2); }
+[data-variant="a"] .topbar-title { font-weight: 700; }
+
+/* ===== Flächen: Abschnitte, Bereiche und Tage als Karten (20 px) auf schwarzem Grund ===== */
+[data-variant="a"] .section { margin-top: 14px; padding: 12px 16px 10px; border-radius: 20px; background: var(--paper-2); }
+[data-variant="a"] .section-head { border-bottom: 0; padding-bottom: 6px; }
+[data-variant="a"] .section-head .label { font: 700 17px/22px var(--sans); letter-spacing: -0.01em; text-transform: none; color: var(--ink); }
+[data-variant="a"] .section-meta { color: var(--ink-2); }
+[data-variant="a"] .linkrow { border-bottom: 0; }
+[data-variant="a"] .screen > .rows { background: var(--paper-2); border-radius: 20px; padding: 2px 16px; margin-top: 8px; }
+[data-variant="a"] .home-aside > .week-mini { background: var(--paper-2); border-radius: 20px; padding: 2px 16px; }
+[data-variant="a"] .home-aside > .section-head { padding: 14px 16px 6px; }
+[data-variant="a"] .area { background: var(--paper-2); border-radius: 20px; padding: 12px 16px 10px; }
+[data-variant="a"] .area-head { border-bottom: 0; padding-bottom: 4px; }
+[data-variant="a"] .area-head .label { font: 700 17px/22px var(--sans); letter-spacing: 0; text-transform: lowercase; }
+[data-variant="a"] .list-group { background: var(--paper-2); border-radius: 20px; padding: 2px 16px 6px; margin-top: 12px; }
+[data-variant="a"] .list-head { border-bottom: 0; font-weight: 700; }
+[data-variant="a"] .capture { padding: 12px; border-radius: 20px; background: var(--paper-2); }
+[data-variant="a"] .capture-hint { padding: 0 4px; }
+[data-variant="a"] .ledger-row { background: var(--paper-2); border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; border-bottom: 0; }
+[data-variant="a"] .ledger-row.today { box-shadow: inset 0 0 0 1.5px var(--accent); }
+[data-variant="a"] .week-cols { gap: 0 10px; }
+[data-variant="a"] .daycol-head { background: var(--paper-2); border-radius: 16px 16px 0 0; padding: 10px 12px 8px; border-bottom: 0.5px solid var(--rule); }
+[data-variant="a"] .daycol-body { background: var(--paper-2); border-radius: 0 0 16px 16px; padding: 2px 12px 10px; }
+[data-variant="a"] .daycol.today .daycol-head { box-shadow: inset 0 1.5px 0 var(--accent), inset 1.5px 0 0 var(--accent), inset -1.5px 0 0 var(--accent); }
+[data-variant="a"] .daycol.today .daycol-body { box-shadow: inset 0 -1.5px 0 var(--accent), inset 1.5px 0 0 var(--accent), inset -1.5px 0 0 var(--accent); }
+
+/* Der eine hervorgehobene Block: Karte mit Indigo-Rahmen wie „Nächster Schritt“ im ersten Prototyp */
+[data-variant="a"] .now { margin-top: 20px; padding: 16px 18px 14px; border-radius: 20px; background: var(--paper-2); border: 1.5px solid var(--accent); }
+[data-variant="a"] .now .label { color: var(--accent-ink); }
+[data-variant="a"] .now-actions { margin-top: 12px; }
+[data-variant="a"] .now-actions .btn-sm { background: var(--accent); color: #fff; border-radius: 12px; min-height: 40px; padding: 0 16px; }
+[data-variant="a"] .now-actions .btn-quiet { background: transparent; color: var(--accent-ink); }
+
+/* ===== Bedienelemente ===== */
+[data-variant="a"] .btn { border-radius: 12px; background: var(--paper-3); font-weight: 600; }
+[data-variant="a"] .btn-sm { border-radius: 10px; }
+[data-variant="a"] .btn-primary { background: var(--accent); color: #fff; }
+[data-variant="a"] .btn-quiet { background: transparent; }
+[data-variant="a"] .btn-danger { background: var(--danger-soft); color: var(--danger); }
+[data-variant="a"] .btn:active { background: #3a3a3c; }
+[data-variant="a"] .btn-primary:active { background: var(--accent); filter: brightness(0.9); }
+[data-variant="a"] .chip { border-radius: 999px; background: var(--paper-3); border-color: transparent; font-weight: 600; }
+[data-variant="a"] .chip[aria-pressed="true"] { background: #fff; color: #000; }
+[data-variant="a"] .filter-btn { border-radius: 999px; background: var(--paper-3); padding: 0 12px; min-height: 32px; color: var(--ink); }
+[data-variant="a"] .seg { background: var(--paper-2); border-radius: 10px; }
+[data-variant="a"] .seg button { border-radius: 8px; }
+[data-variant="a"] .seg button[aria-selected="true"] { background: #3a3a3c; color: #fff; box-shadow: none; }
+[data-variant="a"] .input, [data-variant="a"] .field input[type="text"], [data-variant="a"] .field textarea, [data-variant="a"] .field select { background: var(--paper-3); border-color: transparent; border-radius: 12px; }
+[data-variant="a"] .check { width: 26px; height: 26px; border-color: rgba(235, 235, 245, 0.42); }
+[data-variant="a"] .check::before { inset: -9px; }
+[data-variant="a"] .check::after { border-color: #fff; width: 12px; height: 7px; }
+[data-variant="a"] .check[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+[data-variant="a"] .habit .check, [data-variant="a"] .daycol .check, [data-variant="a"] .ledger-body .check { width: 22px; height: 22px; }
+[data-variant="a"] .habit .check::after, [data-variant="a"] .daycol .check::after, [data-variant="a"] .ledger-body .check::after { width: 10px; height: 6px; }
+[data-variant="a"] .icon-btn { border-radius: 10px; }
+[data-variant="a"] .icon-btn:active { background: var(--paper-2); }
+
+/* ===== Navigation: Tab-Leiste mit Unschärfe, aktiver Tab in Indigo wie im ersten Prototyp ===== */
+[data-variant="a"] .topbar { background: color-mix(in srgb, var(--paper) 86%, transparent); -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%); }
+[data-variant="a"] .tabbar { background: color-mix(in srgb, var(--paper) 82%, transparent); -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%); border-top: 0.5px solid var(--rule); }
+[data-variant="a"] .tab { font-weight: 600; }
+[data-variant="a"] .tab[aria-current="page"] { color: var(--accent-ink); }
+[data-variant="a"] .tab[aria-current="page"] svg { color: var(--accent-ink); }
+[data-variant="a"] .tab .badge, [data-variant="a"] .rail-item .badge { background: var(--accent); color: #fff; }
+[data-variant="a"] .rail-item { border-radius: 10px; }
+[data-variant="a"] .rail-item[aria-current="page"] { background: var(--accent-soft); color: var(--accent-ink); }
+[data-variant="a"] .rail-item[aria-current="page"] svg { color: var(--accent-ink); }
+[data-variant="a"] .rail-capture { border-radius: 12px; }
+
+/* ===== Balken, Leisten, Tage ===== */
+[data-variant="a"] .cap-bar { height: 8px; border-radius: 4px; background: var(--paper-3); }
+[data-variant="a"] .cap-bar .est { background: var(--accent); }
+[data-variant="a"] .cap-bar .ev { background: var(--cal-work); }
+[data-variant="a"] .cap-bar.over { background: var(--paper-3); outline: 1.5px solid var(--danger); outline-offset: 1px; }
+[data-variant="a"] .meter { height: 6px; border-radius: 3px; background: var(--paper-3); }
+[data-variant="a"] .meter i { background: var(--accent); border-radius: 3px; }
+[data-variant="a"] .strip-day { border-radius: 12px; }
+[data-variant="a"] .strip-day[aria-current="date"] { background: var(--paper-2); }
+[data-variant="a"] .strip-day.today .dom { color: var(--accent-ink); }
+[data-variant="a"] .day-key.today b { color: var(--accent-ink); }
+[data-variant="a"] .daycol.today .daycol-head .dom { color: var(--accent-ink); }
+[data-variant="a"] .row.event .main { border-left-width: 3px; }
+
+/* ===== Sheets und Hinweise ===== */
+[data-variant="a"] .sheet { background: var(--raise); border-radius: 20px 20px 0 0; }
+[data-variant="a"] .closed-note { border-radius: 14px; }
+[data-variant="a"] .toast { border-radius: 12px; }
+@container app (min-width: 600px) {
+  [data-variant="a"] .sheet { border-radius: 20px; }
+}
+@media (hover: hover) {
+  [data-variant="a"] .btn:not(:disabled):hover { background: #3a3a3c; }
+  [data-variant="a"] .btn-primary:not(:disabled):hover { background: var(--accent); }
+  [data-variant="a"] .btn-quiet:not(:disabled):hover, [data-variant="a"] .now-actions .btn-quiet:not(:disabled):hover { background: var(--accent-soft); }
+  [data-variant="a"] .rail-item:not([aria-current="page"]):hover { background: var(--paper-2); color: var(--ink); }
+}

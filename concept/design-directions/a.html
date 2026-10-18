@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="de" data-variant="a" data-bare="">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Designrichtung A – Original DNA Refined</title>
+<!-- Designstudie: derselbe Premium-Prototyp (Layout, Komponenten, Bedienung, Beispieldaten), nur mit einem
+     anderen Theme. Es wird nichts am Prototyp selbst geändert; styles.css, data.js und app.js kommen aus
+     ../prototype-premium/. Keine Verbindung zu Supabase, keine Anmeldung, keine produktiven Daten. -->
+<link rel="stylesheet" href="../prototype-premium/styles.css">
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="themes/a.css">
+<style>html[data-bare] .proto { display: none; }</style>
+</head>
+<body>
+<!-- Premium-Prototyp (Design-Exploration): Beispieldaten im Browser, keine Verbindung zu Supabase,
+     keine Anmeldung, keine Änderung an der produktiven App. -->
+<header class="proto" id="proto" aria-label="Prototyp-Leiste">
+  <div class="proto-row">
+    <span class="proto-mark">Prototyp</span>
+    <span class="proto-note">Beispieldaten · Demo-Zeit Mi 14. Okt, <b id="protoClock">09:40</b> · nichts wird gespeichert</span>
+    <button type="button" class="proto-toggle" id="protoToggle" aria-expanded="false" aria-controls="protoCtl">Einstellungen</button>
+  </div>
+  <div class="proto-ctl" id="protoCtl">
+    <label>Rahmen
+      <select id="frameSel">
+        <option value="free">Frei (Fenster)</option>
+        <option value="duo-closed">iPhone Duo zu · 466 × 678 (Annahme)</option>
+        <option value="duo-open">iPhone Duo auf, hoch · 626 × 890 (Annahme)</option>
+        <option value="duo-open-land">iPhone Duo auf, quer · 890 × 626 (Annahme)</option>
+        <option value="phone">iPhone · 393 × 852</option>
+        <option value="ipad">iPad hoch · 820 × 1180</option>
+        <option value="ipad-land">iPad quer · 1180 × 820</option>
+      </select>
+    </label>
+    <label>Modus
+      <select id="themeSel">
+        <option value="">System</option>
+        <option value="light">Hell</option>
+        <option value="dark">Dunkel</option>
+      </select>
+    </label>
+    <label>Zeit
+      <select id="timeSel">
+        <option value="morning">09:40</option>
+        <option value="evening">18:30 (Abend)</option>
+      </select>
+    </label>
+    <label class="chk"><input type="checkbox" id="propToggle" checked> Vorschläge markieren</label>
+    <label class="chk"><input type="checkbox" id="safeToggle"> Safe Areas</label>
+    <label class="chk"><input type="checkbox" id="kbdToggle"> Tastatur (Simulation)</label>
+    <label class="chk"><input type="checkbox" id="stressToggle"> Viele Aufgaben</label>
+    <button type="button" id="resetBtn">Beispieldaten zurücksetzen</button>
+  </div>
+</header>
+
+<div class="stage" id="stage" data-frame="free">
+  <div class="app" id="app">
+    <nav class="rail" id="rail" aria-label="Bereiche"></nav>
+    <div class="main" id="main">
+      <header class="topbar" id="topbar"></header>
+      <main class="view" id="view"></main>
+    </div>
+    <nav class="tabbar" id="tabbar" aria-label="Bereiche"></nav>
+    <div class="layer" id="layer"></div>
+    <div class="kbd" id="kbd" aria-hidden="true"><span>Tastatur (Simulation)</span></div>
+  </div>
+</div>
+
+
+<script src="../prototype-premium/data.js"></script>
+<script src="../prototype-premium/app.js"></script>
+<script>
+  // Designstudie: immer das freie Fenster (kein Geräterahmen aus gespeicherten Einstellungen), Vorschlagsmarken sichtbar
+  document.getElementById('stage').dataset.frame = 'free';
+  document.documentElement.style.setProperty('--proto-h', '0px');
+</script>
+</body>
+</html>
