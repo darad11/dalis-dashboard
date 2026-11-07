@@ -187,6 +187,11 @@ erstellt werden.
 | [docs/STEP_CHALLENGE.md](docs/STEP_CHALLENGE.md) | Step Challenge und Apple Health per Kurzbefehl |
 | [docs/AUDIT.md](docs/AUDIT.md) | Code-Audit vom 16.10.2026 mit offenen Punkten |
 | [tests/README.md](tests/README.md) | Tests, Szenarien und Gegenproben |
+| [docs/DALI_LIFE_OS_PRODUCT_TECH_SPEC.md](docs/DALI_LIFE_OS_PRODUCT_TECH_SPEC.md) | Dali Life OS: Produkt- und Technikspezifikation v1.0 (Zielbild) |
+| [docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) | Dali Life OS: Phase-0-Audit, Risiken, nächste Schritte |
+| [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md) | Dali Life OS: Architekturentscheidungen und Machbarkeit (Expo, Supabase, PowerSync) |
+| [docs/DATA_MIGRATION.md](docs/DATA_MIGRATION.md) | Dali Life OS: Datensicherung und Migration der bestehenden Daten |
+| [docs/TEST_MATRIX.md](docs/TEST_MATRIX.md) | Dali Life OS: Testmatrix (Ausgangsstand und POC) |
 
 Ein visueller Konzept-Prototyp mit Beispieldaten liegt getrennt auf dem Branch
 `concept/visual-prototype` (nicht live, nicht mit echten Daten verbunden).
