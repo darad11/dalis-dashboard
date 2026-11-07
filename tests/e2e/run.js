@@ -687,6 +687,22 @@ async function openPhone(env, extra = {}) {
   return open(env, Object.assign({}, PHONE, extra));
 }
 
+// Changes the window size and waits until the dashboard has handled it: the resize event and
+// the animation frame after it, in which js/mobile.js puts the reading position back
+// (restoreAnchor). setViewportSize can return before the page has seen the resize, and the
+// emulated resize leaves room for the test between the event and that frame: a scroll made
+// there is undone by the restore (the swipe on "Bauernmarkt" then landed off screen).
+async function resizeTo(page, viewport) {
+  await page.evaluate(() => {
+    window.__resizeHandled = false;
+    window.addEventListener('resize', () => requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.__resizeHandled = true;
+    })), { once: true });
+  });
+  await page.setViewportSize(viewport);
+  await waitFor(() => page.evaluate(() => window.__resizeHandled === true), 'the resize handled by the page');
+}
+
 // Calendar, weekly overview, today's goals, focus timer: their order on screen (top to bottom,
 // then left to right) and for VoiceOver and the keyboard (DOM order). One order on every device
 // since 17.10.2026 (before, the desktop had focus, goals, week, calendar).
@@ -2735,8 +2751,10 @@ scenario('swipe: calendar entries, lists and gym goals; week tasks on wide scree
   await squat.locator('.swipe-action').tap();
   await waitFor(() => JSON.stringify(gymGoals()) === JSON.stringify([{ text: '10 Klimmzüge', done: false }]), 'gym goal deleted in the cloud');
 
-  // iPhone Duo unfolded and tablets: the week in columns (no pager), so its tasks swipe
-  await page.setViewportSize(DUO_UNFOLDED);
+  // iPhone Duo unfolded and tablets: the week in columns (no pager), so its tasks swipe. The
+  // swipe waits for the unfold to be handled: the restored reading position would move the
+  // card away under the finger
+  await resizeTo(page, DUO_UNFOLDED);
   await waitFor(async () => (await page.locator('#weekStrip').count()) === 0, 'the week in columns');
   const market = page.locator('#weekKanban .kanban-card', { hasText: 'Bauernmarkt' });
   await centre(market);

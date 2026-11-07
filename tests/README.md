@@ -38,6 +38,13 @@ E2E-Hinweise:
   `submit_health_steps` nach (Upload aus dem Kurzbefehl, „niedriger ersetzt nie höher“).
 - Das iPhone Duo wird über geschätzte Viewports simuliert (466×678 zugeklappt, 890×626
   aufgeklappt); Auf-/Zuklappen = `page.setViewportSize`.
+- Wird nach einem Größenwechsel gescrollt oder gewischt, dann mit `resizeTo(page, viewport)`: Es wartet,
+  bis die Seite das `resize`-Ereignis und den Frame danach verarbeitet hat. In diesem Frame setzt
+  `js/mobile.js` die Leseposition zurück (`restoreAnchor`). `setViewportSize` kann zurückkehren, bevor
+  die Seite den Größenwechsel gesehen hat, und bei der emulierten Größenänderung bleibt zwischen
+  Ereignis und Frame Platz für den Test: Ein Scrollen genau dort nahm die Wiederherstellung zurück
+  (in `swipe: calendar entries…` landete das Wischen auf „Bauernmarkt“ dann außerhalb der Karte –
+  in 1 von 2 Gesamtläufen unter doppelter Last, mit erzwungener Reihenfolge 3 von 3).
 - Der Mock gibt Zeitspalten wie Postgres zurück (`"10:00:00"`); `store.missingColumns`
   simuliert eine Datenbank ohne Migration (PostgREST-Fehler `PGRST204`).
 
